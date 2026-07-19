@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package auth.v1;
 
-option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1";
+option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen"
+    "/auth/v1;authv1";
 
 service AuthService {
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -11,7 +12,8 @@ service AuthService {
   rpc Login(LoginRequest) returns (LoginResponse);
 }
 
-message HealthRequest {}
+message HealthRequest {
+}
 
 message HealthResponse {
   bool ok = 1;

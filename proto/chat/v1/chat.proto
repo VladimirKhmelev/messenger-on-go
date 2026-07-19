@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package chat.v1;
 
-option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1";
+option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen"
+    "/chat/v1;chatv1";
 
 service ChatService {
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -11,7 +12,8 @@ service ChatService {
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
 }
 
-message HealthRequest {}
+message HealthRequest {
+}
 
 message HealthResponse {
   bool ok = 1;
