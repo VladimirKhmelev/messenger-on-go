@@ -1,0 +1,41 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build artifacts
+*.test
+*.out
+*.prof
+/bin/
+/dist/
+services/*/server
+services/*/worker
+
+# Go workspace
+go.work
+go.work.sum
+
+# Docker
+.docker/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+
+# Postgres / pgadmin volumes (if ever bind-mounted locally)
+pgdata/
