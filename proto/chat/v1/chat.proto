@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package chat.v1;
+
+option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen"
+    "/chat/v1;chatv1";
+
+service ChatService {
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  rpc CreateChat(CreateChatRequest) returns (CreateChatResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+}
+
+message HealthRequest {
+}
+
+message HealthResponse {
+  bool ok = 1;
+}
+
+message CreateChatRequest {
+  string requester_user_id = 1;
+  string target_user_id = 2;
+}
+
+message CreateChatResponse {
+  string chat_id = 1;
+}
+
+message SendMessageRequest {
+  string chat_id = 1;
+  string sender_user_id = 2;
+  string text = 3;
+}
+
+message SendMessageResponse {
+  string message_id = 1;
+}

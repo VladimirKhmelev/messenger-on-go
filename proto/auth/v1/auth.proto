@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen"
+    "/auth/v1;authv1";
+
+service AuthService {
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+message HealthRequest {
+}
+
+message HealthResponse {
+  bool ok = 1;
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string tag = 3;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
