@@ -20,66 +20,54 @@ jobs:
       - name: Run protolint
         run: protolint lint proto/auth/v1/auth.proto proto/chat/v1/chat.proto
 
-  auth-service:
+  service:
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - chat-service
+          - ws-gateway
+          - notification-worker
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: services/auth-service
+        working-directory: services/${{ matrix.service }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Check gofmt
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt'ed:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Check go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+
       - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
-          working-directory: services/auth-service
+          working-directory: services/${{ matrix.service }}
+
       - run: go build ./...
 
-  chat-service:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/chat-service
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Run tests with coverage
+        run: go test ./... -cover -coverprofile=cover.out
+      - name: Generate HTML coverage report
+        run: go tool cover -html=cover.out -o cover.html
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.12.2
-          working-directory: services/chat-service
-      - run: go build ./...
-
-  ws-gateway:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/ws-gateway
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.12.2
-          working-directory: services/ws-gateway
-      - run: go build ./...
-
-  notification-worker:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/notification-worker
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.12.2
-          working-directory: services/notification-worker
-      - run: go build ./...
+          name: coverage-${{ matrix.service }}
+          path: services/${{ matrix.service }}/cover.html
