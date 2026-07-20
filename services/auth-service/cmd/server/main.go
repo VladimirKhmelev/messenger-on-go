@@ -11,6 +11,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
+	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
 )
 
 func main() {
@@ -19,12 +24,30 @@ func main() {
 		port = "50051"
 	}
 
+	dsn := os.Getenv("POSTGRES_DSN")
+	if dsn == "" {
+		log.Fatal("auth-service: POSTGRES_DSN is required")
+	}
+
+	userRepo, err := repository.NewPostgresUserRepository(dsn)
+	if err != nil {
+		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
+	}
+
+	if err := userRepo.Migrate(); err != nil {
+		log.Fatalf("auth-service: failed to run migrations: %v", err)
+	}
+
+	authService := service.NewAuthService(userRepo)
+
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("auth-service: failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
+
+	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService))
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
