@@ -1,4 +1,4 @@
-.PHONY: proto up down build-images logs
+.PHONY: proto up down build-images logs unit
 
 proto:
 	protoc --proto_path=proto \
@@ -17,3 +17,9 @@ build-images:
 
 logs:
 	docker-compose logs -f
+
+unit:
+	cd services/auth-service && go test ./... -cover -coverprofile=cover.out
+	cd services/auth-service && go tool cover -func=cover.out
+	cd services/auth-service && go tool cover -html=cover.out -o cover.html
+	xdg-open services/auth-service/cover.html 2>/dev/null || open services/auth-service/cover.html 2>/dev/null || true

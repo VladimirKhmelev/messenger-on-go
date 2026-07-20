@@ -13,6 +13,7 @@
 /dist/
 services/*/server
 services/*/worker
+services/*/cover.html
 
 # Go workspace
 go.work
