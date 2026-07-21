@@ -8,15 +8,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 )
 
 type AuthService struct {
-	users repository.UserRepository
+	users  repository.UserRepository
+	tokens *jwtutil.Issuer
 }
 
-func NewAuthService(users repository.UserRepository) *AuthService {
-	return &AuthService{users: users}
+func NewAuthService(users repository.UserRepository, tokens *jwtutil.Issuer) *AuthService {
+	return &AuthService{users: users, tokens: tokens}
 }
 
 func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) {

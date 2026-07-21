@@ -8,11 +8,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
+
+func newTestAuthService(repo *fakeUserRepository) *AuthService {
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"))
+}
 
 type fakeUserRepository struct {
 	byEmail map[string]bool
 	byTag   map[string]bool
+	users   map[string]*domain.User
 	created *domain.User
 }
 
@@ -20,11 +26,13 @@ func newFakeUserRepository() *fakeUserRepository {
 	return &fakeUserRepository{
 		byEmail: map[string]bool{},
 		byTag:   map[string]bool{},
+		users:   map[string]*domain.User{},
 	}
 }
 
 func (r *fakeUserRepository) Create(_ context.Context, user *domain.User) error {
 	r.created = user
+	r.users[user.Email] = user
 	return nil
 }
 
@@ -36,9 +44,17 @@ func (r *fakeUserRepository) ExistsByTag(_ context.Context, tag string) (bool, e
 	return r.byTag[tag], nil
 }
 
+func (r *fakeUserRepository) GetByEmail(_ context.Context, email string) (*domain.User, error) {
+	user, ok := r.users[email]
+	if !ok {
+		return nil, domain.ErrUserNotFound
+	}
+	return user, nil
+}
+
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := newFakeUserRepository()
-	svc := NewAuthService(repo)
+	svc := newTestAuthService(repo)
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -61,7 +77,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_EmailTaken(t *testing.T) {
 	repo := newFakeUserRepository()
 	repo.byEmail["user@example.com"] = true
-	svc := NewAuthService(repo)
+	svc := newTestAuthService(repo)
 
 	_, err := svc.Register(context.Background(), "user@example.com", "john", "abcd1234")
 	if !errors.Is(err, domain.ErrEmailTaken) {
@@ -72,7 +88,7 @@ func TestAuthService_Register_EmailTaken(t *testing.T) {
 func TestAuthService_Register_TagTaken(t *testing.T) {
 	repo := newFakeUserRepository()
 	repo.byTag["null_pointer"] = true
-	svc := NewAuthService(repo)
+	svc := newTestAuthService(repo)
 
 	_, err := svc.Register(context.Background(), "user@example.com", "null_pointer", "abcd1234")
 	if !errors.Is(err, domain.ErrTagTaken) {
@@ -96,7 +112,7 @@ func TestAuthService_Register_InvalidInput(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := newFakeUserRepository()
-			svc := NewAuthService(repo)
+			svc := newTestAuthService(repo)
 
 			_, err := svc.Register(context.Background(), tc.email, tc.tag, tc.password)
 			if !errors.Is(err, tc.wantErr) {
