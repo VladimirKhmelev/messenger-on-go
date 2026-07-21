@@ -13,6 +13,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
@@ -35,6 +36,11 @@ func main() {
 		log.Fatal("auth-service: JWT_SECRET is required")
 	}
 
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		log.Fatal("auth-service: REDIS_ADDR is required")
+	}
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -44,15 +50,20 @@ func main() {
 		log.Fatalf("auth-service: failed to run migrations: %v", err)
 	}
 
+	redisClient := cache.NewClient(redisAddr)
+	loginLimiter := cache.NewLoginRateLimiter(redisClient)
+
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("auth-service: failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer)),
+	)
 
 	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService))
 

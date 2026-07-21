@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -12,27 +14,42 @@ import (
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"))
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter())
+}
+
+type fakeRateLimiter struct {
+	allow bool
+}
+
+func newFakeRateLimiter() *fakeRateLimiter {
+	return &fakeRateLimiter{allow: true}
+}
+
+func (l *fakeRateLimiter) Allow(_ context.Context, _ string) (bool, error) {
+	return l.allow, nil
 }
 
 type fakeUserRepository struct {
-	byEmail map[string]bool
-	byTag   map[string]bool
-	users   map[string]*domain.User
-	created *domain.User
+	byEmail    map[string]bool
+	byTag      map[string]bool
+	users      map[string]*domain.User
+	usersByTag map[string]*domain.User
+	created    *domain.User
 }
 
 func newFakeUserRepository() *fakeUserRepository {
 	return &fakeUserRepository{
-		byEmail: map[string]bool{},
-		byTag:   map[string]bool{},
-		users:   map[string]*domain.User{},
+		byEmail:    map[string]bool{},
+		byTag:      map[string]bool{},
+		users:      map[string]*domain.User{},
+		usersByTag: map[string]*domain.User{},
 	}
 }
 
 func (r *fakeUserRepository) Create(_ context.Context, user *domain.User) error {
 	r.created = user
 	r.users[user.Email] = user
+	r.usersByTag[user.Tag] = user
 	return nil
 }
 
@@ -50,6 +67,28 @@ func (r *fakeUserRepository) GetByEmail(_ context.Context, email string) (*domai
 		return nil, domain.ErrUserNotFound
 	}
 	return user, nil
+}
+
+func (r *fakeUserRepository) GetByTag(_ context.Context, tag string) (*domain.User, error) {
+	user, ok := r.usersByTag[tag]
+	if !ok {
+		return nil, domain.ErrUserNotFound
+	}
+	return user, nil
+}
+
+func (r *fakeUserRepository) SearchByTagPrefix(_ context.Context, prefix string, limit int) ([]*domain.User, error) {
+	var matches []*domain.User
+	for tag, user := range r.usersByTag {
+		if strings.HasPrefix(tag, prefix) {
+			matches = append(matches, user)
+		}
+	}
+	sort.Slice(matches, func(i, j int) bool { return matches[i].Tag < matches[j].Tag })
+	if len(matches) > limit {
+		matches = matches[:limit]
+	}
+	return matches, nil
 }
 
 func TestAuthService_Register_Success(t *testing.T) {

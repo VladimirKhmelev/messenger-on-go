@@ -11,4 +11,6 @@ type UserRepository interface {
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByTag(ctx context.Context, tag string) (bool, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetByTag(ctx context.Context, tag string) (*domain.User, error)
+	SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error)
 }

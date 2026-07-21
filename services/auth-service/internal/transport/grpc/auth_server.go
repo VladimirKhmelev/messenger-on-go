@@ -43,17 +43,66 @@ func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*auth
 	}, nil
 }
 
+func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagRequest) (*authv1.GetUserByTagResponse, error) {
+	user, err := s.auth.GetUserByTag(ctx, req.GetTag())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.GetUserByTagResponse{
+		UserId: user.ID,
+		Email:  user.Email,
+		Tag:    user.Tag,
+	}, nil
+}
+
+func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersRequest) (*authv1.SearchUsersResponse, error) {
+	users, err := s.auth.SearchUsers(ctx, req.GetQuery())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	summaries := make([]*authv1.UserSummary, 0, len(users))
+	for _, user := range users {
+		summaries = append(summaries, &authv1.UserSummary{
+			UserId: user.ID,
+			Email:  user.Email,
+			Tag:    user.Tag,
+		})
+	}
+
+	return &authv1.SearchUsersResponse{Users: summaries}, nil
+}
+
+func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
+	tokens, err := s.auth.RefreshToken(ctx, req.GetRefreshToken())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.RefreshTokenResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidTag),
-		errors.Is(err, domain.ErrWeakPassword):
+		errors.Is(err, domain.ErrWeakPassword),
+		errors.Is(err, domain.ErrSearchQueryTooShort):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailTaken),
 		errors.Is(err, domain.ErrTagTaken):
 		return status.Error(codes.AlreadyExists, err.Error())
-	case errors.Is(err, domain.ErrInvalidCredentials):
+	case errors.Is(err, domain.ErrInvalidCredentials),
+		errors.Is(err, domain.ErrInvalidToken):
 		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, domain.ErrUserNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrTooManyAttempts):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

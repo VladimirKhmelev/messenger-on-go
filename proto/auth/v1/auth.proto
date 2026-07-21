@@ -10,6 +10,9 @@ service AuthService {
 
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetUserByTag(GetUserByTagRequest) returns (GetUserByTagResponse);
+  rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
 }
 
 message HealthRequest {
@@ -35,6 +38,39 @@ message LoginRequest {
 }
 
 message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message GetUserByTagRequest {
+  string tag = 1;
+}
+
+message GetUserByTagResponse {
+  string user_id = 1;
+  string email = 2;
+  string tag = 3;
+}
+
+message SearchUsersRequest {
+  string query = 1;
+}
+
+message SearchUsersResponse {
+  repeated UserSummary users = 1;
+}
+
+message UserSummary {
+  string user_id = 1;
+  string email = 2;
+  string tag = 3;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
   string access_token = 1;
   string refresh_token = 2;
 }
