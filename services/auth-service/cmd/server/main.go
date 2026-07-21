@@ -13,6 +13,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
@@ -29,6 +30,11 @@ func main() {
 		log.Fatal("auth-service: POSTGRES_DSN is required")
 	}
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("auth-service: JWT_SECRET is required")
+	}
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -38,7 +44,8 @@ func main() {
 		log.Fatalf("auth-service: failed to run migrations: %v", err)
 	}
 
-	authService := service.NewAuthService(userRepo)
+	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
+	authService := service.NewAuthService(userRepo, tokenIssuer)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

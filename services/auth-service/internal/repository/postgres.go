@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -40,4 +42,16 @@ func (r *PostgresUserRepository) ExistsByTag(ctx context.Context, tag string) (b
 	var exists bool
 	err := r.conn.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE tag = $1)`, tag)
 	return exists, err
+}
+
+func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, password_hash, created_at FROM users WHERE email = $1`, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }

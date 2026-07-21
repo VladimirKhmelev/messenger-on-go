@@ -31,6 +31,18 @@ func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) 
 	return &authv1.RegisterResponse{UserId: user.ID}, nil
 }
 
+func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
+	tokens, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.LoginResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
@@ -40,6 +52,8 @@ func toGRPCError(err error) error {
 	case errors.Is(err, domain.ErrEmailTaken),
 		errors.Is(err, domain.ErrTagTaken):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrInvalidCredentials):
+		return status.Error(codes.Unauthenticated, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}
