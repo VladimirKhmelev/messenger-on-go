@@ -11,6 +11,7 @@ service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc GetUserByTag(GetUserByTagRequest) returns (GetUserByTagResponse);
+  rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
 }
 
 message HealthRequest {
@@ -45,6 +46,20 @@ message GetUserByTagRequest {
 }
 
 message GetUserByTagResponse {
+  string user_id = 1;
+  string email = 2;
+  string tag = 3;
+}
+
+message SearchUsersRequest {
+  string query = 1;
+}
+
+message SearchUsersResponse {
+  repeated UserSummary users = 1;
+}
+
+message UserSummary {
   string user_id = 1;
   string email = 2;
   string tag = 3;
