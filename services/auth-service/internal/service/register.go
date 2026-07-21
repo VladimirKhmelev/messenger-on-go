@@ -12,13 +12,18 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 )
 
-type AuthService struct {
-	users  repository.UserRepository
-	tokens *jwtutil.Issuer
+type RateLimiter interface {
+	Allow(ctx context.Context, key string) (bool, error)
 }
 
-func NewAuthService(users repository.UserRepository, tokens *jwtutil.Issuer) *AuthService {
-	return &AuthService{users: users, tokens: tokens}
+type AuthService struct {
+	users        repository.UserRepository
+	tokens       *jwtutil.Issuer
+	loginLimiter RateLimiter
+}
+
+func NewAuthService(users repository.UserRepository, tokens *jwtutil.Issuer, loginLimiter RateLimiter) *AuthService {
+	return &AuthService{users: users, tokens: tokens, loginLimiter: loginLimiter}
 }
 
 func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) {
