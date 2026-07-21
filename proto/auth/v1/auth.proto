@@ -10,6 +10,7 @@ service AuthService {
 
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetUserByTag(GetUserByTagRequest) returns (GetUserByTagResponse);
 }
 
 message HealthRequest {
@@ -37,4 +38,14 @@ message LoginRequest {
 message LoginResponse {
   string access_token = 1;
   string refresh_token = 2;
+}
+
+message GetUserByTagRequest {
+  string tag = 1;
+}
+
+message GetUserByTagResponse {
+  string user_id = 1;
+  string email = 2;
+  string tag = 3;
 }

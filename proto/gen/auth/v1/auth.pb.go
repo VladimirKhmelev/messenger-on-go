@@ -309,6 +309,110 @@ func (x *LoginResponse) GetRefreshToken() string {
 	return ""
 }
 
+type GetUserByTagRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tag           string                 `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserByTagRequest) Reset() {
+	*x = GetUserByTagRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserByTagRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserByTagRequest) ProtoMessage() {}
+
+func (x *GetUserByTagRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserByTagRequest.ProtoReflect.Descriptor instead.
+func (*GetUserByTagRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetUserByTagRequest) GetTag() string {
+	if x != nil {
+		return x.Tag
+	}
+	return ""
+}
+
+type GetUserByTagResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserByTagResponse) Reset() {
+	*x = GetUserByTagResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserByTagResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserByTagResponse) ProtoMessage() {}
+
+func (x *GetUserByTagResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserByTagResponse.ProtoReflect.Descriptor instead.
+func (*GetUserByTagResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetUserByTagResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *GetUserByTagResponse) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *GetUserByTagResponse) GetTag() string {
+	if x != nil {
+		return x.Tag
+	}
+	return ""
+}
+
 var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
@@ -328,11 +432,18 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"W\n" +
 	"\rLoginResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken2\xc1\x01\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"'\n" +
+	"\x13GetUserByTagRequest\x12\x10\n" +
+	"\x03tag\x18\x01 \x01(\tR\x03tag\"W\n" +
+	"\x14GetUserByTagResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x10\n" +
+	"\x03tag\x18\x03 \x01(\tR\x03tag2\x8e\x02\n" +
 	"\vAuthService\x129\n" +
 	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\x12?\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\x126\n" +
-	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
+	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\x12K\n" +
+	"\fGetUserByTag\x12\x1c.auth.v1.GetUserByTagRequest\x1a\x1d.auth.v1.GetUserByTagResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -346,24 +457,28 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_auth_v1_auth_proto_goTypes = []any{
-	(*HealthRequest)(nil),    // 0: auth.v1.HealthRequest
-	(*HealthResponse)(nil),   // 1: auth.v1.HealthResponse
-	(*RegisterRequest)(nil),  // 2: auth.v1.RegisterRequest
-	(*RegisterResponse)(nil), // 3: auth.v1.RegisterResponse
-	(*LoginRequest)(nil),     // 4: auth.v1.LoginRequest
-	(*LoginResponse)(nil),    // 5: auth.v1.LoginResponse
+	(*HealthRequest)(nil),        // 0: auth.v1.HealthRequest
+	(*HealthResponse)(nil),       // 1: auth.v1.HealthResponse
+	(*RegisterRequest)(nil),      // 2: auth.v1.RegisterRequest
+	(*RegisterResponse)(nil),     // 3: auth.v1.RegisterResponse
+	(*LoginRequest)(nil),         // 4: auth.v1.LoginRequest
+	(*LoginResponse)(nil),        // 5: auth.v1.LoginResponse
+	(*GetUserByTagRequest)(nil),  // 6: auth.v1.GetUserByTagRequest
+	(*GetUserByTagResponse)(nil), // 7: auth.v1.GetUserByTagResponse
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	0, // 0: auth.v1.AuthService.Health:input_type -> auth.v1.HealthRequest
 	2, // 1: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
 	4, // 2: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
-	1, // 3: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
-	3, // 4: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	5, // 5: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
+	6, // 3: auth.v1.AuthService.GetUserByTag:input_type -> auth.v1.GetUserByTagRequest
+	1, // 4: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
+	3, // 5: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	5, // 6: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	7, // 7: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -380,7 +495,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
