@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -54,4 +55,36 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*domain.User, error) {
+	var user domain.User
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, password_hash, created_at FROM users WHERE tag = $1`, tag)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *PostgresUserRepository) SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error) {
+	pattern := escapeLikePattern(prefix) + "%"
+
+	var users []*domain.User
+	err := r.conn.SelectContext(ctx, &users, `
+		SELECT id, email, tag, password_hash, created_at FROM users
+		WHERE tag LIKE $1 ESCAPE '\' ORDER BY tag LIMIT $2`,
+		pattern, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func escapeLikePattern(s string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return replacer.Replace(s)
 }
