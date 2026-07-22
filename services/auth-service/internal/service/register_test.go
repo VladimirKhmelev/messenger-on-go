@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -14,7 +15,7 @@ import (
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter())
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist())
 }
 
 type fakeRateLimiter struct {
@@ -27,6 +28,23 @@ func newFakeRateLimiter() *fakeRateLimiter {
 
 func (l *fakeRateLimiter) Allow(_ context.Context, _ string) (bool, error) {
 	return l.allow, nil
+}
+
+type fakeTokenBlacklist struct {
+	revoked map[string]bool
+}
+
+func newFakeTokenBlacklist() *fakeTokenBlacklist {
+	return &fakeTokenBlacklist{revoked: map[string]bool{}}
+}
+
+func (b *fakeTokenBlacklist) Revoke(_ context.Context, token string, _ time.Duration) error {
+	b.revoked[token] = true
+	return nil
+}
+
+func (b *fakeTokenBlacklist) IsRevoked(_ context.Context, token string) (bool, error) {
+	return b.revoked[token], nil
 }
 
 type fakeUserRepository struct {

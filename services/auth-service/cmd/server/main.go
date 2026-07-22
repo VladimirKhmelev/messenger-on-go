@@ -52,9 +52,10 @@ func main() {
 
 	redisClient := cache.NewClient(redisAddr)
 	loginLimiter := cache.NewLoginRateLimiter(redisClient)
+	refreshBlocklist := cache.NewTokenBlacklist(redisClient)
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
