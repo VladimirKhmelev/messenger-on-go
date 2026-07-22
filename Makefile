@@ -1,6 +1,6 @@
 SERVICES := auth-service chat-service ws-gateway notification-worker
 
-.PHONY: proto up down build-images logs unit tidy ci
+.PHONY: proto up down build-images logs unit tidy ci integration
 
 proto:
 	protoc --proto_path=proto \
@@ -25,6 +25,9 @@ unit:
 	cd services/auth-service && go tool cover -func=cover.out
 	cd services/auth-service && go tool cover -html=cover.out -o cover.html
 	xdg-open services/auth-service/cover.html 2>/dev/null || open services/auth-service/cover.html 2>/dev/null || true
+
+integration:
+	cd services/auth-service && go test -tags=integration ./... -v
 
 tidy:
 	cd proto/gen && go mod tidy
