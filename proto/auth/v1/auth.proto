@@ -13,6 +13,7 @@ service AuthService {
   rpc GetUserByTag(GetUserByTagRequest) returns (GetUserByTagResponse);
   rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
 }
 
 message HealthRequest {
@@ -73,4 +74,11 @@ message RefreshTokenRequest {
 message RefreshTokenResponse {
   string access_token = 1;
   string refresh_token = 2;
+}
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {
 }

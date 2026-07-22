@@ -89,7 +89,7 @@ func TestAuthService_Login_RateLimited(t *testing.T) {
 
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter)
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist())
 
 	_, err := svc.Login(context.Background(), "user@example.com", "abcd1234")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
@@ -152,5 +152,72 @@ func TestAuthService_RefreshToken_MalformedToken(t *testing.T) {
 	_, err := svc.RefreshToken(context.Background(), "not-a-valid-token")
 	if !errors.Is(err, domain.ErrInvalidToken) {
 		t.Errorf("RefreshToken() error = %v, want %v", err, domain.ErrInvalidToken)
+	}
+}
+
+func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
+	repo := newFakeUserRepository()
+	blacklist := newFakeTokenBlacklist()
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist)
+
+	issuer := jwtutil.NewIssuer("test-secret")
+	refreshToken, err := issuer.IssueRefreshToken("user-1")
+	if err != nil {
+		t.Fatalf("IssueRefreshToken() unexpected error: %v", err)
+	}
+
+	if err := svc.Logout(context.Background(), refreshToken); err != nil {
+		t.Fatalf("Logout() unexpected error: %v", err)
+	}
+
+	_, err = svc.RefreshToken(context.Background(), refreshToken)
+	if !errors.Is(err, domain.ErrInvalidToken) {
+		t.Errorf("RefreshToken() error = %v, want %v", err, domain.ErrInvalidToken)
+	}
+}
+
+func TestAuthService_Logout_Success(t *testing.T) {
+	repo := newFakeUserRepository()
+	blacklist := newFakeTokenBlacklist()
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist)
+
+	issuer := jwtutil.NewIssuer("test-secret")
+	refreshToken, err := issuer.IssueRefreshToken("user-1")
+	if err != nil {
+		t.Fatalf("IssueRefreshToken() unexpected error: %v", err)
+	}
+
+	if err := svc.Logout(context.Background(), refreshToken); err != nil {
+		t.Fatalf("Logout() unexpected error: %v", err)
+	}
+
+	if !blacklist.revoked[refreshToken] {
+		t.Error("Logout() did not revoke the refresh token")
+	}
+}
+
+func TestAuthService_Logout_RejectsAccessToken(t *testing.T) {
+	repo := newFakeUserRepository()
+	svc := newTestAuthService(repo)
+
+	issuer := jwtutil.NewIssuer("test-secret")
+	accessToken, err := issuer.IssueAccessToken("user-1")
+	if err != nil {
+		t.Fatalf("IssueAccessToken() unexpected error: %v", err)
+	}
+
+	err = svc.Logout(context.Background(), accessToken)
+	if !errors.Is(err, domain.ErrInvalidToken) {
+		t.Errorf("Logout() error = %v, want %v", err, domain.ErrInvalidToken)
+	}
+}
+
+func TestAuthService_Logout_MalformedToken(t *testing.T) {
+	repo := newFakeUserRepository()
+	svc := newTestAuthService(repo)
+
+	err := svc.Logout(context.Background(), "not-a-valid-token")
+	if !errors.Is(err, domain.ErrInvalidToken) {
+		t.Errorf("Logout() error = %v, want %v", err, domain.ErrInvalidToken)
 	}
 }
