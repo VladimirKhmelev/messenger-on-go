@@ -16,14 +16,20 @@ type RateLimiter interface {
 	Allow(ctx context.Context, key string) (bool, error)
 }
 
-type AuthService struct {
-	users        repository.UserRepository
-	tokens       *jwtutil.Issuer
-	loginLimiter RateLimiter
+type TokenBlacklist interface {
+	Revoke(ctx context.Context, token string, ttl time.Duration) error
+	IsRevoked(ctx context.Context, token string) (bool, error)
 }
 
-func NewAuthService(users repository.UserRepository, tokens *jwtutil.Issuer, loginLimiter RateLimiter) *AuthService {
-	return &AuthService{users: users, tokens: tokens, loginLimiter: loginLimiter}
+type AuthService struct {
+	users          repository.UserRepository
+	tokens         *jwtutil.Issuer
+	loginLimiter   RateLimiter
+	refreshBlocked TokenBlacklist
+}
+
+func NewAuthService(users repository.UserRepository, tokens *jwtutil.Issuer, loginLimiter RateLimiter, refreshBlocked TokenBlacklist) *AuthService {
+	return &AuthService{users: users, tokens: tokens, loginLimiter: loginLimiter, refreshBlocked: refreshBlocked}
 }
 
 func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) {

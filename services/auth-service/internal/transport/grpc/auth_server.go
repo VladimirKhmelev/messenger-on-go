@@ -86,6 +86,14 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenR
 	}, nil
 }
 
+func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
+	if err := s.auth.Logout(ctx, req.GetRefreshToken()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.LogoutResponse{}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
