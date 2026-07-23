@@ -15,6 +15,7 @@ import (
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/mail"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
@@ -41,6 +42,16 @@ func main() {
 		log.Fatal("auth-service: REDIS_ADDR is required")
 	}
 
+	smtpAddr := os.Getenv("SMTP_ADDR")
+	if smtpAddr == "" {
+		log.Fatal("auth-service: SMTP_ADDR is required")
+	}
+
+	smtpFrom := os.Getenv("SMTP_FROM")
+	if smtpFrom == "" {
+		log.Fatal("auth-service: SMTP_FROM is required")
+	}
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -53,9 +64,11 @@ func main() {
 	redisClient := cache.NewClient(redisAddr)
 	loginLimiter := cache.NewLoginRateLimiter(redisClient)
 	refreshBlocklist := cache.NewTokenBlacklist(redisClient)
+	emailCodes := cache.NewEmailVerificationStore(redisClient)
+	mailer := mail.NewSender(smtpAddr, smtpFrom)
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, mailer)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

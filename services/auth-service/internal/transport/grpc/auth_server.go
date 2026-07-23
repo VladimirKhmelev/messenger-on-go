@@ -94,6 +94,14 @@ func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*au
 	return &authv1.LogoutResponse{}, nil
 }
 
+func (s *AuthServer) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest) (*authv1.VerifyEmailResponse, error) {
+	if err := s.auth.VerifyEmail(ctx, req.GetEmail(), req.GetCode()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.VerifyEmailResponse{}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
@@ -105,7 +113,9 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrTagTaken):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials),
-		errors.Is(err, domain.ErrInvalidToken):
+		errors.Is(err, domain.ErrInvalidToken),
+		errors.Is(err, domain.ErrEmailNotVerified),
+		errors.Is(err, domain.ErrInvalidVerificationCode):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, domain.ErrUserNotFound):
 		return status.Error(codes.NotFound, err.Error())
