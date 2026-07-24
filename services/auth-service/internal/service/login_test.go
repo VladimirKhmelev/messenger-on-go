@@ -18,11 +18,12 @@ func newTestUser(email, password string) *domain.User {
 		panic(err)
 	}
 	return &domain.User{
-		ID:           "user-1",
-		Email:        email,
-		Tag:          "john_doe",
-		PasswordHash: string(hash),
-		CreatedAt:    time.Now(),
+		ID:            "user-1",
+		Email:         email,
+		Tag:           "john_doe",
+		PasswordHash:  string(hash),
+		EmailVerified: true,
+		CreatedAt:     time.Now(),
 	}
 }
 
@@ -82,6 +83,19 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	}
 }
 
+func TestAuthService_Login_EmailNotVerified(t *testing.T) {
+	repo := newFakeUserRepository()
+	user := newTestUser("user@example.com", "abcd1234")
+	user.EmailVerified = false
+	repo.users[user.Email] = user
+	svc := newTestAuthService(repo)
+
+	_, err := svc.Login(context.Background(), "user@example.com", "abcd1234")
+	if !errors.Is(err, domain.ErrEmailNotVerified) {
+		t.Errorf("Login() error = %v, want %v", err, domain.ErrEmailNotVerified)
+	}
+}
+
 func TestAuthService_Login_RateLimited(t *testing.T) {
 	repo := newFakeUserRepository()
 	user := newTestUser("user@example.com", "abcd1234")
@@ -89,7 +103,7 @@ func TestAuthService_Login_RateLimited(t *testing.T) {
 
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeMailer())
 
 	_, err := svc.Login(context.Background(), "user@example.com", "abcd1234")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
@@ -158,7 +172,7 @@ func TestAuthService_RefreshToken_MalformedToken(t *testing.T) {
 func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
 	repo := newFakeUserRepository()
 	blacklist := newFakeTokenBlacklist()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist)
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeMailer())
 
 	issuer := jwtutil.NewIssuer("test-secret")
 	refreshToken, err := issuer.IssueRefreshToken("user-1")
@@ -179,7 +193,7 @@ func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
 func TestAuthService_Logout_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	blacklist := newFakeTokenBlacklist()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist)
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeMailer())
 
 	issuer := jwtutil.NewIssuer("test-secret")
 	refreshToken, err := issuer.IssueRefreshToken("user-1")

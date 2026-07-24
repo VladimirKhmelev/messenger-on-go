@@ -37,6 +37,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Token
 		return nil, domain.ErrInvalidCredentials
 	}
 
+	if !user.EmailVerified {
+		return nil, domain.ErrEmailNotVerified
+	}
+
 	accessToken, err := s.tokens.IssueAccessToken(user.ID)
 	if err != nil {
 		return nil, err

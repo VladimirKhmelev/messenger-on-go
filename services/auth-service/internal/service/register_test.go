@@ -15,7 +15,45 @@ import (
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist())
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeMailer())
+}
+
+type fakeEmailVerificationStore struct {
+	codes map[string]string
+}
+
+func newFakeEmailVerificationStore() *fakeEmailVerificationStore {
+	return &fakeEmailVerificationStore{codes: map[string]string{}}
+}
+
+func (s *fakeEmailVerificationStore) GenerateAndStore(_ context.Context, email string) (string, error) {
+	code := "123456"
+	s.codes[email] = code
+	return code, nil
+}
+
+func (s *fakeEmailVerificationStore) Verify(_ context.Context, email, code string) (bool, error) {
+	stored, ok := s.codes[email]
+	if !ok || stored != code {
+		return false, nil
+	}
+	delete(s.codes, email)
+	return true, nil
+}
+
+type fakeMailer struct {
+	sentTo   string
+	sentCode string
+}
+
+func newFakeMailer() *fakeMailer {
+	return &fakeMailer{}
+}
+
+func (m *fakeMailer) SendVerificationCode(to, code string) error {
+	m.sentTo = to
+	m.sentCode = code
+	return nil
 }
 
 type fakeRateLimiter struct {
@@ -109,6 +147,15 @@ func (r *fakeUserRepository) SearchByTagPrefix(_ context.Context, prefix string,
 	return matches, nil
 }
 
+func (r *fakeUserRepository) MarkEmailVerified(_ context.Context, userID string) error {
+	for _, user := range r.users {
+		if user.ID == userID {
+			user.EmailVerified = true
+		}
+	}
+	return nil
+}
+
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
@@ -122,12 +169,69 @@ func TestAuthService_Register_Success(t *testing.T) {
 		t.Errorf("Register() returned unexpected user: %+v", user)
 	}
 
+	if user.EmailVerified {
+		t.Error("Register() returned a user with EmailVerified = true, want false until VerifyEmail is called")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte("abcd1234")); err != nil {
 		t.Errorf("stored password hash does not match original password: %v", err)
 	}
 
 	if repo.created == nil {
 		t.Error("expected repository.Create to be called")
+	}
+}
+
+func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
+	repo := newFakeUserRepository()
+	mailer := newFakeMailer()
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), mailer)
+
+	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
+	if err != nil {
+		t.Fatalf("Register() unexpected error: %v", err)
+	}
+
+	if mailer.sentTo != "user@example.com" {
+		t.Errorf("Register() sent verification email to %q, want %q", mailer.sentTo, "user@example.com")
+	}
+	if mailer.sentCode == "" {
+		t.Error("Register() did not send a verification code")
+	}
+}
+
+func TestAuthService_VerifyEmail_Success(t *testing.T) {
+	repo := newFakeUserRepository()
+	emailCodes := newFakeEmailVerificationStore()
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeMailer())
+
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
+	if err != nil {
+		t.Fatalf("Register() unexpected error: %v", err)
+	}
+
+	code := emailCodes.codes["user@example.com"]
+
+	if err := svc.VerifyEmail(context.Background(), "user@example.com", code); err != nil {
+		t.Fatalf("VerifyEmail() unexpected error: %v", err)
+	}
+
+	if !user.EmailVerified {
+		t.Error("VerifyEmail() did not mark the user as verified")
+	}
+}
+
+func TestAuthService_VerifyEmail_WrongCode(t *testing.T) {
+	repo := newFakeUserRepository()
+	svc := newTestAuthService(repo)
+
+	if _, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234"); err != nil {
+		t.Fatalf("Register() unexpected error: %v", err)
+	}
+
+	err := svc.VerifyEmail(context.Background(), "user@example.com", "000000")
+	if !errors.Is(err, domain.ErrInvalidVerificationCode) {
+		t.Errorf("VerifyEmail() error = %v, want %v", err, domain.ErrInvalidVerificationCode)
 	}
 }
 

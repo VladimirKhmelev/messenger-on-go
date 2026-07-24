@@ -14,6 +14,7 @@ service AuthService {
   rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
 }
 
 message HealthRequest {
@@ -81,4 +82,12 @@ message LogoutRequest {
 }
 
 message LogoutResponse {
+}
+
+message VerifyEmailRequest {
+  string email = 1;
+  string code = 2;
+}
+
+message VerifyEmailResponse {
 }

@@ -43,6 +43,12 @@ services:
     ports:
       - "4222:4222"
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   auth-service:
     build:
       context: .
@@ -53,12 +59,16 @@ services:
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      SMTP_ADDR: mailhog:1025
+      SMTP_FROM: noreply@messenger-on-go.local
     depends_on:
       auth-db:
         condition: service_healthy
       redis:
         condition: service_healthy
       nats:
+        condition: service_started
+      mailhog:
         condition: service_started
 
   chat-service:

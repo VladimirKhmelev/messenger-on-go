@@ -23,6 +23,7 @@ var publicMethods = map[string]bool{
 	"/auth.v1.AuthService/Register":     true,
 	"/auth.v1.AuthService/Login":        true,
 	"/auth.v1.AuthService/RefreshToken": true,
+	"/auth.v1.AuthService/VerifyEmail":  true,
 	"/grpc.health.v1.Health/Check":      true,
 	"/grpc.health.v1.Health/Watch":      true,
 }

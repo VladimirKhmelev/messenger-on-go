@@ -21,15 +21,40 @@ type TokenBlacklist interface {
 	IsRevoked(ctx context.Context, token string) (bool, error)
 }
 
+type EmailVerificationStore interface {
+	GenerateAndStore(ctx context.Context, email string) (string, error)
+	Verify(ctx context.Context, email, code string) (bool, error)
+}
+
+type Mailer interface {
+	SendVerificationCode(to, code string) error
+}
+
 type AuthService struct {
 	users          repository.UserRepository
 	tokens         *jwtutil.Issuer
 	loginLimiter   RateLimiter
 	refreshBlocked TokenBlacklist
+	emailCodes     EmailVerificationStore
+	mailer         Mailer
 }
 
-func NewAuthService(users repository.UserRepository, tokens *jwtutil.Issuer, loginLimiter RateLimiter, refreshBlocked TokenBlacklist) *AuthService {
-	return &AuthService{users: users, tokens: tokens, loginLimiter: loginLimiter, refreshBlocked: refreshBlocked}
+func NewAuthService(
+	users repository.UserRepository,
+	tokens *jwtutil.Issuer,
+	loginLimiter RateLimiter,
+	refreshBlocked TokenBlacklist,
+	emailCodes EmailVerificationStore,
+	mailer Mailer,
+) *AuthService {
+	return &AuthService{
+		users:          users,
+		tokens:         tokens,
+		loginLimiter:   loginLimiter,
+		refreshBlocked: refreshBlocked,
+		emailCodes:     emailCodes,
+		mailer:         mailer,
+	}
 }
 
 func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) {
@@ -65,16 +90,43 @@ func (s *AuthService) Register(ctx context.Context, email, tag, password string)
 	}
 
 	user := &domain.User{
-		ID:           uuid.NewString(),
-		Email:        email,
-		Tag:          tag,
-		PasswordHash: string(passwordHash),
-		CreatedAt:    time.Now(),
+		ID:            uuid.NewString(),
+		Email:         email,
+		Tag:           tag,
+		PasswordHash:  string(passwordHash),
+		EmailVerified: false,
+		CreatedAt:     time.Now(),
 	}
 
 	if err := s.users.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
+	code, err := s.emailCodes.GenerateAndStore(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.mailer.SendVerificationCode(email, code); err != nil {
+		return nil, err
+	}
+
 	return user, nil
+}
+
+func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error {
+	ok, err := s.emailCodes.Verify(ctx, email, code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return domain.ErrInvalidVerificationCode
+	}
+
+	user, err := s.users.GetByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	return s.users.MarkEmailVerified(ctx, user.ID)
 }
