@@ -103,7 +103,7 @@ func TestAuthService_Login_RateLimited(t *testing.T) {
 
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeMailer())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
 
 	_, err := svc.Login(context.Background(), "user@example.com", "abcd1234")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
@@ -172,7 +172,7 @@ func TestAuthService_RefreshToken_MalformedToken(t *testing.T) {
 func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
 	repo := newFakeUserRepository()
 	blacklist := newFakeTokenBlacklist()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeMailer())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
 
 	issuer := jwtutil.NewIssuer("test-secret")
 	refreshToken, err := issuer.IssueRefreshToken("user-1")
@@ -193,7 +193,7 @@ func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
 func TestAuthService_Logout_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	blacklist := newFakeTokenBlacklist()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeMailer())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
 
 	issuer := jwtutil.NewIssuer("test-secret")
 	refreshToken, err := issuer.IssueRefreshToken("user-1")

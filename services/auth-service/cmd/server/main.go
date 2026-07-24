@@ -65,10 +65,12 @@ func main() {
 	loginLimiter := cache.NewLoginRateLimiter(redisClient)
 	refreshBlocklist := cache.NewTokenBlacklist(redisClient)
 	emailCodes := cache.NewEmailVerificationStore(redisClient)
+	emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
+	passwordResets := cache.NewPasswordResetStore(redisClient)
 	mailer := mail.NewSender(smtpAddr, smtpFrom)
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, mailer)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeMailer())
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
 }
 
 type fakeEmailVerificationStore struct {
@@ -42,8 +42,10 @@ func (s *fakeEmailVerificationStore) Verify(_ context.Context, email, code strin
 }
 
 type fakeMailer struct {
-	sentTo   string
-	sentCode string
+	sentTo         string
+	sentCode       string
+	sentResetTo    string
+	sentResetToken string
 }
 
 func newFakeMailer() *fakeMailer {
@@ -54,6 +56,35 @@ func (m *fakeMailer) SendVerificationCode(to, code string) error {
 	m.sentTo = to
 	m.sentCode = code
 	return nil
+}
+
+func (m *fakeMailer) SendPasswordResetToken(to, token string) error {
+	m.sentResetTo = to
+	m.sentResetToken = token
+	return nil
+}
+
+type fakePasswordResetStore struct {
+	tokens map[string]string
+}
+
+func newFakePasswordResetStore() *fakePasswordResetStore {
+	return &fakePasswordResetStore{tokens: map[string]string{}}
+}
+
+func (s *fakePasswordResetStore) GenerateAndStore(_ context.Context, email string) (string, error) {
+	token := "reset-token-" + email
+	s.tokens[token] = email
+	return token, nil
+}
+
+func (s *fakePasswordResetStore) Consume(_ context.Context, token string) (string, bool, error) {
+	email, ok := s.tokens[token]
+	if !ok {
+		return "", false, nil
+	}
+	delete(s.tokens, token)
+	return email, true, nil
 }
 
 type fakeRateLimiter struct {
@@ -156,6 +187,15 @@ func (r *fakeUserRepository) MarkEmailVerified(_ context.Context, userID string)
 	return nil
 }
 
+func (r *fakeUserRepository) UpdatePasswordHash(_ context.Context, userID, passwordHash string) error {
+	for _, user := range r.users {
+		if user.ID == userID {
+			user.PasswordHash = passwordHash
+		}
+	}
+	return nil
+}
+
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
@@ -185,7 +225,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), mailer)
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore())
 
 	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -203,7 +243,7 @@ func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	emailCodes := newFakeEmailVerificationStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeMailer())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -232,6 +272,18 @@ func TestAuthService_VerifyEmail_WrongCode(t *testing.T) {
 	err := svc.VerifyEmail(context.Background(), "user@example.com", "000000")
 	if !errors.Is(err, domain.ErrInvalidVerificationCode) {
 		t.Errorf("VerifyEmail() error = %v, want %v", err, domain.ErrInvalidVerificationCode)
+	}
+}
+
+func TestAuthService_VerifyEmail_RateLimited(t *testing.T) {
+	repo := newFakeUserRepository()
+	limiter := newFakeRateLimiter()
+	limiter.allow = false
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore())
+
+	err := svc.VerifyEmail(context.Background(), "user@example.com", "123456")
+	if !errors.Is(err, domain.ErrTooManyAttempts) {
+		t.Errorf("VerifyEmail() error = %v, want %v", err, domain.ErrTooManyAttempts)
 	}
 }
 
