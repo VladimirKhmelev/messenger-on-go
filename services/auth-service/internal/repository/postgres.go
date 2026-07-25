@@ -89,6 +89,11 @@ func (r *PostgresUserRepository) MarkEmailVerified(ctx context.Context, userID s
 	return err
 }
 
+func (r *PostgresUserRepository) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
+	_, err := r.conn.ExecContext(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, passwordHash, userID)
+	return err
+}
+
 func escapeLikePattern(s string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return replacer.Replace(s)

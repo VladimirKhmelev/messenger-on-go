@@ -102,6 +102,22 @@ func (s *AuthServer) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailReq
 	return &authv1.VerifyEmailResponse{}, nil
 }
 
+func (s *AuthServer) RequestPasswordReset(ctx context.Context, req *authv1.RequestPasswordResetRequest) (*authv1.RequestPasswordResetResponse, error) {
+	if err := s.auth.RequestPasswordReset(ctx, req.GetEmail()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.RequestPasswordResetResponse{}, nil
+}
+
+func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) {
+	if err := s.auth.ResetPassword(ctx, req.GetToken(), req.GetNewPassword()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.ResetPasswordResponse{}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),

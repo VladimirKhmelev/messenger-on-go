@@ -28,15 +28,23 @@ type EmailVerificationStore interface {
 
 type Mailer interface {
 	SendVerificationCode(to, code string) error
+	SendPasswordResetToken(to, token string) error
+}
+
+type PasswordResetStore interface {
+	GenerateAndStore(ctx context.Context, email string) (string, error)
+	Consume(ctx context.Context, token string) (email string, ok bool, err error)
 }
 
 type AuthService struct {
-	users          repository.UserRepository
-	tokens         *jwtutil.Issuer
-	loginLimiter   RateLimiter
-	refreshBlocked TokenBlacklist
-	emailCodes     EmailVerificationStore
-	mailer         Mailer
+	users              repository.UserRepository
+	tokens             *jwtutil.Issuer
+	loginLimiter       RateLimiter
+	refreshBlocked     TokenBlacklist
+	emailCodes         EmailVerificationStore
+	emailVerifyLimiter RateLimiter
+	mailer             Mailer
+	passwordResets     PasswordResetStore
 }
 
 func NewAuthService(
@@ -45,15 +53,19 @@ func NewAuthService(
 	loginLimiter RateLimiter,
 	refreshBlocked TokenBlacklist,
 	emailCodes EmailVerificationStore,
+	emailVerifyLimiter RateLimiter,
 	mailer Mailer,
+	passwordResets PasswordResetStore,
 ) *AuthService {
 	return &AuthService{
-		users:          users,
-		tokens:         tokens,
-		loginLimiter:   loginLimiter,
-		refreshBlocked: refreshBlocked,
-		emailCodes:     emailCodes,
-		mailer:         mailer,
+		users:              users,
+		tokens:             tokens,
+		loginLimiter:       loginLimiter,
+		refreshBlocked:     refreshBlocked,
+		emailCodes:         emailCodes,
+		emailVerifyLimiter: emailVerifyLimiter,
+		mailer:             mailer,
+		passwordResets:     passwordResets,
 	}
 }
 
@@ -115,6 +127,14 @@ func (s *AuthService) Register(ctx context.Context, email, tag, password string)
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error {
+	allowed, err := s.emailVerifyLimiter.Allow(ctx, email)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return domain.ErrTooManyAttempts
+	}
+
 	ok, err := s.emailCodes.Verify(ctx, email, code)
 	if err != nil {
 		return err
