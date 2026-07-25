@@ -19,13 +19,15 @@ const userIDContextKey contextKey = "user_id"
 // publicMethods lists the full gRPC method names that do not require an
 // access token. Everything else is protected by default.
 var publicMethods = map[string]bool{
-	"/auth.v1.AuthService/Health":       true,
-	"/auth.v1.AuthService/Register":     true,
-	"/auth.v1.AuthService/Login":        true,
-	"/auth.v1.AuthService/RefreshToken": true,
-	"/auth.v1.AuthService/VerifyEmail":  true,
-	"/grpc.health.v1.Health/Check":      true,
-	"/grpc.health.v1.Health/Watch":      true,
+	"/auth.v1.AuthService/Health":               true,
+	"/auth.v1.AuthService/Register":             true,
+	"/auth.v1.AuthService/Login":                true,
+	"/auth.v1.AuthService/RefreshToken":         true,
+	"/auth.v1.AuthService/VerifyEmail":          true,
+	"/auth.v1.AuthService/RequestPasswordReset": true,
+	"/auth.v1.AuthService/ResetPassword":        true,
+	"/grpc.health.v1.Health/Check":              true,
+	"/grpc.health.v1.Health/Watch":              true,
 }
 
 func AuthInterceptor(issuer *jwtutil.Issuer) grpc.UnaryServerInterceptor {
