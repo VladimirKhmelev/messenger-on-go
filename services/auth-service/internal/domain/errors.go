@@ -15,4 +15,5 @@ var (
 	ErrTooManyAttempts         = errors.New("too many login attempts, try again later")
 	ErrInvalidVerificationCode = errors.New("invalid or expired verification code")
 	ErrEmailNotVerified        = errors.New("email not verified")
+	ErrOAuthNoVerifiedEmail    = errors.New("oauth provider account has no verified email")
 )
