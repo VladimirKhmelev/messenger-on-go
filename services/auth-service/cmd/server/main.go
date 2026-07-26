@@ -16,6 +16,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/mail"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
@@ -52,6 +53,16 @@ func main() {
 		log.Fatal("auth-service: SMTP_FROM is required")
 	}
 
+	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
+	if githubClientID == "" {
+		log.Fatal("auth-service: GITHUB_CLIENT_ID is required")
+	}
+
+	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
+	if githubClientSecret == "" {
+		log.Fatal("auth-service: GITHUB_CLIENT_SECRET is required")
+	}
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -68,9 +79,10 @@ func main() {
 	emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
 	passwordResets := cache.NewPasswordResetStore(redisClient)
 	mailer := mail.NewSender(smtpAddr, smtpFrom)
+	githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
