@@ -9,6 +9,7 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 )
 
@@ -36,6 +37,12 @@ type PasswordResetStore interface {
 	Consume(ctx context.Context, token string) (email string, ok bool, err error)
 }
 
+type GitHubOAuthClient interface {
+	FetchProfile(code string) (*oauth.GitHubProfile, error)
+}
+
+const oauthPasswordPlaceholder = "oauth-account-no-password"
+
 type AuthService struct {
 	users              repository.UserRepository
 	tokens             *jwtutil.Issuer
@@ -45,6 +52,7 @@ type AuthService struct {
 	emailVerifyLimiter RateLimiter
 	mailer             Mailer
 	passwordResets     PasswordResetStore
+	github             GitHubOAuthClient
 }
 
 func NewAuthService(
@@ -56,6 +64,7 @@ func NewAuthService(
 	emailVerifyLimiter RateLimiter,
 	mailer Mailer,
 	passwordResets PasswordResetStore,
+	github GitHubOAuthClient,
 ) *AuthService {
 	return &AuthService{
 		users:              users,
@@ -66,6 +75,7 @@ func NewAuthService(
 		emailVerifyLimiter: emailVerifyLimiter,
 		mailer:             mailer,
 		passwordResets:     passwordResets,
+		github:             github,
 	}
 }
 

@@ -18,6 +18,7 @@ service AuthService {
   rpc RequestPasswordReset(RequestPasswordResetRequest)
       returns (RequestPasswordResetResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  rpc LoginWithGitHub(LoginWithGitHubRequest) returns (LoginWithGitHubResponse);
 }
 
 message HealthRequest {
@@ -108,4 +109,13 @@ message ResetPasswordRequest {
 }
 
 message ResetPasswordResponse {
+}
+
+message LoginWithGitHubRequest {
+  string code = 1;
+}
+
+message LoginWithGitHubResponse {
+  string access_token = 1;
+  string refresh_token = 2;
 }
