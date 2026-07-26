@@ -118,6 +118,18 @@ func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswor
 	return &authv1.ResetPasswordResponse{}, nil
 }
 
+func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithGitHubRequest) (*authv1.LoginWithGitHubResponse, error) {
+	tokens, err := s.auth.LoginWithGitHub(ctx, req.GetCode())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.LoginWithGitHubResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
@@ -131,7 +143,8 @@ func toGRPCError(err error) error {
 	case errors.Is(err, domain.ErrInvalidCredentials),
 		errors.Is(err, domain.ErrInvalidToken),
 		errors.Is(err, domain.ErrEmailNotVerified),
-		errors.Is(err, domain.ErrInvalidVerificationCode):
+		errors.Is(err, domain.ErrInvalidVerificationCode),
+		errors.Is(err, domain.ErrOAuthNoVerifiedEmail):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, domain.ErrUserNotFound):
 		return status.Error(codes.NotFound, err.Error())

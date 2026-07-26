@@ -12,10 +12,30 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient())
+}
+
+type fakeGitHubClient struct {
+	profile *oauth.GitHubProfile
+	err     error
+}
+
+func newFakeGitHubClient() *fakeGitHubClient {
+	return &fakeGitHubClient{}
+}
+
+func (c *fakeGitHubClient) FetchProfile(_ string) (*oauth.GitHubProfile, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	if c.profile != nil {
+		return c.profile, nil
+	}
+	return &oauth.GitHubProfile{ID: 1, Login: "octocat", Email: "octocat@example.com"}, nil
 }
 
 type fakeEmailVerificationStore struct {
@@ -225,7 +245,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient())
 
 	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -243,7 +263,7 @@ func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	emailCodes := newFakeEmailVerificationStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -279,7 +299,7 @@ func TestAuthService_VerifyEmail_RateLimited(t *testing.T) {
 	repo := newFakeUserRepository()
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient())
 
 	err := svc.VerifyEmail(context.Background(), "user@example.com", "123456")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
