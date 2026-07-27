@@ -28,7 +28,7 @@ func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Ch
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx, `INSERT INTO chats (id, created_at) VALUES ($1, $2)`, chat.ID, chat.CreatedAt); err != nil {
 		return err
