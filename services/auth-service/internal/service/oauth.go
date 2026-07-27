@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
@@ -64,6 +66,15 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
 
 	if err := s.users.Create(ctx, user); err != nil {
 		return nil, err
+	}
+
+	if err := s.events.PublishUserOAuthLinked(ctx, events.UserOAuthLinked{
+		UserID:   user.ID,
+		Email:    user.Email,
+		Provider: "github",
+		At:       time.Now(),
+	}); err != nil {
+		log.Printf("auth-service: failed to publish user.oauth_linked event for %s: %v", user.ID, err)
 	}
 
 	return user, nil

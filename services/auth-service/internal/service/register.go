@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
@@ -41,6 +43,12 @@ type GitHubOAuthClient interface {
 	FetchProfile(code string) (*oauth.GitHubProfile, error)
 }
 
+type EventPublisher interface {
+	PublishUserRegistered(ctx context.Context, event events.UserRegistered) error
+	PublishUserPasswordReset(ctx context.Context, event events.UserPasswordReset) error
+	PublishUserOAuthLinked(ctx context.Context, event events.UserOAuthLinked) error
+}
+
 const oauthPasswordPlaceholder = "oauth-account-no-password"
 
 type AuthService struct {
@@ -53,6 +61,7 @@ type AuthService struct {
 	mailer             Mailer
 	passwordResets     PasswordResetStore
 	github             GitHubOAuthClient
+	events             EventPublisher
 }
 
 func NewAuthService(
@@ -65,6 +74,7 @@ func NewAuthService(
 	mailer Mailer,
 	passwordResets PasswordResetStore,
 	github GitHubOAuthClient,
+	eventPublisher EventPublisher,
 ) *AuthService {
 	return &AuthService{
 		users:              users,
@@ -76,6 +86,7 @@ func NewAuthService(
 		mailer:             mailer,
 		passwordResets:     passwordResets,
 		github:             github,
+		events:             eventPublisher,
 	}
 }
 
@@ -131,6 +142,15 @@ func (s *AuthService) Register(ctx context.Context, email, tag, password string)
 
 	if err := s.mailer.SendVerificationCode(email, code); err != nil {
 		return nil, err
+	}
+
+	if err := s.events.PublishUserRegistered(ctx, events.UserRegistered{
+		UserID:    user.ID,
+		Email:     user.Email,
+		Tag:       user.Tag,
+		CreatedAt: user.CreatedAt,
+	}); err != nil {
+		log.Printf("auth-service: failed to publish user.registered event for %s: %v", user.ID, err)
 	}
 
 	return user, nil
