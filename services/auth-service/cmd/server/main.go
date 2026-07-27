@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -14,6 +15,7 @@ import (
 
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/mail"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
@@ -63,6 +65,11 @@ func main() {
 		log.Fatal("auth-service: GITHUB_CLIENT_SECRET is required")
 	}
 
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		log.Fatal("auth-service: NATS_URL is required")
+	}
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -81,8 +88,13 @@ func main() {
 	mailer := mail.NewSender(smtpAddr, smtpFrom)
 	githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
 
+	eventPublisher, err := events.Connect(context.Background(), natsURL)
+	if err != nil {
+		log.Fatalf("auth-service: failed to connect to NATS: %v", err)
+	}
+
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

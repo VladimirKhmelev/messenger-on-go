@@ -11,12 +11,38 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient())
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
+}
+
+type fakeEventPublisher struct {
+	registeredEvents    []events.UserRegistered
+	passwordResetEvents []events.UserPasswordReset
+	oauthLinkedEvents   []events.UserOAuthLinked
+}
+
+func newFakeEventPublisher() *fakeEventPublisher {
+	return &fakeEventPublisher{}
+}
+
+func (p *fakeEventPublisher) PublishUserRegistered(_ context.Context, event events.UserRegistered) error {
+	p.registeredEvents = append(p.registeredEvents, event)
+	return nil
+}
+
+func (p *fakeEventPublisher) PublishUserPasswordReset(_ context.Context, event events.UserPasswordReset) error {
+	p.passwordResetEvents = append(p.passwordResetEvents, event)
+	return nil
+}
+
+func (p *fakeEventPublisher) PublishUserOAuthLinked(_ context.Context, event events.UserOAuthLinked) error {
+	p.oauthLinkedEvents = append(p.oauthLinkedEvents, event)
+	return nil
 }
 
 type fakeGitHubClient struct {
@@ -245,7 +271,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
 
 	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -263,7 +289,7 @@ func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	emailCodes := newFakeEmailVerificationStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
 	if err != nil {
@@ -299,7 +325,7 @@ func TestAuthService_VerifyEmail_RateLimited(t *testing.T) {
 	repo := newFakeUserRepository()
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
 
 	err := svc.VerifyEmail(context.Background(), "user@example.com", "123456")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
