@@ -1,0 +1,99 @@
+package grpc
+
+import (
+	"context"
+	"errors"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
+)
+
+type ChatServer struct {
+	chatv1.UnimplementedChatServiceServer
+
+	chat *service.ChatService
+}
+
+func NewChatServer(chat *service.ChatService) *ChatServer {
+	return &ChatServer{chat: chat}
+}
+
+func (s *ChatServer) Health(ctx context.Context, req *chatv1.HealthRequest) (*chatv1.HealthResponse, error) {
+	return &chatv1.HealthResponse{Ok: true}, nil
+}
+
+func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatRequest) (*chatv1.CreateChatResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	bearerToken, err := BearerTokenFromIncomingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	chat, err := s.chat.CreateChat(ctx, bearerToken, requesterID, req.GetTargetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.CreateChatResponse{ChatId: chat.ID}, nil
+}
+
+func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
+	senderID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	message, err := s.chat.SendMessage(ctx, req.GetChatId(), senderID, req.GetText())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.SendMessageResponse{MessageId: message.ID}, nil
+}
+
+func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryRequest) (*chatv1.GetHistoryResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	messages, err := s.chat.GetHistory(ctx, req.GetChatId(), requesterID, int(req.GetLimit()))
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	result := make([]*chatv1.Message, 0, len(messages))
+	for _, m := range messages {
+		result = append(result, &chatv1.Message{
+			MessageId:     m.ID,
+			SenderUserId:  m.SenderID,
+			Text:          m.Body,
+			CreatedAtUnix: m.CreatedAt.Unix(),
+		})
+	}
+
+	return &chatv1.GetHistoryResponse{Messages: result}, nil
+}
+
+func toGRPCError(err error) error {
+	switch {
+	case errors.Is(err, domain.ErrCannotChatWithSelf),
+		errors.Is(err, domain.ErrEmptyMessage):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrTargetUserNotFound),
+		errors.Is(err, domain.ErrChatNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrNotChatMember):
+		return status.Error(codes.PermissionDenied, err.Error())
+	default:
+		return status.Error(codes.Internal, "internal error")
+	}
+}
