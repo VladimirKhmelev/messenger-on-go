@@ -12,6 +12,7 @@ type UserRepository interface {
 	ExistsByTag(ctx context.Context, tag string) (bool, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	GetByTag(ctx context.Context, tag string) (*domain.User, error)
+	GetByID(ctx context.Context, id string) (*domain.User, error)
 	SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error)
 	MarkEmailVerified(ctx context.Context, userID string) error
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error

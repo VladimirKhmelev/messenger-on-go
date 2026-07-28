@@ -23,6 +23,7 @@ const (
 	AuthService_Register_FullMethodName             = "/auth.v1.AuthService/Register"
 	AuthService_Login_FullMethodName                = "/auth.v1.AuthService/Login"
 	AuthService_GetUserByTag_FullMethodName         = "/auth.v1.AuthService/GetUserByTag"
+	AuthService_GetUserByID_FullMethodName          = "/auth.v1.AuthService/GetUserByID"
 	AuthService_SearchUsers_FullMethodName          = "/auth.v1.AuthService/SearchUsers"
 	AuthService_RefreshToken_FullMethodName         = "/auth.v1.AuthService/RefreshToken"
 	AuthService_Logout_FullMethodName               = "/auth.v1.AuthService/Logout"
@@ -40,6 +41,7 @@ type AuthServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	GetUserByTag(ctx context.Context, in *GetUserByTagRequest, opts ...grpc.CallOption) (*GetUserByTagResponse, error)
+	GetUserByID(ctx context.Context, in *GetUserByIDRequest, opts ...grpc.CallOption) (*GetUserByIDResponse, error)
 	SearchUsers(ctx context.Context, in *SearchUsersRequest, opts ...grpc.CallOption) (*SearchUsersResponse, error)
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
@@ -91,6 +93,16 @@ func (c *authServiceClient) GetUserByTag(ctx context.Context, in *GetUserByTagRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserByTagResponse)
 	err := c.cc.Invoke(ctx, AuthService_GetUserByTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetUserByID(ctx context.Context, in *GetUserByIDRequest, opts ...grpc.CallOption) (*GetUserByIDResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserByIDResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetUserByID_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +187,7 @@ type AuthServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	GetUserByTag(context.Context, *GetUserByTagRequest) (*GetUserByTagResponse, error)
+	GetUserByID(context.Context, *GetUserByIDRequest) (*GetUserByIDResponse, error)
 	SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersResponse, error)
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
@@ -203,6 +216,9 @@ func (UnimplementedAuthServiceServer) Login(context.Context, *LoginRequest) (*Lo
 }
 func (UnimplementedAuthServiceServer) GetUserByTag(context.Context, *GetUserByTagRequest) (*GetUserByTagResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserByTag not implemented")
+}
+func (UnimplementedAuthServiceServer) GetUserByID(context.Context, *GetUserByIDRequest) (*GetUserByIDResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserByID not implemented")
 }
 func (UnimplementedAuthServiceServer) SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchUsers not implemented")
@@ -314,6 +330,24 @@ func _AuthService_GetUserByTag_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).GetUserByTag(ctx, req.(*GetUserByTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetUserByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserByIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetUserByID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetUserByID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetUserByID(ctx, req.(*GetUserByIDRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -466,6 +500,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserByTag",
 			Handler:    _AuthService_GetUserByTag_Handler,
+		},
+		{
+			MethodName: "GetUserByID",
+			Handler:    _AuthService_GetUserByID_Handler,
 		},
 		{
 			MethodName: "SearchUsers",

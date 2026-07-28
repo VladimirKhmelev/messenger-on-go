@@ -16,6 +16,10 @@ func (s *AuthService) GetUserByTag(ctx context.Context, tag string) (*domain.Use
 	return s.users.GetByTag(ctx, tag)
 }
 
+func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) {
+	return s.users.GetByID(ctx, id)
+}
+
 func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.User, error) {
 	if utf8.RuneCountInString(query) < SearchUsersMinQueryLen {
 		return nil, domain.ErrSearchQueryTooShort

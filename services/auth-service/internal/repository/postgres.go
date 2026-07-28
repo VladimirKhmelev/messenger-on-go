@@ -69,6 +69,18 @@ func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*dom
 	return &user, nil
 }
 
+func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
+	var user domain.User
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *PostgresUserRepository) SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error) {
 	pattern := escapeLikePattern(prefix) + "%"
 

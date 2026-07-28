@@ -210,6 +210,15 @@ func (r *fakeUserRepository) GetByTag(_ context.Context, tag string) (*domain.Us
 	return user, nil
 }
 
+func (r *fakeUserRepository) GetByID(_ context.Context, id string) (*domain.User, error) {
+	for _, user := range r.users {
+		if user.ID == id {
+			return user, nil
+		}
+	}
+	return nil, domain.ErrUserNotFound
+}
+
 func (r *fakeUserRepository) SearchByTagPrefix(_ context.Context, prefix string, limit int) ([]*domain.User, error) {
 	var matches []*domain.User
 	for tag, user := range r.usersByTag {
