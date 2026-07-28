@@ -21,10 +21,15 @@ logs:
 	docker-compose logs -f
 
 unit:
-	cd services/auth-service && go test ./... -cover -coverprofile=cover.out
-	cd services/auth-service && go tool cover -func=cover.out
-	cd services/auth-service && go tool cover -html=cover.out -o cover.html
-	xdg-open services/auth-service/cover.html 2>/dev/null || open services/auth-service/cover.html 2>/dev/null || true
+	@echo "mode: set" > cover-all.out
+	@for s in $(SERVICES); do \
+		echo "== $$s: go test =="; \
+		(cd services/$$s && go test ./... -cover -coverprofile=cover.out) || exit 1; \
+		(cd services/$$s && go tool cover -func=cover.out); \
+		tail -n +2 services/$$s/cover.out >> cover-all.out; \
+	done
+	go tool cover -html=cover-all.out -o cover-all.html
+	xdg-open cover-all.html 2>/dev/null || open cover-all.html 2>/dev/null || true
 
 integration:
 	cd services/auth-service && go test -tags=integration ./... -v
