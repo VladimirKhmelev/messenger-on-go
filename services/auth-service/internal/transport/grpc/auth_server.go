@@ -56,6 +56,19 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
 	}, nil
 }
 
+func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDRequest) (*authv1.GetUserByIDResponse, error) {
+	user, err := s.auth.GetUserByID(ctx, req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.GetUserByIDResponse{
+		UserId: user.ID,
+		Email:  user.Email,
+		Tag:    user.Tag,
+	}, nil
+}
+
 func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersRequest) (*authv1.SearchUsersResponse, error) {
 	users, err := s.auth.SearchUsers(ctx, req.GetQuery())
 	if err != nil {
