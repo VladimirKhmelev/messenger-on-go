@@ -1,0 +1,252 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+)
+
+type fakeChatRepository struct {
+	chats    map[string]*domain.Chat
+	members  map[string][]*domain.ChatMember
+	messages map[string][]*domain.Message
+}
+
+func newFakeChatRepository() *fakeChatRepository {
+	return &fakeChatRepository{
+		chats:    make(map[string]*domain.Chat),
+		members:  make(map[string][]*domain.ChatMember),
+		messages: make(map[string][]*domain.Message),
+	}
+}
+
+func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, memberIDs []string) error {
+	r.chats[chat.ID] = chat
+	for _, id := range memberIDs {
+		r.members[chat.ID] = append(r.members[chat.ID], &domain.ChatMember{
+			ChatID: chat.ID, UserID: id, JoinedAt: chat.CreatedAt,
+		})
+	}
+	return nil
+}
+
+func (r *fakeChatRepository) GetChat(_ context.Context, chatID string) (*domain.Chat, error) {
+	chat, ok := r.chats[chatID]
+	if !ok {
+		return nil, domain.ErrChatNotFound
+	}
+	return chat, nil
+}
+
+func (r *fakeChatRepository) FindPrivateChat(_ context.Context, userA, userB string) (*domain.Chat, error) {
+	for chatID, members := range r.members {
+		if len(members) != 2 {
+			continue
+		}
+		hasA, hasB := false, false
+		for _, m := range members {
+			if m.UserID == userA {
+				hasA = true
+			}
+			if m.UserID == userB {
+				hasB = true
+			}
+		}
+		if hasA && hasB {
+			return r.chats[chatID], nil
+		}
+	}
+	return nil, domain.ErrChatNotFound
+}
+
+func (r *fakeChatRepository) IsMember(_ context.Context, chatID, userID string) (bool, error) {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *fakeChatRepository) ListMembers(_ context.Context, chatID string) ([]*domain.ChatMember, error) {
+	return r.members[chatID], nil
+}
+
+func (r *fakeChatRepository) ListChatsForUser(_ context.Context, userID string) ([]*domain.Chat, error) {
+	var chats []*domain.Chat
+	for chatID, members := range r.members {
+		for _, m := range members {
+			if m.UserID == userID {
+				chats = append(chats, r.chats[chatID])
+				break
+			}
+		}
+	}
+	return chats, nil
+}
+
+func (r *fakeChatRepository) CreateMessage(_ context.Context, message *domain.Message) error {
+	r.messages[message.ChatID] = append(r.messages[message.ChatID], message)
+	return nil
+}
+
+func (r *fakeChatRepository) ListMessages(_ context.Context, chatID string, limit int) ([]*domain.Message, error) {
+	messages := r.messages[chatID]
+	if len(messages) > limit {
+		messages = messages[len(messages)-limit:]
+	}
+	return messages, nil
+}
+
+type fakeAuthClient struct {
+	existingUserIDs map[string]bool
+}
+
+func newFakeAuthClient(existingUserIDs ...string) *fakeAuthClient {
+	set := make(map[string]bool, len(existingUserIDs))
+	for _, id := range existingUserIDs {
+		set[id] = true
+	}
+	return &fakeAuthClient{existingUserIDs: set}
+}
+
+func (c *fakeAuthClient) UserExists(_ context.Context, _, userID string) (bool, error) {
+	return c.existingUserIDs[userID], nil
+}
+
+func TestChatService_CreateChat_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"))
+
+	chat, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
+	if err != nil {
+		t.Fatalf("CreateChat() unexpected error: %v", err)
+	}
+	if chat.ID == "" {
+		t.Error("CreateChat() returned chat with empty ID")
+	}
+
+	isMember, _ := repo.IsMember(context.Background(), chat.ID, "user-a")
+	if !isMember {
+		t.Error("CreateChat() requester is not a member of the created chat")
+	}
+}
+
+func TestChatService_CreateChat_Idempotent(t *testing.T) {
+	repo := newFakeChatRepository()
+	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"))
+
+	first, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
+	if err != nil {
+		t.Fatalf("CreateChat() unexpected error: %v", err)
+	}
+
+	second, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
+	if err != nil {
+		t.Fatalf("CreateChat() second call unexpected error: %v", err)
+	}
+
+	if first.ID != second.ID {
+		t.Errorf("CreateChat() created a duplicate chat: %q != %q", first.ID, second.ID)
+	}
+}
+
+func TestChatService_CreateChat_WithSelf(t *testing.T) {
+	repo := newFakeChatRepository()
+	svc := NewChatService(repo, newFakeAuthClient("user-a"))
+
+	_, err := svc.CreateChat(context.Background(), "token", "user-a", "user-a")
+	if !errors.Is(err, domain.ErrCannotChatWithSelf) {
+		t.Errorf("CreateChat() error = %v, want %v", err, domain.ErrCannotChatWithSelf)
+	}
+}
+
+func TestChatService_CreateChat_TargetNotFound(t *testing.T) {
+	repo := newFakeChatRepository()
+	svc := NewChatService(repo, newFakeAuthClient("user-a"))
+
+	_, err := svc.CreateChat(context.Background(), "token", "user-a", "missing-user")
+	if !errors.Is(err, domain.ErrTargetUserNotFound) {
+		t.Errorf("CreateChat() error = %v, want %v", err, domain.ErrTargetUserNotFound)
+	}
+}
+
+func TestChatService_SendMessage_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	svc := NewChatService(repo, newFakeAuthClient())
+
+	message, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+	if message.Body != "hello" {
+		t.Errorf("SendMessage() body = %q, want %q", message.Body, "hello")
+	}
+}
+
+func TestChatService_SendMessage_NotMember(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	svc := NewChatService(repo, newFakeAuthClient())
+
+	_, err := svc.SendMessage(context.Background(), chat.ID, "user-stranger", "hello")
+	if !errors.Is(err, domain.ErrNotChatMember) {
+		t.Errorf("SendMessage() error = %v, want %v", err, domain.ErrNotChatMember)
+	}
+}
+
+func TestChatService_SendMessage_Empty(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a"})
+
+	svc := NewChatService(repo, newFakeAuthClient())
+
+	_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "")
+	if !errors.Is(err, domain.ErrEmptyMessage) {
+		t.Errorf("SendMessage() error = %v, want %v", err, domain.ErrEmptyMessage)
+	}
+}
+
+func TestChatService_GetHistory_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	svc := NewChatService(repo, newFakeAuthClient())
+
+	if _, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hi"); err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	messages, err := svc.GetHistory(context.Background(), chat.ID, "user-b", 0)
+	if err != nil {
+		t.Fatalf("GetHistory() unexpected error: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("GetHistory() returned %d messages, want 1", len(messages))
+	}
+}
+
+func TestChatService_GetHistory_NotMember(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a"})
+
+	svc := NewChatService(repo, newFakeAuthClient())
+
+	_, err := svc.GetHistory(context.Background(), chat.ID, "user-stranger", 0)
+	if !errors.Is(err, domain.ErrNotChatMember) {
+		t.Errorf("GetHistory() error = %v, want %v", err, domain.ErrNotChatMember)
+	}
+}
