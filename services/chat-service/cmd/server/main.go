@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -14,6 +15,7 @@ import (
 
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
@@ -40,6 +42,11 @@ func main() {
 		log.Fatal("chat-service: AUTH_SERVICE_ADDR is required")
 	}
 
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		log.Fatal("chat-service: NATS_URL is required")
+	}
+
 	chatRepo, err := repository.NewPostgresChatRepository(dsn)
 	if err != nil {
 		log.Fatalf("chat-service: failed to connect to postgres: %v", err)
@@ -55,7 +62,12 @@ func main() {
 	}
 	defer func() { _ = authClient.Close() }()
 
-	chatService := service.NewChatService(chatRepo, authClient)
+	eventPublisher, err := events.Connect(context.Background(), natsURL)
+	if err != nil {
+		log.Fatalf("chat-service: failed to connect to NATS: %v", err)
+	}
+
+	chatService := service.NewChatService(chatRepo, authClient, eventPublisher)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
