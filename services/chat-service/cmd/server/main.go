@@ -11,6 +11,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
+	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
 )
 
 func main() {
@@ -19,12 +25,48 @@ func main() {
 		port = "50051"
 	}
 
+	dsn := os.Getenv("POSTGRES_DSN")
+	if dsn == "" {
+		log.Fatal("chat-service: POSTGRES_DSN is required")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("chat-service: JWT_SECRET is required")
+	}
+
+	authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
+	if authServiceAddr == "" {
+		log.Fatal("chat-service: AUTH_SERVICE_ADDR is required")
+	}
+
+	chatRepo, err := repository.NewPostgresChatRepository(dsn)
+	if err != nil {
+		log.Fatalf("chat-service: failed to connect to postgres: %v", err)
+	}
+
+	if err := chatRepo.Migrate(); err != nil {
+		log.Fatalf("chat-service: failed to run migrations: %v", err)
+	}
+
+	authClient, err := authclient.Dial(authServiceAddr)
+	if err != nil {
+		log.Fatalf("chat-service: failed to dial auth-service: %v", err)
+	}
+	defer func() { _ = authClient.Close() }()
+
+	chatService := service.NewChatService(chatRepo, authClient)
+
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("chat-service: failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret)),
+	)
+
+	chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)

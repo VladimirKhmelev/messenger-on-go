@@ -72,6 +72,41 @@ jobs:
           name: coverage-${{ matrix.service }}
           path: services/${{ matrix.service }}/cover.html
 
+  pkg-jwtutil:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pkg/jwtutil
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Check gofmt
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt'ed:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Check go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+          working-directory: pkg/jwtutil
+
+      - run: go build ./...
+      - run: go test ./... -cover
+
   auth-service-integration:
     runs-on: ubuntu-latest
     defaults:
