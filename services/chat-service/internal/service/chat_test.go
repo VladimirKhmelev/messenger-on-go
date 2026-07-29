@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 )
 
 type fakeChatRepository struct {
@@ -119,9 +120,22 @@ func (c *fakeAuthClient) UserExists(_ context.Context, _, userID string) (bool, 
 	return c.existingUserIDs[userID], nil
 }
 
+type fakeEventPublisher struct {
+	messageCreatedEvents []events.MessageCreated
+}
+
+func newFakeEventPublisher() *fakeEventPublisher {
+	return &fakeEventPublisher{}
+}
+
+func (p *fakeEventPublisher) PublishMessageCreated(_ context.Context, event events.MessageCreated) error {
+	p.messageCreatedEvents = append(p.messageCreatedEvents, event)
+	return nil
+}
+
 func TestChatService_CreateChat_Success(t *testing.T) {
 	repo := newFakeChatRepository()
-	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"))
+	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"), newFakeEventPublisher())
 
 	chat, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
 	if err != nil {
@@ -139,7 +153,7 @@ func TestChatService_CreateChat_Success(t *testing.T) {
 
 func TestChatService_CreateChat_Idempotent(t *testing.T) {
 	repo := newFakeChatRepository()
-	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"))
+	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"), newFakeEventPublisher())
 
 	first, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
 	if err != nil {
@@ -158,7 +172,7 @@ func TestChatService_CreateChat_Idempotent(t *testing.T) {
 
 func TestChatService_CreateChat_WithSelf(t *testing.T) {
 	repo := newFakeChatRepository()
-	svc := NewChatService(repo, newFakeAuthClient("user-a"))
+	svc := NewChatService(repo, newFakeAuthClient("user-a"), newFakeEventPublisher())
 
 	_, err := svc.CreateChat(context.Background(), "token", "user-a", "user-a")
 	if !errors.Is(err, domain.ErrCannotChatWithSelf) {
@@ -168,7 +182,7 @@ func TestChatService_CreateChat_WithSelf(t *testing.T) {
 
 func TestChatService_CreateChat_TargetNotFound(t *testing.T) {
 	repo := newFakeChatRepository()
-	svc := NewChatService(repo, newFakeAuthClient("user-a"))
+	svc := NewChatService(repo, newFakeAuthClient("user-a"), newFakeEventPublisher())
 
 	_, err := svc.CreateChat(context.Background(), "token", "user-a", "missing-user")
 	if !errors.Is(err, domain.ErrTargetUserNotFound) {
@@ -181,7 +195,7 @@ func TestChatService_SendMessage_Success(t *testing.T) {
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
 
-	svc := NewChatService(repo, newFakeAuthClient())
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
 
 	message, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
 	if err != nil {
@@ -197,7 +211,7 @@ func TestChatService_SendMessage_NotMember(t *testing.T) {
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
 
-	svc := NewChatService(repo, newFakeAuthClient())
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
 
 	_, err := svc.SendMessage(context.Background(), chat.ID, "user-stranger", "hello")
 	if !errors.Is(err, domain.ErrNotChatMember) {
@@ -210,7 +224,7 @@ func TestChatService_SendMessage_Empty(t *testing.T) {
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, []string{"user-a"})
 
-	svc := NewChatService(repo, newFakeAuthClient())
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
 
 	_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "")
 	if !errors.Is(err, domain.ErrEmptyMessage) {
@@ -223,7 +237,7 @@ func TestChatService_GetHistory_Success(t *testing.T) {
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
 
-	svc := NewChatService(repo, newFakeAuthClient())
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
 
 	if _, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hi"); err != nil {
 		t.Fatalf("SendMessage() unexpected error: %v", err)
@@ -243,7 +257,7 @@ func TestChatService_GetHistory_NotMember(t *testing.T) {
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, []string{"user-a"})
 
-	svc := NewChatService(repo, newFakeAuthClient())
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
 
 	_, err := svc.GetHistory(context.Background(), chat.ID, "user-stranger", 0)
 	if !errors.Is(err, domain.ErrNotChatMember) {

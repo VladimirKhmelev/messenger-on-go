@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
@@ -17,13 +19,18 @@ type AuthClient interface {
 	UserExists(ctx context.Context, bearerToken, userID string) (bool, error)
 }
 
-type ChatService struct {
-	chats repository.ChatRepository
-	auth  AuthClient
+type EventPublisher interface {
+	PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
 }
 
-func NewChatService(chats repository.ChatRepository, auth AuthClient) *ChatService {
-	return &ChatService{chats: chats, auth: auth}
+type ChatService struct {
+	chats  repository.ChatRepository
+	auth   AuthClient
+	events EventPublisher
+}
+
+func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher) *ChatService {
+	return &ChatService{chats: chats, auth: auth, events: eventPublisher}
 }
 
 func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string) (*domain.Chat, error) {
@@ -82,6 +89,15 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 
 	if err := s.chats.CreateMessage(ctx, message); err != nil {
 		return nil, err
+	}
+
+	if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
+		MessageID: message.ID,
+		ChatID:    message.ChatID,
+		SenderID:  message.SenderID,
+		CreatedAt: message.CreatedAt,
+	}); err != nil {
+		log.Printf("chat-service: failed to publish msg.created event for %s: %v", message.ID, err)
 	}
 
 	return message, nil
