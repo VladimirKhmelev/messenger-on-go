@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"log"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
 )
+
+type PresenceMarker interface {
+	SetOnline(ctx context.Context, userID string) error
+}
 
 type contextKey string
 
@@ -22,7 +27,7 @@ var publicMethods = map[string]bool{
 	"/grpc.health.v1.Health/Watch": true,
 }
 
-func AuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor {
+func AuthInterceptor(jwtSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if publicMethods[info.FullMethod] {
 			return handler(ctx, req)
@@ -36,6 +41,10 @@ func AuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor {
 		userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
 		if err != nil {
 			return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+		}
+
+		if err := presence.SetOnline(ctx, userID); err != nil {
+			log.Printf("chat-service: failed to mark user %s online: %v", userID, err)
 		}
 
 		ctx = context.WithValue(ctx, userIDContextKey, userID)
