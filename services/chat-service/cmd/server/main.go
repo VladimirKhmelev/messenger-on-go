@@ -15,6 +15,7 @@ import (
 
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
@@ -47,6 +48,11 @@ func main() {
 		log.Fatal("chat-service: NATS_URL is required")
 	}
 
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		log.Fatal("chat-service: REDIS_ADDR is required")
+	}
+
 	chatRepo, err := repository.NewPostgresChatRepository(dsn)
 	if err != nil {
 		log.Fatalf("chat-service: failed to connect to postgres: %v", err)
@@ -69,13 +75,15 @@ func main() {
 
 	chatService := service.NewChatService(chatRepo, authClient, eventPublisher)
 
+	presenceStore := cache.NewPresenceStore(cache.NewClient(redisAddr))
+
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("chat-service: failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret)),
+		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, presenceStore)),
 	)
 
 	chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))
