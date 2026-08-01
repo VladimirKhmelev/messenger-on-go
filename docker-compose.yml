@@ -98,8 +98,11 @@ services:
     build:
       context: .
       dockerfile: services/ws-gateway/Dockerfile
+    ports:
+      - "8080:8080"
     environment:
       GRPC_PORT: "50051"
+      HTTP_PORT: "8080"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
