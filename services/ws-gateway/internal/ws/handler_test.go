@@ -80,7 +80,7 @@ func TestHandler_ValidToken_UpgradesConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Dial() unexpected error: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		t.Errorf("response status = %v, want %v", resp.StatusCode, http.StatusSwitchingProtocols)
