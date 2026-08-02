@@ -1,24 +1,32 @@
 package ws
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-type Handler struct {
-	jwtSecret string
+type ChatClient interface {
+	SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
+	GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
 }
 
-func NewHandler(jwtSecret string) *Handler {
-	return &Handler{jwtSecret: jwtSecret}
+type Handler struct {
+	jwtSecret string
+	chat      ChatClient
+}
+
+func NewHandler(jwtSecret string, chat ChatClient) *Handler {
+	return &Handler{jwtSecret: jwtSecret, chat: chat}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +48,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := newSession(userID, conn)
+	session := newSession(userID, token, conn, h.chat)
 	session.run()
 }
