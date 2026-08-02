@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws"
 )
 
@@ -31,6 +32,17 @@ func main() {
 	if jwtSecret == "" {
 		log.Fatal("ws-gateway: JWT_SECRET is required")
 	}
+
+	chatServiceAddr := os.Getenv("CHAT_SERVICE_ADDR")
+	if chatServiceAddr == "" {
+		log.Fatal("ws-gateway: CHAT_SERVICE_ADDR is required")
+	}
+
+	chatClient, err := chatclient.Dial(chatServiceAddr)
+	if err != nil {
+		log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
+	}
+	defer func() { _ = chatClient.Close() }()
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -51,7 +63,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/ws", ws.NewHandler(jwtSecret))
+	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient))
 
 	httpServer := &http.Server{
 		Addr:    ":" + httpPort,
