@@ -53,6 +53,11 @@ func main() {
 		log.Fatal("chat-service: REDIS_ADDR is required")
 	}
 
+	internalSecret := os.Getenv("INTERNAL_SECRET")
+	if internalSecret == "" {
+		log.Fatal("chat-service: INTERNAL_SECRET is required")
+	}
+
 	chatRepo, err := repository.NewPostgresChatRepository(dsn)
 	if err != nil {
 		log.Fatalf("chat-service: failed to connect to postgres: %v", err)
@@ -83,7 +88,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, presenceStore)),
+		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret, presenceStore)),
 	)
 
 	chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))
