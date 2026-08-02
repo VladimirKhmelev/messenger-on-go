@@ -133,3 +133,18 @@ func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string
 	}
 	return messages, nil
 }
+
+func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) {
+	var message domain.Message
+	err := r.conn.GetContext(ctx, &message, `
+		SELECT id, chat_id, sender_id, body, created_at FROM messages WHERE id = $1`,
+		messageID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrMessageNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}

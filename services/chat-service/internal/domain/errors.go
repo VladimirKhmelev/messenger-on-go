@@ -9,4 +9,5 @@ var (
 	ErrChatAlreadyExists  = errors.New("private chat between these users already exists")
 	ErrCannotChatWithSelf = errors.New("cannot create a chat with yourself")
 	ErrTargetUserNotFound = errors.New("target user not found")
+	ErrMessageNotFound    = errors.New("message not found")
 )
