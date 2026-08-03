@@ -104,6 +104,17 @@ func (r *fakeChatRepository) ListMessages(_ context.Context, chatID string, limi
 	return messages, nil
 }
 
+func (r *fakeChatRepository) GetMessage(_ context.Context, messageID string) (*domain.Message, error) {
+	for _, messages := range r.messages {
+		for _, m := range messages {
+			if m.ID == messageID {
+				return m, nil
+			}
+		}
+	}
+	return nil, domain.ErrMessageNotFound
+}
+
 type fakeAuthClient struct {
 	existingUserIDs map[string]bool
 }
@@ -262,5 +273,31 @@ func TestChatService_GetHistory_NotMember(t *testing.T) {
 	_, err := svc.GetHistory(context.Background(), chat.ID, "user-stranger", 0)
 	if !errors.Is(err, domain.ErrNotChatMember) {
 		t.Errorf("GetHistory() error = %v, want %v", err, domain.ErrNotChatMember)
+	}
+}
+
+func TestChatService_ListMembers_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
+
+	userIDs, err := svc.ListMembers(context.Background(), chat.ID)
+	if err != nil {
+		t.Fatalf("ListMembers() unexpected error: %v", err)
+	}
+	if len(userIDs) != 2 {
+		t.Fatalf("ListMembers() returned %d members, want 2", len(userIDs))
+	}
+}
+
+func TestChatService_GetMessage_NotFound(t *testing.T) {
+	repo := newFakeChatRepository()
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher())
+
+	_, err := svc.GetMessage(context.Background(), "missing-message")
+	if !errors.Is(err, domain.ErrMessageNotFound) {
+		t.Errorf("GetMessage() error = %v, want %v", err, domain.ErrMessageNotFound)
 	}
 }
