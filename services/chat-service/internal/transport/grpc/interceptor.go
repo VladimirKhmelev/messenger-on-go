@@ -27,9 +27,21 @@ var publicMethods = map[string]bool{
 	"/grpc.health.v1.Health/Watch": true,
 }
 
-func AuthInterceptor(jwtSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor {
+var internalMethods = map[string]bool{
+	"/chat.v1.ChatService/ListMembers": true,
+	"/chat.v1.ChatService/GetMessage":  true,
+}
+
+func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if publicMethods[info.FullMethod] {
+			return handler(ctx, req)
+		}
+
+		if internalMethods[info.FullMethod] {
+			if err := checkInternalSecret(ctx, internalSecret); err != nil {
+				return nil, err
+			}
 			return handler(ctx, req)
 		}
 
@@ -50,6 +62,20 @@ func AuthInterceptor(jwtSecret string, presence PresenceMarker) grpc.UnaryServer
 		ctx = context.WithValue(ctx, userIDContextKey, userID)
 		return handler(ctx, req)
 	}
+}
+
+func checkInternalSecret(ctx context.Context, internalSecret string) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Error(codes.Unauthenticated, "missing metadata")
+	}
+
+	values := md.Get("x-internal-secret")
+	if len(values) == 0 || values[0] != internalSecret {
+		return status.Error(codes.Unauthenticated, "invalid internal secret")
+	}
+
+	return nil
 }
 
 func bearerTokenFromContext(ctx context.Context) (string, error) {
