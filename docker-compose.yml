@@ -95,12 +95,31 @@ services:
       auth-service:
         condition: service_healthy
 
-  ws-gateway:
+  ws-gateway-1:
     build:
       context: .
       dockerfile: services/ws-gateway/Dockerfile
     ports:
       - "8080:8080"
+    environment:
+      GRPC_PORT: "50051"
+      HTTP_PORT: "8080"
+      NATS_URL: nats://nats:4222
+      CHAT_SERVICE_ADDR: chat-service:50051
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
+    depends_on:
+      nats:
+        condition: service_started
+      chat-service:
+        condition: service_healthy
+
+  ws-gateway-2:
+    build:
+      context: .
+      dockerfile: services/ws-gateway/Dockerfile
+    ports:
+      - "8081:8080"
     environment:
       GRPC_PORT: "50051"
       HTTP_PORT: "8080"
