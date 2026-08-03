@@ -2,6 +2,7 @@ FROM golang:1.26.2 AS builder
 
 WORKDIR /src
 
+COPY pkg pkg
 COPY proto/gen proto/gen
 COPY services/auth-service services/auth-service
 
