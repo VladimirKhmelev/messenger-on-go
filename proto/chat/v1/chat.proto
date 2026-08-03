@@ -11,6 +11,8 @@ service ChatService {
   rpc CreateChat(CreateChatRequest) returns (CreateChatResponse);
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
   rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
 }
 
 message HealthRequest {
@@ -51,4 +53,20 @@ message Message {
   string sender_user_id = 2;
   string text = 3;
   int64 created_at_unix = 4;
+}
+
+message ListMembersRequest {
+  string chat_id = 1;
+}
+
+message ListMembersResponse {
+  repeated string user_ids = 1;
+}
+
+message GetMessageRequest {
+  string message_id = 1;
+}
+
+message GetMessageResponse {
+  Message message = 1;
 }

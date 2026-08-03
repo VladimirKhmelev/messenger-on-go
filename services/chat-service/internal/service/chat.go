@@ -118,3 +118,20 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 
 	return s.chats.ListMessages(ctx, chatID, limit)
 }
+
+func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) {
+	members, err := s.chats.ListMembers(ctx, chatID)
+	if err != nil {
+		return nil, err
+	}
+
+	userIDs := make([]string, 0, len(members))
+	for _, m := range members {
+		userIDs = append(userIDs, m.UserID)
+	}
+	return userIDs, nil
+}
+
+func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) {
+	return s.chats.GetMessage(ctx, messageID)
+}

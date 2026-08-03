@@ -84,6 +84,7 @@ services:
       NATS_URL: nats://nats:4222
       AUTH_SERVICE_ADDR: auth-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
     depends_on:
       chat-db:
         condition: service_healthy
@@ -106,6 +107,7 @@ services:
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
     depends_on:
       nats:
         condition: service_started

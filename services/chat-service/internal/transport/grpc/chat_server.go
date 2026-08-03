@@ -83,13 +83,39 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
 	return &chatv1.GetHistoryResponse{Messages: result}, nil
 }
 
+func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) {
+	userIDs, err := s.chat.ListMembers(ctx, req.GetChatId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.ListMembersResponse{UserIds: userIDs}, nil
+}
+
+func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageRequest) (*chatv1.GetMessageResponse, error) {
+	message, err := s.chat.GetMessage(ctx, req.GetMessageId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.GetMessageResponse{
+		Message: &chatv1.Message{
+			MessageId:     message.ID,
+			SenderUserId:  message.SenderID,
+			Text:          message.Body,
+			CreatedAtUnix: message.CreatedAt.Unix(),
+		},
+	}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrCannotChatWithSelf),
 		errors.Is(err, domain.ErrEmptyMessage):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrTargetUserNotFound),
-		errors.Is(err, domain.ErrChatNotFound):
+		errors.Is(err, domain.ErrChatNotFound),
+		errors.Is(err, domain.ErrMessageNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrNotChatMember):
 		return status.Error(codes.PermissionDenied, err.Error())
