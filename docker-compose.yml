@@ -53,6 +53,8 @@ services:
     build:
       context: .
       dockerfile: services/auth-service/Dockerfile
+    ports:
+      - "50051:50051"
     environment:
       GRPC_PORT: "50051"
       POSTGRES_DSN: postgres://auth:auth@auth-db:5432/auth?sslmode=disable
@@ -77,6 +79,8 @@ services:
     build:
       context: .
       dockerfile: services/chat-service/Dockerfile
+    ports:
+      - "50052:50051"
     environment:
       GRPC_PORT: "50051"
       POSTGRES_DSN: postgres://chat:chat@chat-db:5432/chat?sslmode=disable
