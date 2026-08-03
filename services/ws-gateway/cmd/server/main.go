@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -14,6 +15,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws"
 )
 
@@ -33,16 +35,38 @@ func main() {
 		log.Fatal("ws-gateway: JWT_SECRET is required")
 	}
 
+	internalSecret := os.Getenv("INTERNAL_SECRET")
+	if internalSecret == "" {
+		log.Fatal("ws-gateway: INTERNAL_SECRET is required")
+	}
+
 	chatServiceAddr := os.Getenv("CHAT_SERVICE_ADDR")
 	if chatServiceAddr == "" {
 		log.Fatal("ws-gateway: CHAT_SERVICE_ADDR is required")
 	}
 
-	chatClient, err := chatclient.Dial(chatServiceAddr)
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		log.Fatal("ws-gateway: NATS_URL is required")
+	}
+
+	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
 	if err != nil {
 		log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
 	}
 	defer func() { _ = chatClient.Close() }()
+
+	registry := ws.NewRegistry()
+	fanout := ws.NewFanout(registry, chatClient, chatClient)
+
+	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+	defer cancelConsumer()
+
+	go func() {
+		if err := events.Consume(consumerCtx, natsURL, fanout.Handle); err != nil {
+			log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
+		}
+	}()
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -63,7 +87,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient))
+	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry))
 
 	httpServer := &http.Server{
 		Addr:    ":" + httpPort,

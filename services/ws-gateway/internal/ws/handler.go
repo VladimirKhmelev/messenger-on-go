@@ -23,10 +23,11 @@ type ChatClient interface {
 type Handler struct {
 	jwtSecret string
 	chat      ChatClient
+	registry  *Registry
 }
 
-func NewHandler(jwtSecret string, chat ChatClient) *Handler {
-	return &Handler{jwtSecret: jwtSecret, chat: chat}
+func NewHandler(jwtSecret string, chat ChatClient, registry *Registry) *Handler {
+	return &Handler{jwtSecret: jwtSecret, chat: chat, registry: registry}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,5 +50,5 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session := newSession(userID, token, conn, h.chat)
-	session.run()
+	session.run(h.registry)
 }

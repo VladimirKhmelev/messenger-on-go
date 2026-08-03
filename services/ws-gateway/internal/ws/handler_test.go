@@ -69,7 +69,7 @@ func issueTestAccessToken(t *testing.T, userID string) string {
 }
 
 func TestHandler_MissingToken_Rejected(t *testing.T) {
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry()))
 	defer server.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
@@ -84,7 +84,7 @@ func TestHandler_MissingToken_Rejected(t *testing.T) {
 }
 
 func TestHandler_InvalidToken_Rejected(t *testing.T) {
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry()))
 	defer server.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?token=not-a-real-token"
@@ -99,7 +99,7 @@ func TestHandler_InvalidToken_Rejected(t *testing.T) {
 }
 
 func TestHandler_ValidToken_UpgradesConnection(t *testing.T) {
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry()))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")
@@ -118,7 +118,7 @@ func TestHandler_ValidToken_UpgradesConnection(t *testing.T) {
 
 func TestHandler_SendMessage_ForwardsToChatClient(t *testing.T) {
 	chat := &fakeChatClient{}
-	server := httptest.NewServer(NewHandler(testJWTSecret, chat))
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry()))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")
@@ -150,5 +150,39 @@ func TestHandler_SendMessage_ForwardsToChatClient(t *testing.T) {
 	}
 	if chat.sentChatID != "chat-1" || chat.sentText != "hello" {
 		t.Errorf("chatclient received chatID=%q text=%q, want chat-1/hello", chat.sentChatID, chat.sentText)
+	}
+}
+
+func TestHandler_GetHistory_ForwardsToChatClient(t *testing.T) {
+	chat := &fakeChatClient{getHistoryMessages: []chatclient.Message{{MessageID: "m1", Text: "hi"}}}
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry()))
+	defer server.Close()
+
+	token := issueTestAccessToken(t, "user-1")
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?token=" + url.QueryEscape(token)
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("Dial() unexpected error: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	req, _ := json.Marshal(clientMessage{Type: "get_history", ChatID: "chat-1", Limit: 10})
+	if err := conn.WriteMessage(websocket.TextMessage, req); err != nil {
+		t.Fatalf("WriteMessage() unexpected error: %v", err)
+	}
+
+	_, data, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("ReadMessage() unexpected error: %v", err)
+	}
+
+	var resp serverMessage
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Type != "history" || len(resp.Messages) != 1 || resp.Messages[0].MessageID != "m1" {
+		t.Errorf("response = %+v, want type=history with 1 message m1", resp)
 	}
 }

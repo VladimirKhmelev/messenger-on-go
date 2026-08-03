@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
 
 	"github.com/gorilla/websocket"
 
@@ -22,6 +23,8 @@ type serverMessage struct {
 	Error     string               `json:"error,omitempty"`
 	MessageID string               `json:"message_id,omitempty"`
 	Messages  []chatclient.Message `json:"messages,omitempty"`
+	ChatID    string               `json:"chat_id,omitempty"`
+	Message   *chatclient.Message  `json:"message,omitempty"`
 }
 
 type session struct {
@@ -29,13 +32,18 @@ type session struct {
 	token  string
 	conn   *websocket.Conn
 	chat   ChatClient
+
+	writeMu sync.Mutex
 }
 
 func newSession(userID, token string, conn *websocket.Conn, chat ChatClient) *session {
 	return &session{userID: userID, token: token, conn: conn, chat: chat}
 }
 
-func (s *session) run() {
+func (s *session) run(registry *Registry) {
+	registry.add(s)
+	defer registry.remove(s)
+
 	defer func() { _ = s.conn.Close() }()
 
 	for {
@@ -90,6 +98,9 @@ func (s *session) write(msg serverMessage) {
 		log.Printf("ws-gateway: failed to marshal message for user %s: %v", s.userID, err)
 		return
 	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	if err := s.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 		log.Printf("ws-gateway: failed to write message for user %s: %v", s.userID, err)

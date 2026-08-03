@@ -18,16 +18,17 @@ type Message struct {
 }
 
 type Client struct {
-	conn *grpc.ClientConn
-	chat chatv1.ChatServiceClient
+	conn           *grpc.ClientConn
+	chat           chatv1.ChatServiceClient
+	internalSecret string
 }
 
-func Dial(addr string) (*Client, error) {
+func Dial(addr, internalSecret string) (*Client, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: conn, chat: chatv1.NewChatServiceClient(conn)}, nil
+	return &Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil
 }
 
 func (c *Client) Close() error {
@@ -62,6 +63,37 @@ func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, lim
 		})
 	}
 	return messages, nil
+}
+
+func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, error) {
+	ctx = c.withInternalSecret(ctx)
+
+	resp, err := c.chat.ListMembers(ctx, &chatv1.ListMembersRequest{ChatId: chatID})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetUserIds(), nil
+}
+
+func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, error) {
+	ctx = c.withInternalSecret(ctx)
+
+	resp, err := c.chat.GetMessage(ctx, &chatv1.GetMessageRequest{MessageId: messageID})
+	if err != nil {
+		return Message{}, err
+	}
+
+	m := resp.GetMessage()
+	return Message{
+		MessageID:     m.GetMessageId(),
+		SenderUserID:  m.GetSenderUserId(),
+		Text:          m.GetText(),
+		CreatedAtUnix: m.GetCreatedAtUnix(),
+	}, nil
+}
+
+func (c *Client) withInternalSecret(ctx context.Context) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
 }
 
 func withBearerToken(ctx context.Context, bearerToken string) context.Context {
