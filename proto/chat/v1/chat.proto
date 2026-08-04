@@ -13,6 +13,7 @@ service ChatService {
   rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
+  rpc IsOnline(IsOnlineRequest) returns (IsOnlineResponse);
 }
 
 message HealthRequest {
@@ -69,4 +70,12 @@ message GetMessageRequest {
 
 message GetMessageResponse {
   Message message = 1;
+}
+
+message IsOnlineRequest {
+  string user_id = 1;
+}
+
+message IsOnlineResponse {
+  bool online = 1;
 }
