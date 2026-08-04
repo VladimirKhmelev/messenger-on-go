@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
 )
 
 func main() {
@@ -18,6 +22,37 @@ func main() {
 	if port == "" {
 		port = "50051"
 	}
+
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		log.Fatal("notification-worker: NATS_URL is required")
+	}
+
+	handler := notify.NewHandler()
+
+	subs := []events.Subscription{
+		{
+			StreamName:    "CHAT_EVENTS",
+			ConsumerName:  "notification-worker-chat-events",
+			FilterSubject: "msg.created",
+			Handle:        handler.HandleMessageCreated,
+		},
+		{
+			StreamName:    "USER_EVENTS",
+			ConsumerName:  "notification-worker-user-events",
+			FilterSubject: "user.*",
+			Handle:        handler.HandleUserEvent,
+		},
+	}
+
+	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+	defer cancelConsumer()
+
+	go func() {
+		if err := events.Consume(consumerCtx, natsURL, subs); err != nil {
+			log.Fatalf("notification-worker: NATS consumer failed: %v", err)
+		}
+	}()
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
