@@ -25,6 +25,7 @@ const (
 	ChatService_GetHistory_FullMethodName  = "/chat.v1.ChatService/GetHistory"
 	ChatService_ListMembers_FullMethodName = "/chat.v1.ChatService/ListMembers"
 	ChatService_GetMessage_FullMethodName  = "/chat.v1.ChatService/GetMessage"
+	ChatService_IsOnline_FullMethodName    = "/chat.v1.ChatService/IsOnline"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -37,6 +38,7 @@ type ChatServiceClient interface {
 	GetHistory(ctx context.Context, in *GetHistoryRequest, opts ...grpc.CallOption) (*GetHistoryResponse, error)
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
+	IsOnline(ctx context.Context, in *IsOnlineRequest, opts ...grpc.CallOption) (*IsOnlineResponse, error)
 }
 
 type chatServiceClient struct {
@@ -107,6 +109,16 @@ func (c *chatServiceClient) GetMessage(ctx context.Context, in *GetMessageReques
 	return out, nil
 }
 
+func (c *chatServiceClient) IsOnline(ctx context.Context, in *IsOnlineRequest, opts ...grpc.CallOption) (*IsOnlineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IsOnlineResponse)
+	err := c.cc.Invoke(ctx, ChatService_IsOnline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -117,6 +129,7 @@ type ChatServiceServer interface {
 	GetHistory(context.Context, *GetHistoryRequest) (*GetHistoryResponse, error)
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
+	IsOnline(context.Context, *IsOnlineRequest) (*IsOnlineResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -144,6 +157,9 @@ func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersR
 }
 func (UnimplementedChatServiceServer) GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMessage not implemented")
+}
+func (UnimplementedChatServiceServer) IsOnline(context.Context, *IsOnlineRequest) (*IsOnlineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IsOnline not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -274,6 +290,24 @@ func _ChatService_GetMessage_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_IsOnline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IsOnlineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).IsOnline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_IsOnline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).IsOnline(ctx, req.(*IsOnlineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +338,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMessage",
 			Handler:    _ChatService_GetMessage_Handler,
+		},
+		{
+			MethodName: "IsOnline",
+			Handler:    _ChatService_IsOnline_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
