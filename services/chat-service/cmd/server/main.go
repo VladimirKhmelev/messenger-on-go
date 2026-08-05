@@ -78,9 +78,9 @@ func main() {
 		log.Fatalf("chat-service: failed to connect to NATS: %v", err)
 	}
 
-	chatService := service.NewChatService(chatRepo, authClient, eventPublisher)
-
 	presenceStore := cache.NewPresenceStore(cache.NewClient(redisAddr))
+
+	chatService := service.NewChatService(chatRepo, authClient, eventPublisher, presenceStore)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
