@@ -108,6 +108,15 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
 	}, nil
 }
 
+func (s *ChatServer) IsOnline(ctx context.Context, req *chatv1.IsOnlineRequest) (*chatv1.IsOnlineResponse, error) {
+	online, err := s.chat.IsOnline(ctx, req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.IsOnlineResponse{Online: online}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrCannotChatWithSelf),
