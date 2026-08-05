@@ -23,14 +23,19 @@ type EventPublisher interface {
 	PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
 }
 
-type ChatService struct {
-	chats  repository.ChatRepository
-	auth   AuthClient
-	events EventPublisher
+type PresenceChecker interface {
+	IsOnline(ctx context.Context, userID string) (bool, error)
 }
 
-func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher) *ChatService {
-	return &ChatService{chats: chats, auth: auth, events: eventPublisher}
+type ChatService struct {
+	chats    repository.ChatRepository
+	auth     AuthClient
+	events   EventPublisher
+	presence PresenceChecker
+}
+
+func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker) *ChatService {
+	return &ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence}
 }
 
 func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string) (*domain.Chat, error) {
@@ -134,4 +139,8 @@ func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string,
 
 func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) {
 	return s.chats.GetMessage(ctx, messageID)
+}
+
+func (s *ChatService) IsOnline(ctx context.Context, userID string) (bool, error) {
+	return s.presence.IsOnline(ctx, userID)
 }
