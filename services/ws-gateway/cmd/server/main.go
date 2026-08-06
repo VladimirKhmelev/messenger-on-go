@@ -63,7 +63,11 @@ func main() {
 	defer cancelConsumer()
 
 	go func() {
-		if err := events.Consume(consumerCtx, natsURL, fanout.Handle); err != nil {
+		handlers := events.Handlers{
+			OnMessageCreated: fanout.HandleMessageCreated,
+			OnNotifyPush:     fanout.HandleNotifyPush,
+		}
+		if err := events.Consume(consumerCtx, natsURL, handlers); err != nil {
 			log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
 		}
 	}()
