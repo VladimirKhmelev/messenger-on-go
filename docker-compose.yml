@@ -144,6 +144,10 @@ services:
     environment:
       GRPC_PORT: "50051"
       NATS_URL: nats://nats:4222
+      CHAT_SERVICE_ADDR: chat-service:50051
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
     depends_on:
       nats:
         condition: service_started
+      chat-service:
+        condition: service_healthy

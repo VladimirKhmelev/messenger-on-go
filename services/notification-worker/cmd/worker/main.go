@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
 )
@@ -28,7 +29,23 @@ func main() {
 		log.Fatal("notification-worker: NATS_URL is required")
 	}
 
-	handler := notify.NewHandler()
+	chatServiceAddr := os.Getenv("CHAT_SERVICE_ADDR")
+	if chatServiceAddr == "" {
+		log.Fatal("notification-worker: CHAT_SERVICE_ADDR is required")
+	}
+
+	internalSecret := os.Getenv("INTERNAL_SECRET")
+	if internalSecret == "" {
+		log.Fatal("notification-worker: INTERNAL_SECRET is required")
+	}
+
+	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+	if err != nil {
+		log.Fatalf("notification-worker: failed to dial chat-service: %v", err)
+	}
+	defer func() { _ = chatClient.Close() }()
+
+	handler := notify.NewHandler(chatClient)
 
 	subs := []events.Subscription{
 		{
