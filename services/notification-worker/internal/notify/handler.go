@@ -13,12 +13,17 @@ type ChatClient interface {
 	IsOnline(ctx context.Context, userID string) (bool, error)
 }
 
-type Handler struct {
-	chat ChatClient
+type EventPublisher interface {
+	PublishNotifyPush(ctx context.Context, event events.NotifyPush) error
 }
 
-func NewHandler(chat ChatClient) *Handler {
-	return &Handler{chat: chat}
+type Handler struct {
+	chat   ChatClient
+	events EventPublisher
+}
+
+func NewHandler(chat ChatClient, eventPublisher EventPublisher) *Handler {
+	return &Handler{chat: chat, events: eventPublisher}
 }
 
 func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) {
@@ -35,8 +40,14 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
 	}
 
 	for _, userID := range recipients {
-		log.Printf("notification-worker: user %s needs a push notification for message %s in chat %s",
-			userID, event.MessageID, event.ChatID)
+		if err := h.events.PublishNotifyPush(ctx, events.NotifyPush{
+			UserID:    userID,
+			ChatID:    event.ChatID,
+			MessageID: event.MessageID,
+			CreatedAt: event.CreatedAt,
+		}); err != nil {
+			log.Printf("notification-worker: failed to publish notify.push for user %s: %v", userID, err)
+		}
 	}
 }
 
