@@ -45,7 +45,12 @@ func main() {
 	}
 	defer func() { _ = chatClient.Close() }()
 
-	handler := notify.NewHandler(chatClient)
+	eventPublisher, err := events.Connect(context.Background(), natsURL)
+	if err != nil {
+		log.Fatalf("notification-worker: failed to connect to NATS: %v", err)
+	}
+
+	handler := notify.NewHandler(chatClient, eventPublisher)
 
 	subs := []events.Subscription{
 		{
