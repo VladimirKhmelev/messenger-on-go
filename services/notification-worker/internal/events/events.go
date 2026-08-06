@@ -28,3 +28,10 @@ type UserOAuthLinked struct {
 	Provider string    `json:"provider"`
 	At       time.Time `json:"at"`
 }
+
+type NotifyPush struct {
+	UserID    string    `json:"user_id"`
+	ChatID    string    `json:"chat_id"`
+	MessageID string    `json:"message_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
