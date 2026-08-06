@@ -3,9 +3,12 @@ module github.com/VladimirKhmelev/messenger-on-go/services/notification-worker
 go 1.26.2
 
 require (
+	github.com/VladimirKhmelev/messenger-on-go/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/nats-io/nats.go v1.52.0
 	google.golang.org/grpc v1.82.1
 )
+
+replace github.com/VladimirKhmelev/messenger-on-go/proto/gen => ../../proto/gen
 
 require (
 	github.com/klauspost/compress v1.18.5 // indirect
