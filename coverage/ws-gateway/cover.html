@@ -1,0 +1,725 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient/chatclient.go (0.0%)</option>
+				
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
+				
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (57.1%)</option>
+				
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (87.5%)</option>
+				
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (100.0%)</option>
+				
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (70.3%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/health"
+        healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws"
+)
+
+func main() <span class="cov0" title="0">{
+        port := os.Getenv("GRPC_PORT")
+        if port == "" </span><span class="cov0" title="0">{
+                port = "50051"
+        }</span>
+
+        <span class="cov0" title="0">httpPort := os.Getenv("HTTP_PORT")
+        if httpPort == "" </span><span class="cov0" title="0">{
+                httpPort = "8080"
+        }</span>
+
+        <span class="cov0" title="0">jwtSecret := os.Getenv("JWT_SECRET")
+        if jwtSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("ws-gateway: JWT_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">internalSecret := os.Getenv("INTERNAL_SECRET")
+        if internalSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("ws-gateway: INTERNAL_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">chatServiceAddr := os.Getenv("CHAT_SERVICE_ADDR")
+        if chatServiceAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("ws-gateway: CHAT_SERVICE_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">natsURL := os.Getenv("NATS_URL")
+        if natsURL == "" </span><span class="cov0" title="0">{
+                log.Fatal("ws-gateway: NATS_URL is required")
+        }</span>
+
+        <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = chatClient.Close() }</span>()
+
+        <span class="cov0" title="0">registry := ws.NewRegistry()
+        fanout := ws.NewFanout(registry, chatClient, chatClient)
+
+        consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+        defer cancelConsumer()
+
+        go func() </span><span class="cov0" title="0">{
+                handlers := events.Handlers{
+                        OnMessageCreated: fanout.HandleMessageCreated,
+                        OnNotifyPush:     fanout.HandleNotifyPush,
+                }
+                if err := events.Consume(consumerCtx, natsURL, handlers); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">lis, err := net.Listen("tcp", ":"+port)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("ws-gateway: failed to listen: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">grpcServer := grpc.NewServer()
+
+        healthServer := health.NewServer()
+        healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+        healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("ws-gateway: grpc listening on :%s\n", port)
+                if err := grpcServer.Serve(lis); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("ws-gateway: grpc serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">mux := http.NewServeMux()
+        mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry))
+
+        httpServer := &amp;http.Server{
+                Addr:    ":" + httpPort,
+                Handler: mux,
+        }
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("ws-gateway: http listening on :%s\n", httpPort)
+                if err := httpServer.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("ws-gateway: http serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">stop := make(chan os.Signal, 1)
+        signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-stop
+
+        fmt.Println("ws-gateway: shutting down")
+        grpcServer.GracefulStop()
+        _ = httpServer.Close()</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package chatclient
+
+import (
+        "context"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/metadata"
+
+        chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+)
+
+type Message struct {
+        MessageID     string
+        SenderUserID  string
+        Text          string
+        CreatedAtUnix int64
+}
+
+type Client struct {
+        conn           *grpc.ClientConn
+        chat           chatv1.ChatServiceClient
+        internalSecret string
+}
+
+func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+func (c *Client) Close() error <span class="cov0" title="0">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error) <span class="cov0" title="0">{
+        ctx = withBearerToken(ctx, bearerToken)
+
+        resp, err := c.chat.SendMessage(ctx, &amp;chatv1.SendMessageRequest{ChatId: chatID, Text: text})
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">return resp.GetMessageId(), nil</span>
+}
+
+func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]Message, error) <span class="cov0" title="0">{
+        ctx = withBearerToken(ctx, bearerToken)
+
+        resp, err := c.chat.GetHistory(ctx, &amp;chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit})
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">messages := make([]Message, 0, len(resp.GetMessages()))
+        for _, m := range resp.GetMessages() </span><span class="cov0" title="0">{
+                messages = append(messages, Message{
+                        MessageID:     m.GetMessageId(),
+                        SenderUserID:  m.GetSenderUserId(),
+                        Text:          m.GetText(),
+                        CreatedAtUnix: m.GetCreatedAtUnix(),
+                })
+        }</span>
+        <span class="cov0" title="0">return messages, nil</span>
+}
+
+func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.ListMembers(ctx, &amp;chatv1.ListMembersRequest{ChatId: chatID})
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return resp.GetUserIds(), nil</span>
+}
+
+func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.GetMessage(ctx, &amp;chatv1.GetMessageRequest{MessageId: messageID})
+        if err != nil </span><span class="cov0" title="0">{
+                return Message{}, err
+        }</span>
+
+        <span class="cov0" title="0">m := resp.GetMessage()
+        return Message{
+                MessageID:     m.GetMessageId(),
+                SenderUserID:  m.GetSenderUserId(),
+                Text:          m.GetText(),
+                CreatedAtUnix: m.GetCreatedAtUnix(),
+        }, nil</span>
+}
+
+func (c *Client) withInternalSecret(ctx context.Context) context.Context <span class="cov0" title="0">{
+        return metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
+}</span>
+
+func withBearerToken(ctx context.Context, bearerToken string) context.Context <span class="cov0" title="0">{
+        return metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+bearerToken)
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package events
+
+import (
+        "context"
+        "encoding/json"
+        "log"
+        "time"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/jetstream"
+)
+
+const (
+        chatStreamName = "CHAT_EVENTS"
+        subjectMsg     = "msg.created"
+
+        notifyStreamName = "NOTIFY_EVENTS"
+        subjectNotify    = "notify.push"
+
+        pullMaxWait = 5 * time.Second
+        pullBatch   = 10
+)
+
+type MessageCreated struct {
+        MessageID string    `json:"message_id"`
+        ChatID    string    `json:"chat_id"`
+        SenderID  string    `json:"sender_id"`
+        CreatedAt time.Time `json:"created_at"`
+}
+
+type NotifyPush struct {
+        UserID    string    `json:"user_id"`
+        ChatID    string    `json:"chat_id"`
+        MessageID string    `json:"message_id"`
+        CreatedAt time.Time `json:"created_at"`
+}
+
+type Handlers struct {
+        OnMessageCreated func(ctx context.Context, event MessageCreated)
+        OnNotifyPush     func(ctx context.Context, event NotifyPush)
+}
+
+func Consume(ctx context.Context, url string, handlers Handlers) error <span class="cov0" title="0">{
+        nc, err := nats.Connect(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer nc.Close()
+
+        js, err := jetstream.New(nc)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">errCh := make(chan error, 2)
+
+        go func() </span><span class="cov0" title="0">{
+                errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
+                        var event MessageCreated
+                        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal msg.created event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnMessageCreated(ctx, event)</span>
+                })
+        }()
+
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                errCh &lt;- consumeOne(ctx, js, notifyStreamName, subjectNotify, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
+                        var event NotifyPush
+                        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal notify.push event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnNotifyPush(ctx, event)</span>
+                })
+        }()
+
+        <span class="cov0" title="0">for range 2 </span><span class="cov0" title="0">{
+                if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterSubject string, handle func(ctx context.Context, data []byte)) error <span class="cov0" title="0">{
+        stream, err := js.Stream(ctx, streamName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">consumer, err := stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
+                FilterSubject: filterSubject,
+                AckPolicy:     jetstream.AckNonePolicy,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        return nil</span>
+                default:<span class="cov0" title="0"></span>
+                }
+
+                <span class="cov0" title="0">msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("ws-gateway: failed to fetch %s batch: %v", filterSubject, err)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">for msg := range msgs.Messages() </span><span class="cov0" title="0">{
+                        handle(ctx, msg.Data())
+                }</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package ws
+
+import (
+        "context"
+        "log"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
+)
+
+type MembersLister interface {
+        ListMembers(ctx context.Context, chatID string) ([]string, error)
+}
+
+type MessageGetter interface {
+        GetMessage(ctx context.Context, messageID string) (chatclient.Message, error)
+}
+
+type Fanout struct {
+        registry *Registry
+        members  MembersLister
+        messages MessageGetter
+}
+
+func NewFanout(registry *Registry, members MembersLister, messages MessageGetter) *Fanout <span class="cov8" title="1">{
+        return &amp;Fanout{registry: registry, members: members, messages: messages}
+}</span>
+
+func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageCreated) <span class="cov8" title="1">{
+        userIDs, err := f.members.ListMembers(ctx, event.ChatID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">message, err := f.messages.GetMessage(ctx, event.MessageID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to fetch message %s for fanout: %v", event.MessageID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">payload := serverMessage{
+                Type:    "message_received",
+                ChatID:  event.ChatID,
+                Message: &amp;message,
+        }
+
+        for _, userID := range userIDs </span><span class="cov8" title="1">{
+                f.registry.Broadcast(userID, payload)
+        }</span>
+}
+
+func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) <span class="cov0" title="0">{
+        payload := serverMessage{
+                Type:      "notify_push",
+                ChatID:    event.ChatID,
+                MessageID: event.MessageID,
+        }
+
+        f.registry.Broadcast(event.UserID, payload)
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package ws
+
+import (
+        "context"
+        "log"
+        "net/http"
+
+        "github.com/gorilla/websocket"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+)
+
+var upgrader = websocket.Upgrader{
+        CheckOrigin: func(r *http.Request) bool <span class="cov8" title="1">{ return true }</span>,
+}
+
+type ChatClient interface {
+        SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
+        GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
+}
+
+type Handler struct {
+        jwtSecret string
+        chat      ChatClient
+        registry  *Registry
+}
+
+func NewHandler(jwtSecret string, chat ChatClient, registry *Registry) *Handler <span class="cov8" title="1">{
+        return &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry}
+}</span>
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        token := r.URL.Query().Get("token")
+        if token == "" </span><span class="cov8" title="1">{
+                http.Error(w, "missing token query parameter", http.StatusUnauthorized)
+                return
+        }</span>
+
+        <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, h.jwtSecret)
+        if err != nil </span><span class="cov8" title="1">{
+                http.Error(w, "invalid or expired token", http.StatusUnauthorized)
+                return
+        }</span>
+
+        <span class="cov8" title="1">conn, err := upgrader.Upgrade(w, r, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: upgrade failed for user %s: %v", userID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">session := newSession(userID, token, conn, h.chat)
+        session.run(h.registry)</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package ws
+
+import "sync"
+
+type Registry struct {
+        mu       sync.RWMutex
+        sessions map[string]map[*session]struct{}
+}
+
+func NewRegistry() *Registry <span class="cov8" title="1">{
+        return &amp;Registry{sessions: make(map[string]map[*session]struct{})}
+}</span>
+
+func (r *Registry) add(s *session) <span class="cov8" title="1">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+
+        if r.sessions[s.userID] == nil </span><span class="cov8" title="1">{
+                r.sessions[s.userID] = make(map[*session]struct{})
+        }</span>
+        <span class="cov8" title="1">r.sessions[s.userID][s] = struct{}{}</span>
+}
+
+func (r *Registry) remove(s *session) <span class="cov8" title="1">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+
+        delete(r.sessions[s.userID], s)
+        if len(r.sessions[s.userID]) == 0 </span><span class="cov8" title="1">{
+                delete(r.sessions, s.userID)
+        }</span>
+}
+
+func (r *Registry) Broadcast(userID string, payload serverMessage) <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        for s := range r.sessions[userID] </span><span class="cov8" title="1">{
+                s.write(payload)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package ws
+
+import (
+        "context"
+        "encoding/json"
+        "log"
+        "sync"
+
+        "github.com/gorilla/websocket"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+)
+
+type clientMessage struct {
+        Type   string `json:"type"`
+        ChatID string `json:"chat_id"`
+        Text   string `json:"text,omitempty"`
+        Limit  int32  `json:"limit,omitempty"`
+}
+
+type serverMessage struct {
+        Type      string               `json:"type"`
+        Error     string               `json:"error,omitempty"`
+        MessageID string               `json:"message_id,omitempty"`
+        Messages  []chatclient.Message `json:"messages,omitempty"`
+        ChatID    string               `json:"chat_id,omitempty"`
+        Message   *chatclient.Message  `json:"message,omitempty"`
+}
+
+type session struct {
+        userID string
+        token  string
+        conn   *websocket.Conn
+        chat   ChatClient
+
+        writeMu sync.Mutex
+}
+
+func newSession(userID, token string, conn *websocket.Conn, chat ChatClient) *session <span class="cov8" title="1">{
+        return &amp;session{userID: userID, token: token, conn: conn, chat: chat}
+}</span>
+
+func (s *session) run(registry *Registry) <span class="cov8" title="1">{
+        registry.add(s)
+        defer registry.remove(s)
+
+        defer func() </span><span class="cov8" title="1">{ _ = s.conn.Close() }</span>()
+
+        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+                _, data, err := s.conn.ReadMessage()
+                if err != nil </span><span class="cov8" title="1">{
+                        log.Printf("ws-gateway: connection closed for user %s: %v", s.userID, err)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">s.handle(data)</span>
+        }
+}
+
+func (s *session) handle(data []byte) <span class="cov8" title="1">{
+        var msg clientMessage
+        if err := json.Unmarshal(data, &amp;msg); err != nil </span><span class="cov0" title="0">{
+                s.writeError("invalid message format")
+                return
+        }</span>
+
+        <span class="cov8" title="1">ctx := context.Background()
+
+        switch msg.Type </span>{
+        case "send_message":<span class="cov8" title="1">
+                messageID, err := s.chat.SendMessage(ctx, s.token, msg.ChatID, msg.Text)
+                if err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+                <span class="cov8" title="1">s.write(serverMessage{Type: "message_sent", MessageID: messageID})</span>
+
+        case "get_history":<span class="cov8" title="1">
+                messages, err := s.chat.GetHistory(ctx, s.token, msg.ChatID, msg.Limit)
+                if err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+                <span class="cov8" title="1">s.write(serverMessage{Type: "history", Messages: messages})</span>
+
+        default:<span class="cov0" title="0">
+                s.writeError("unknown message type: " + msg.Type)</span>
+        }
+}
+
+func (s *session) writeError(message string) <span class="cov0" title="0">{
+        s.write(serverMessage{Type: "error", Error: message})
+}</span>
+
+func (s *session) write(msg serverMessage) <span class="cov8" title="1">{
+        payload, err := json.Marshal(msg)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to marshal message for user %s: %v", s.userID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">s.writeMu.Lock()
+        defer s.writeMu.Unlock()
+
+        if err := s.conn.WriteMessage(websocket.TextMessage, payload); err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to write message for user %s: %v", s.userID, err)
+        }</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

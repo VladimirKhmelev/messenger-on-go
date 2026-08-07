@@ -1,0 +1,492 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>worker: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/cmd/worker/main.go (0.0%)</option>
+				
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient/chatclient.go (0.0%)</option>
+				
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/consumer.go (0.0%)</option>
+				
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/publisher.go (0.0%)</option>
+				
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify/handler.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/health"
+        healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
+)
+
+func main() <span class="cov0" title="0">{
+        port := os.Getenv("GRPC_PORT")
+        if port == "" </span><span class="cov0" title="0">{
+                port = "50051"
+        }</span>
+
+        <span class="cov0" title="0">natsURL := os.Getenv("NATS_URL")
+        if natsURL == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: NATS_URL is required")
+        }</span>
+
+        <span class="cov0" title="0">chatServiceAddr := os.Getenv("CHAT_SERVICE_ADDR")
+        if chatServiceAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: CHAT_SERVICE_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">internalSecret := os.Getenv("INTERNAL_SECRET")
+        if internalSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: INTERNAL_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("notification-worker: failed to dial chat-service: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = chatClient.Close() }</span>()
+
+        <span class="cov0" title="0">eventPublisher, err := events.Connect(context.Background(), natsURL)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("notification-worker: failed to connect to NATS: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">handler := notify.NewHandler(chatClient, eventPublisher)
+
+        subs := []events.Subscription{
+                {
+                        StreamName:    "CHAT_EVENTS",
+                        ConsumerName:  "notification-worker-chat-events",
+                        FilterSubject: "msg.created",
+                        Handle:        handler.HandleMessageCreated,
+                },
+                {
+                        StreamName:    "USER_EVENTS",
+                        ConsumerName:  "notification-worker-user-events",
+                        FilterSubject: "user.*",
+                        Handle:        handler.HandleUserEvent,
+                },
+        }
+
+        consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+        defer cancelConsumer()
+
+        go func() </span><span class="cov0" title="0">{
+                if err := events.Consume(consumerCtx, natsURL, subs); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("notification-worker: NATS consumer failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">lis, err := net.Listen("tcp", ":"+port)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("notification-worker: failed to listen: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">grpcServer := grpc.NewServer()
+
+        healthServer := health.NewServer()
+        healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+        healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("notification-worker: listening on :%s\n", port)
+                if err := grpcServer.Serve(lis); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("notification-worker: serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">stop := make(chan os.Signal, 1)
+        signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-stop
+
+        fmt.Println("notification-worker: shutting down")
+        grpcServer.GracefulStop()</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package chatclient
+
+import (
+        "context"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/metadata"
+
+        chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+)
+
+type Client struct {
+        conn           *grpc.ClientConn
+        chat           chatv1.ChatServiceClient
+        internalSecret string
+}
+
+func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+func (c *Client) Close() error <span class="cov0" title="0">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.ListMembers(ctx, &amp;chatv1.ListMembersRequest{ChatId: chatID})
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return resp.GetUserIds(), nil</span>
+}
+
+func (c *Client) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.IsOnline(ctx, &amp;chatv1.IsOnlineRequest{UserId: userID})
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return resp.GetOnline(), nil</span>
+}
+
+func (c *Client) withInternalSecret(ctx context.Context) context.Context <span class="cov0" title="0">{
+        return metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package events
+
+import (
+        "context"
+        "log"
+        "time"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/jetstream"
+)
+
+const (
+        pullMaxWait = 5 * time.Second
+        pullBatch   = 10
+)
+
+type Subscription struct {
+        StreamName    string
+        ConsumerName  string
+        FilterSubject string
+        Handle        func(ctx context.Context, subject string, data []byte)
+}
+
+func Consume(ctx context.Context, url string, subs []Subscription) error <span class="cov0" title="0">{
+        nc, err := nats.Connect(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer nc.Close()
+
+        js, err := jetstream.New(nc)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">errCh := make(chan error, len(subs))
+        for _, sub := range subs </span><span class="cov0" title="0">{
+                go func(sub Subscription) </span><span class="cov0" title="0">{
+                        errCh &lt;- consumeOne(ctx, js, sub)
+                }</span>(sub)
+        }
+
+        <span class="cov0" title="0">for range subs </span><span class="cov0" title="0">{
+                if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) error <span class="cov0" title="0">{
+        stream, err := js.Stream(ctx, sub.StreamName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+                Durable:       sub.ConsumerName,
+                FilterSubject: sub.FilterSubject,
+                AckPolicy:     jetstream.AckExplicitPolicy,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        return nil</span>
+                default:<span class="cov0" title="0"></span>
+                }
+
+                <span class="cov0" title="0">msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("notification-worker: failed to fetch %s batch: %v", sub.FilterSubject, err)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">for msg := range msgs.Messages() </span><span class="cov0" title="0">{
+                        sub.Handle(ctx, msg.Subject(), msg.Data())
+                        if err := msg.Ack(); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("notification-worker: failed to ack %s message: %v", sub.FilterSubject, err)
+                        }</span>
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package events
+
+import (
+        "context"
+        "encoding/json"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/jetstream"
+)
+
+const (
+        NotifyStreamName = "NOTIFY_EVENTS"
+
+        SubjectNotifyPush = "notify.push"
+)
+
+type Publisher struct {
+        js jetstream.JetStream
+}
+
+func Connect(ctx context.Context, url string) (*Publisher, error) <span class="cov0" title="0">{
+        nc, err := nats.Connect(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">js, err := jetstream.New(nc)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+                Name:     NotifyStreamName,
+                Subjects: []string{"notify.*"},
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
+}
+
+func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectNotifyPush, payload)
+        return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package notify
+
+import (
+        "context"
+        "encoding/json"
+        "log"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
+)
+
+type ChatClient interface {
+        ListMembers(ctx context.Context, chatID string) ([]string, error)
+        IsOnline(ctx context.Context, userID string) (bool, error)
+}
+
+type EventPublisher interface {
+        PublishNotifyPush(ctx context.Context, event events.NotifyPush) error
+}
+
+type Handler struct {
+        chat   ChatClient
+        events EventPublisher
+}
+
+func NewHandler(chat ChatClient, eventPublisher EventPublisher) *Handler <span class="cov0" title="0">{
+        return &amp;Handler{chat: chat, events: eventPublisher}
+}</span>
+
+func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) <span class="cov0" title="0">{
+        var event events.MessageCreated
+        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">recipients, err := h.recipientsNeedingNotification(ctx, event)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("notification-worker: failed to resolve recipients for message %s: %v", event.MessageID, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">for _, userID := range recipients </span><span class="cov0" title="0">{
+                if err := h.events.PublishNotifyPush(ctx, events.NotifyPush{
+                        UserID:    userID,
+                        ChatID:    event.ChatID,
+                        MessageID: event.MessageID,
+                        CreatedAt: event.CreatedAt,
+                }); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("notification-worker: failed to publish notify.push for user %s: %v", userID, err)
+                }</span>
+        }
+}
+
+func (h *Handler) recipientsNeedingNotification(ctx context.Context, event events.MessageCreated) ([]string, error) <span class="cov0" title="0">{
+        memberIDs, err := h.chat.ListMembers(ctx, event.ChatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">var recipients []string
+        for _, userID := range memberIDs </span><span class="cov0" title="0">{
+                if userID == event.SenderID </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">online, err := h.chat.IsOnline(ctx, userID)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("notification-worker: failed to check presence for user %s: %v", userID, err)
+                        continue</span>
+                }
+                <span class="cov0" title="0">if !online </span><span class="cov0" title="0">{
+                        recipients = append(recipients, userID)
+                }</span>
+        }
+        <span class="cov0" title="0">return recipients, nil</span>
+}
+
+func (h *Handler) HandleUserEvent(_ context.Context, subject string, data []byte) <span class="cov0" title="0">{
+        log.Printf("notification-worker: received %s: %s", subject, string(data))
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

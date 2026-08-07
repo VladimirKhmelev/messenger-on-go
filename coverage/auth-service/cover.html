@@ -1,0 +1,1885 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache/blacklist.go (0.0%)</option>
+				
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache/emailverification.go (0.0%)</option>
+				
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache/emailverifyratelimit.go (0.0%)</option>
+				
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache/passwordreset.go (0.0%)</option>
+				
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache/ratelimit.go (0.0%)</option>
+				
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache/redis.go (0.0%)</option>
+				
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events/events.go (0.0%)</option>
+				
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil/jwtutil.go (94.1%)</option>
+				
+				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/mail/mail.go (0.0%)</option>
+				
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth/github.go (0.0%)</option>
+				
+				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository/migrations.go (0.0%)</option>
+				
+				<option value="file12">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository/postgres.go (0.0%)</option>
+				
+				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
+				
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.5%)</option>
+				
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
+				
+				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (74.1%)</option>
+				
+				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (80.0%)</option>
+				
+				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (80.0%)</option>
+				
+				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				
+				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/health"
+        healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+        authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/mail"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
+        transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
+)
+
+func main() <span class="cov0" title="0">{
+        port := os.Getenv("GRPC_PORT")
+        if port == "" </span><span class="cov0" title="0">{
+                port = "50051"
+        }</span>
+
+        <span class="cov0" title="0">httpPort := os.Getenv("HTTP_PORT")
+        if httpPort == "" </span><span class="cov0" title="0">{
+                httpPort = "8080"
+        }</span>
+
+        <span class="cov0" title="0">dsn := os.Getenv("POSTGRES_DSN")
+        if dsn == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: POSTGRES_DSN is required")
+        }</span>
+
+        <span class="cov0" title="0">jwtSecret := os.Getenv("JWT_SECRET")
+        if jwtSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: JWT_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">redisAddr := os.Getenv("REDIS_ADDR")
+        if redisAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: REDIS_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">smtpAddr := os.Getenv("SMTP_ADDR")
+        if smtpAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: SMTP_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">smtpFrom := os.Getenv("SMTP_FROM")
+        if smtpFrom == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: SMTP_FROM is required")
+        }</span>
+
+        <span class="cov0" title="0">githubClientID := os.Getenv("GITHUB_CLIENT_ID")
+        if githubClientID == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: GITHUB_CLIENT_ID is required")
+        }</span>
+
+        <span class="cov0" title="0">githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
+        if githubClientSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: GITHUB_CLIENT_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">natsURL := os.Getenv("NATS_URL")
+        if natsURL == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: NATS_URL is required")
+        }</span>
+
+        <span class="cov0" title="0">userRepo, err := repository.NewPostgresUserRepository(dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to connect to postgres: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := userRepo.Migrate(); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to run migrations: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">redisClient := cache.NewClient(redisAddr)
+        loginLimiter := cache.NewLoginRateLimiter(redisClient)
+        refreshBlocklist := cache.NewTokenBlacklist(redisClient)
+        emailCodes := cache.NewEmailVerificationStore(redisClient)
+        emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
+        passwordResets := cache.NewPasswordResetStore(redisClient)
+        mailer := mail.NewSender(smtpAddr, smtpFrom)
+        githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
+
+        eventPublisher, err := events.Connect(context.Background(), natsURL)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to connect to NATS: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">tokenIssuer := jwtutil.NewIssuer(jwtSecret)
+        authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher)
+
+        lis, err := net.Listen("tcp", ":"+port)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to listen: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer)),
+        )
+
+        authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService))
+
+        healthServer := health.NewServer()
+        healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+        healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("auth-service: grpc listening on :%s\n", port)
+                if err := grpcServer.Serve(lis); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("auth-service: serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">gwMux := runtime.NewServeMux()
+        gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+        if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">httpServer := &amp;http.Server{
+                Addr:    ":" + httpPort,
+                Handler: gwMux,
+        }
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("auth-service: http listening on :%s\n", httpPort)
+                if err := httpServer.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("auth-service: http serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">stop := make(chan os.Signal, 1)
+        signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-stop
+
+        fmt.Println("auth-service: shutting down")
+        grpcServer.GracefulStop()
+        _ = httpServer.Close()</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package cache
+
+import (
+        "context"
+        "crypto/sha256"
+        "encoding/hex"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const refreshBlacklistKeyPrefix = "auth:refresh-blacklist:"
+
+type TokenBlacklist struct {
+        client *redis.Client
+}
+
+func NewTokenBlacklist(client *redis.Client) *TokenBlacklist <span class="cov0" title="0">{
+        return &amp;TokenBlacklist{client: client}
+}</span>
+
+func (b *TokenBlacklist) Revoke(ctx context.Context, token string, ttl time.Duration) error <span class="cov0" title="0">{
+        return b.client.Set(ctx, refreshBlacklistKeyPrefix+hashToken(token), "1", ttl).Err()
+}</span>
+
+func (b *TokenBlacklist) IsRevoked(ctx context.Context, token string) (bool, error) <span class="cov0" title="0">{
+        n, err := b.client.Exists(ctx, refreshBlacklistKeyPrefix+hashToken(token)).Result()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return n &gt; 0, nil</span>
+}
+
+func hashToken(token string) string <span class="cov0" title="0">{
+        sum := sha256.Sum256([]byte(token))
+        return hex.EncodeToString(sum[:])
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package cache
+
+import (
+        "context"
+        "crypto/rand"
+        "fmt"
+        "math/big"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const (
+        emailVerificationKeyPrefix = "auth:email-verification:"
+        EmailVerificationCodeTTL   = 10 * time.Minute
+)
+
+type EmailVerificationStore struct {
+        client *redis.Client
+}
+
+func NewEmailVerificationStore(client *redis.Client) *EmailVerificationStore <span class="cov0" title="0">{
+        return &amp;EmailVerificationStore{client: client}
+}</span>
+
+func (s *EmailVerificationStore) GenerateAndStore(ctx context.Context, email string) (string, error) <span class="cov0" title="0">{
+        code, err := generateCode()
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">if err := s.client.Set(ctx, emailVerificationKeyPrefix+email, code, EmailVerificationCodeTTL).Err(); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">return code, nil</span>
+}
+
+func (s *EmailVerificationStore) Verify(ctx context.Context, email, code string) (bool, error) <span class="cov0" title="0">{
+        key := emailVerificationKeyPrefix + email
+
+        stored, err := s.client.Get(ctx, key).Result()
+        if err == redis.Nil </span><span class="cov0" title="0">{
+                return false, nil
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+
+        <span class="cov0" title="0">if stored != code </span><span class="cov0" title="0">{
+                return false, nil
+        }</span>
+
+        <span class="cov0" title="0">if err := s.client.Del(ctx, key).Err(); err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+
+        <span class="cov0" title="0">return true, nil</span>
+}
+
+func generateCode() (string, error) <span class="cov0" title="0">{
+        n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">return fmt.Sprintf("%06d", n.Int64()), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package cache
+
+import (
+        "context"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const (
+        emailVerifyRateLimitKeyPrefix = "auth:email-verify-attempts:"
+        EmailVerifyRateLimitMax       = 10
+        EmailVerifyRateLimitWindow    = 10 * time.Minute
+)
+
+type EmailVerifyRateLimiter struct {
+        client *redis.Client
+}
+
+func NewEmailVerifyRateLimiter(client *redis.Client) *EmailVerifyRateLimiter <span class="cov0" title="0">{
+        return &amp;EmailVerifyRateLimiter{client: client}
+}</span>
+
+func (l *EmailVerifyRateLimiter) Allow(ctx context.Context, key string) (bool, error) <span class="cov0" title="0">{
+        redisKey := emailVerifyRateLimitKeyPrefix + key
+
+        count, err := l.client.Incr(ctx, redisKey).Result()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+
+        <span class="cov0" title="0">if count == 1 </span><span class="cov0" title="0">{
+                if err := l.client.Expire(ctx, redisKey, EmailVerifyRateLimitWindow).Err(); err != nil </span><span class="cov0" title="0">{
+                        return false, err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return count &lt;= EmailVerifyRateLimitMax, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package cache
+
+import (
+        "context"
+        "crypto/rand"
+        "encoding/hex"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const (
+        passwordResetKeyPrefix = "auth:password-reset:"
+        PasswordResetTokenTTL  = 30 * time.Minute
+        passwordResetTokenSize = 32
+)
+
+type PasswordResetStore struct {
+        client *redis.Client
+}
+
+func NewPasswordResetStore(client *redis.Client) *PasswordResetStore <span class="cov0" title="0">{
+        return &amp;PasswordResetStore{client: client}
+}</span>
+
+func (s *PasswordResetStore) GenerateAndStore(ctx context.Context, email string) (string, error) <span class="cov0" title="0">{
+        token, err := generateResetToken()
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">if err := s.client.Set(ctx, passwordResetKeyPrefix+hashToken(token), email, PasswordResetTokenTTL).Err(); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">return token, nil</span>
+}
+
+func (s *PasswordResetStore) Consume(ctx context.Context, token string) (string, bool, error) <span class="cov0" title="0">{
+        key := passwordResetKeyPrefix + hashToken(token)
+
+        email, err := s.client.Get(ctx, key).Result()
+        if err == redis.Nil </span><span class="cov0" title="0">{
+                return "", false, nil
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return "", false, err
+        }</span>
+
+        <span class="cov0" title="0">if err := s.client.Del(ctx, key).Err(); err != nil </span><span class="cov0" title="0">{
+                return "", false, err
+        }</span>
+
+        <span class="cov0" title="0">return email, true, nil</span>
+}
+
+func generateResetToken() (string, error) <span class="cov0" title="0">{
+        buf := make([]byte, passwordResetTokenSize)
+        if _, err := rand.Read(buf); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">return hex.EncodeToString(buf), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package cache
+
+import (
+        "context"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const (
+        loginRateLimitKeyPrefix = "auth:login-attempts:"
+        LoginRateLimitMax       = 10
+        LoginRateLimitWindow    = time.Minute
+)
+
+type LoginRateLimiter struct {
+        client *redis.Client
+}
+
+func NewLoginRateLimiter(client *redis.Client) *LoginRateLimiter <span class="cov0" title="0">{
+        return &amp;LoginRateLimiter{client: client}
+}</span>
+
+func (l *LoginRateLimiter) Allow(ctx context.Context, key string) (bool, error) <span class="cov0" title="0">{
+        redisKey := loginRateLimitKeyPrefix + key
+
+        count, err := l.client.Incr(ctx, redisKey).Result()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+
+        <span class="cov0" title="0">if count == 1 </span><span class="cov0" title="0">{
+                if err := l.client.Expire(ctx, redisKey, LoginRateLimitWindow).Err(); err != nil </span><span class="cov0" title="0">{
+                        return false, err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return count &lt;= LoginRateLimitMax, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package cache
+
+import (
+        "github.com/redis/go-redis/v9"
+)
+
+func NewClient(addr string) *redis.Client <span class="cov0" title="0">{
+        return redis.NewClient(&amp;redis.Options{Addr: addr})
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package events
+
+import (
+        "context"
+        "encoding/json"
+        "time"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/jetstream"
+)
+
+const (
+        StreamName = "USER_EVENTS"
+
+        SubjectUserRegistered    = "user.registered"
+        SubjectUserPasswordReset = "user.password_reset"
+        SubjectUserOAuthLinked   = "user.oauth_linked"
+)
+
+type UserRegistered struct {
+        UserID    string    `json:"user_id"`
+        Email     string    `json:"email"`
+        Tag       string    `json:"tag"`
+        CreatedAt time.Time `json:"created_at"`
+}
+
+type UserPasswordReset struct {
+        UserID string    `json:"user_id"`
+        Email  string    `json:"email"`
+        At     time.Time `json:"at"`
+}
+
+type UserOAuthLinked struct {
+        UserID   string    `json:"user_id"`
+        Email    string    `json:"email"`
+        Provider string    `json:"provider"`
+        At       time.Time `json:"at"`
+}
+
+type Publisher struct {
+        js jetstream.JetStream
+}
+
+func Connect(ctx context.Context, url string) (*Publisher, error) <span class="cov0" title="0">{
+        nc, err := nats.Connect(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">js, err := jetstream.New(nc)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+                Name:     StreamName,
+                Subjects: []string{"user.*"},
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
+}
+
+func (p *Publisher) PublishUserRegistered(ctx context.Context, event UserRegistered) error <span class="cov0" title="0">{
+        return p.publish(ctx, SubjectUserRegistered, event)
+}</span>
+
+func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event UserPasswordReset) error <span class="cov0" title="0">{
+        return p.publish(ctx, SubjectUserPasswordReset, event)
+}</span>
+
+func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event UserOAuthLinked) error <span class="cov0" title="0">{
+        return p.publish(ctx, SubjectUserOAuthLinked, event)
+}</span>
+
+func (p *Publisher) publish(ctx context.Context, subject string, event any) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">_, err = p.js.Publish(ctx, subject, payload)
+        return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package jwtutil
+
+import (
+        "time"
+
+        "github.com/golang-jwt/jwt/v5"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const (
+        AccessTokenTTL  = 15 * time.Minute
+        RefreshTokenTTL = 30 * 24 * time.Hour
+)
+
+type TokenType string
+
+const (
+        TokenTypeAccess  TokenType = "access"
+        TokenTypeRefresh TokenType = "refresh"
+)
+
+type Claims struct {
+        jwt.RegisteredClaims
+        UserID string    `json:"user_id"`
+        Type   TokenType `json:"type"`
+}
+
+type Issuer struct {
+        secret []byte
+}
+
+func NewIssuer(secret string) *Issuer <span class="cov8" title="1">{
+        return &amp;Issuer{secret: []byte(secret)}
+}</span>
+
+func (i *Issuer) IssueAccessToken(userID string) (string, error) <span class="cov8" title="1">{
+        return i.issue(userID, TokenTypeAccess, AccessTokenTTL)
+}</span>
+
+func (i *Issuer) IssueRefreshToken(userID string) (string, error) <span class="cov8" title="1">{
+        return i.issue(userID, TokenTypeRefresh, RefreshTokenTTL)
+}</span>
+
+func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (string, error) <span class="cov8" title="1">{
+        now := time.Now()
+        claims := Claims{
+                RegisteredClaims: jwt.RegisteredClaims{
+                        IssuedAt:  jwt.NewNumericDate(now),
+                        ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+                },
+                UserID: userID,
+                Type:   tokenType,
+        }
+
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+        return token.SignedString(i.secret)
+}</span>
+
+func (i *Issuer) Parse(tokenString string, wantType TokenType) (*Claims, error) <span class="cov8" title="1">{
+        claims := &amp;Claims{}
+
+        token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) </span><span class="cov8" title="1">{
+                if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok </span><span class="cov0" title="0">{
+                        return nil, domain.ErrInvalidToken
+                }</span>
+                <span class="cov8" title="1">return i.secret, nil</span>
+        })
+        <span class="cov8" title="1">if err != nil || !token.Valid </span><span class="cov8" title="1">{
+                return nil, domain.ErrInvalidToken
+        }</span>
+
+        <span class="cov8" title="1">if claims.Type != wantType </span><span class="cov8" title="1">{
+                return nil, domain.ErrInvalidToken
+        }</span>
+
+        <span class="cov8" title="1">return claims, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package mail
+
+import (
+        "fmt"
+        "net/smtp"
+)
+
+type Sender struct {
+        addr string
+        from string
+}
+
+func NewSender(addr, from string) *Sender <span class="cov0" title="0">{
+        return &amp;Sender{addr: addr, from: from}
+}</span>
+
+func (s *Sender) SendVerificationCode(to, code string) error <span class="cov0" title="0">{
+        subject := "Your verification code"
+        body := fmt.Sprintf("Your verification code is: %s\r\nIt expires in 10 minutes.", code)
+
+        return s.send(to, subject, body)
+}</span>
+
+func (s *Sender) SendPasswordResetToken(to, token string) error <span class="cov0" title="0">{
+        subject := "Password reset"
+        body := fmt.Sprintf("Your password reset token is: %s\r\nIt expires in 30 minutes.\r\nIf you did not request a password reset, ignore this email.", token)
+
+        return s.send(to, subject, body)
+}</span>
+
+func (s *Sender) send(to, subject, body string) error <span class="cov0" title="0">{
+        msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n", s.from, to, subject, body)
+
+        return smtp.SendMail(s.addr, nil, s.from, []string{to}, []byte(msg))
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package oauth
+
+import (
+        "encoding/json"
+        "errors"
+        "fmt"
+        "io"
+        "net/http"
+        "net/url"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const (
+        githubTokenURL  = "https://github.com/login/oauth/access_token"
+        githubUserURL   = "https://api.github.com/user"
+        githubEmailsURL = "https://api.github.com/user/emails"
+)
+
+type GitHubProfile struct {
+        ID    int64
+        Login string
+        Email string
+}
+
+type GitHubClient struct {
+        clientID     string
+        clientSecret string
+        httpClient   *http.Client
+}
+
+func NewGitHubClient(clientID, clientSecret string) *GitHubClient <span class="cov0" title="0">{
+        return &amp;GitHubClient{
+                clientID:     clientID,
+                clientSecret: clientSecret,
+                httpClient:   &amp;http.Client{},
+        }
+}</span>
+
+func (c *GitHubClient) FetchProfile(code string) (*GitHubProfile, error) <span class="cov0" title="0">{
+        token, err := c.exchangeCode(code)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">profile, err := c.fetchUser(token)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if profile.Email == "" </span><span class="cov0" title="0">{
+                email, err := c.fetchPrimaryVerifiedEmail(token)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">profile.Email = email</span>
+        }
+
+        <span class="cov0" title="0">return profile, nil</span>
+}
+
+func (c *GitHubClient) exchangeCode(code string) (string, error) <span class="cov0" title="0">{
+        form := url.Values{
+                "client_id":     {c.clientID},
+                "client_secret": {c.clientSecret},
+                "code":          {code},
+        }
+
+        req, err := http.NewRequest(http.MethodPost, githubTokenURL, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">req.URL.RawQuery = form.Encode()
+        req.Header.Set("Accept", "application/json")
+
+        resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = resp.Body.Close() }</span>()
+
+        <span class="cov0" title="0">var result struct {
+                AccessToken string `json:"access_token"`
+                Error       string `json:"error"`
+                ErrorDesc   string `json:"error_description"`
+        }
+        if err := json.NewDecoder(resp.Body).Decode(&amp;result); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">if result.Error != "" </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("github oauth error: %s: %s", result.Error, result.ErrorDesc)
+        }</span>
+        <span class="cov0" title="0">if result.AccessToken == "" </span><span class="cov0" title="0">{
+                return "", errors.New("github oauth: empty access token")
+        }</span>
+
+        <span class="cov0" title="0">return result.AccessToken, nil</span>
+}
+
+func (c *GitHubClient) fetchUser(token string) (*GitHubProfile, error) <span class="cov0" title="0">{
+        var raw struct {
+                ID    int64  `json:"id"`
+                Login string `json:"login"`
+                Email string `json:"email"`
+        }
+        if err := c.getJSON(githubUserURL, token, &amp;raw); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;GitHubProfile{ID: raw.ID, Login: raw.Login, Email: raw.Email}, nil</span>
+}
+
+func (c *GitHubClient) fetchPrimaryVerifiedEmail(token string) (string, error) <span class="cov0" title="0">{
+        var emails []struct {
+                Email    string `json:"email"`
+                Primary  bool   `json:"primary"`
+                Verified bool   `json:"verified"`
+        }
+        if err := c.getJSON(githubEmailsURL, token, &amp;emails); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">for _, e := range emails </span><span class="cov0" title="0">{
+                if e.Primary &amp;&amp; e.Verified </span><span class="cov0" title="0">{
+                        return e.Email, nil
+                }</span>
+        }
+        <span class="cov0" title="0">for _, e := range emails </span><span class="cov0" title="0">{
+                if e.Verified </span><span class="cov0" title="0">{
+                        return e.Email, nil
+                }</span>
+        }
+
+        <span class="cov0" title="0">return "", domain.ErrOAuthNoVerifiedEmail</span>
+}
+
+func (c *GitHubClient) getJSON(url, token string, out any) error <span class="cov0" title="0">{
+        req, err := http.NewRequest(http.MethodGet, url, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">req.Header.Set("Authorization", "Bearer "+token)
+        req.Header.Set("Accept", "application/vnd.github+json")
+
+        resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = resp.Body.Close() }</span>()
+
+        <span class="cov0" title="0">if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("github api %s: status %d: %s", url, resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">return json.NewDecoder(resp.Body).Decode(out)</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package repository
+
+import (
+        "embed"
+        "errors"
+
+        "github.com/golang-migrate/migrate/v4"
+        "github.com/golang-migrate/migrate/v4/database/pgx"
+        "github.com/golang-migrate/migrate/v4/source/iofs"
+)
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
+func (r *PostgresUserRepository) Migrate() error <span class="cov0" title="0">{
+        files, err := iofs.New(migrationFiles, "migrations")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">driver, err := pgx.WithInstance(r.conn.DB, &amp;pgx.Config{})
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">m, err := migrate.NewWithInstance("iofs", files, "pgx", driver)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := m.Up(); err != nil &amp;&amp; !errors.Is(err, migrate.ErrNoChange) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package repository
+
+import (
+        "context"
+        "database/sql"
+        "errors"
+        "strings"
+
+        _ "github.com/jackc/pgx/v5/stdlib"
+        "github.com/jmoiron/sqlx"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+type PostgresUserRepository struct {
+        conn *sqlx.DB
+}
+
+func NewPostgresUserRepository(dsn string) (*PostgresUserRepository, error) <span class="cov0" title="0">{
+        conn, err := sqlx.Connect("pgx", dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;PostgresUserRepository{conn: conn}, nil</span>
+}
+
+func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO users (id, email, tag, password_hash, email_verified, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6)`,
+                user.ID, user.Email, user.Tag, user.PasswordHash, user.EmailVerified, user.CreatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) <span class="cov0" title="0">{
+        var exists bool
+        err := r.conn.GetContext(ctx, &amp;exists, `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`, email)
+        return exists, err
+}</span>
+
+func (r *PostgresUserRepository) ExistsByTag(ctx context.Context, tag string) (bool, error) <span class="cov0" title="0">{
+        var exists bool
+        err := r.conn.GetContext(ctx, &amp;exists, `SELECT EXISTS(SELECT 1 FROM users WHERE tag = $1)`, tag)
+        return exists, err
+}</span>
+
+func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) <span class="cov0" title="0">{
+        var user domain.User
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE email = $1`, email)
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrUserNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*domain.User, error) <span class="cov0" title="0">{
+        var user domain.User
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE tag = $1`, tag)
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrUserNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) <span class="cov0" title="0">{
+        var user domain.User
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrUserNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+func (r *PostgresUserRepository) SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error) <span class="cov0" title="0">{
+        pattern := escapeLikePattern(prefix) + "%"
+
+        var users []*domain.User
+        err := r.conn.SelectContext(ctx, &amp;users, `
+                SELECT id, email, tag, password_hash, email_verified, created_at FROM users
+                WHERE tag LIKE $1 ESCAPE '\' ORDER BY tag LIMIT $2`,
+                pattern, limit,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return users, nil</span>
+}
+
+func (r *PostgresUserRepository) MarkEmailVerified(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `UPDATE users SET email_verified = TRUE WHERE id = $1`, userID)
+        return err
+}</span>
+
+func (r *PostgresUserRepository) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, passwordHash, userID)
+        return err
+}</span>
+
+func escapeLikePattern(s string) string <span class="cov0" title="0">{
+        replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+        return replacer.Replace(s)
+}</span>
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "time"
+
+        "golang.org/x/crypto/bcrypt"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+)
+
+type TokenPair struct {
+        AccessToken  string
+        RefreshToken string
+}
+
+func (s *AuthService) Login(ctx context.Context, email, password string) (*TokenPair, error) <span class="cov8" title="1">{
+        allowed, err := s.loginLimiter.Allow(ctx, email)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+                return nil, domain.ErrTooManyAttempts
+        }</span>
+
+        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
+        if err != nil </span><span class="cov8" title="1">{
+                if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov8" title="1">{
+                        return nil, domain.ErrInvalidCredentials
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil </span><span class="cov8" title="1">{
+                return nil, domain.ErrInvalidCredentials
+        }</span>
+
+        <span class="cov8" title="1">if !user.EmailVerified </span><span class="cov8" title="1">{
+                return nil, domain.ErrEmailNotVerified
+        }</span>
+
+        <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">refreshToken, err := s.tokens.IssueRefreshToken(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil</span>
+}
+
+func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) <span class="cov8" title="1">{
+        claims, err := s.tokens.Parse(refreshToken, jwtutil.TokenTypeRefresh)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, domain.ErrInvalidToken
+        }</span>
+
+        <span class="cov8" title="1">revoked, err := s.refreshBlocked.IsRevoked(ctx, refreshToken)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if revoked </span><span class="cov8" title="1">{
+                return nil, domain.ErrInvalidToken
+        }</span>
+
+        <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(claims.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">newRefreshToken, err := s.tokens.IssueRefreshToken(claims.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: newRefreshToken}, nil</span>
+}
+
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <span class="cov8" title="1">{
+        claims, err := s.tokens.Parse(refreshToken, jwtutil.TokenTypeRefresh)
+        if err != nil </span><span class="cov8" title="1">{
+                return domain.ErrInvalidToken
+        }</span>
+
+        <span class="cov8" title="1">ttl := time.Until(claims.ExpiresAt.Time)
+        if ttl &lt;= 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">return s.refreshBlocked.Revoke(ctx, refreshToken, ttl)</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package service
+
+import (
+        "context"
+        "crypto/rand"
+        "errors"
+        "fmt"
+        "log"
+        "math/big"
+        "time"
+
+        "github.com/google/uuid"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
+)
+
+const maxTagGenerationAttempts = 5
+
+func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenPair, error) <span class="cov8" title="1">{
+        profile, err := s.github.FetchProfile(code)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, profile.Email)
+        if err != nil </span><span class="cov8" title="1">{
+                if !errors.Is(err, domain.ErrUserNotFound) </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">user, err = s.createUserFromGitHub(ctx, profile)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+
+        <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">refreshToken, err := s.tokens.IssueRefreshToken(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil</span>
+}
+
+func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile) (*domain.User, error) <span class="cov8" title="1">{
+        tag, err := s.generateUniqueTag(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">user := &amp;domain.User{
+                ID:            uuid.NewString(),
+                Email:         profile.Email,
+                Tag:           tag,
+                PasswordHash:  oauthPasswordPlaceholder,
+                EmailVerified: true,
+                CreatedAt:     time.Now(),
+        }
+
+        if err := s.users.Create(ctx, user); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishUserOAuthLinked(ctx, events.UserOAuthLinked{
+                UserID:   user.ID,
+                Email:    user.Email,
+                Provider: "github",
+                At:       time.Now(),
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("auth-service: failed to publish user.oauth_linked event for %s: %v", user.ID, err)
+        }</span>
+
+        <span class="cov8" title="1">return user, nil</span>
+}
+
+func (s *AuthService) generateUniqueTag(ctx context.Context) (string, error) <span class="cov8" title="1">{
+        for i := 0; i &lt; maxTagGenerationAttempts; i++ </span><span class="cov8" title="1">{
+                tag, err := randomTag()
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+
+                <span class="cov8" title="1">taken, err := s.users.ExistsByTag(ctx, tag)
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+                <span class="cov8" title="1">if !taken </span><span class="cov8" title="1">{
+                        return tag, nil
+                }</span>
+        }
+
+        <span class="cov0" title="0">return "", errors.New("failed to generate a unique tag")</span>
+}
+
+func randomTag() (string, error) <span class="cov8" title="1">{
+        n, err := rand.Int(rand.Reader, big.NewInt(100000000))
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return fmt.Sprintf("id%08d", n.Int64()), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package service
+
+import (
+        "unicode"
+        "unicode/utf8"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const minPasswordLength = 8
+
+func ValidatePassword(password string) error <span class="cov8" title="1">{
+        if utf8.RuneCountInString(password) &lt; minPasswordLength </span><span class="cov8" title="1">{
+                return domain.ErrWeakPassword
+        }</span>
+
+        <span class="cov8" title="1">var hasDigit, hasLetter bool
+        for _, r := range password </span><span class="cov8" title="1">{
+                switch </span>{
+                case unicode.IsDigit(r):<span class="cov8" title="1">
+                        hasDigit = true</span>
+                case unicode.IsLetter(r):<span class="cov8" title="1">
+                        hasLetter = true</span>
+                }
+        }
+
+        <span class="cov8" title="1">if !hasDigit || !hasLetter </span><span class="cov8" title="1">{
+                return domain.ErrWeakPassword
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "log"
+        "time"
+
+        "golang.org/x/crypto/bcrypt"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
+)
+
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error <span class="cov8" title="1">{
+        user, err := s.users.GetByEmail(ctx, email)
+        if err != nil </span><span class="cov8" title="1">{
+                if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov8" title="1">{
+                        return nil
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov8" title="1">token, err := s.passwordResets.GenerateAndStore(ctx, user.Email)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return s.mailer.SendPasswordResetToken(user.Email, token)</span>
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) error <span class="cov8" title="1">{
+        email, ok, err := s.passwordResets.Consume(ctx, token)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !ok </span><span class="cov8" title="1">{
+                return domain.ErrInvalidToken
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidatePassword(newPassword); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishUserPasswordReset(ctx, events.UserPasswordReset{
+                UserID: user.ID,
+                Email:  user.Email,
+                At:     time.Now(),
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("auth-service: failed to publish user.password_reset event for %s: %v", user.ID, err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package service
+
+import (
+        "context"
+        "log"
+        "time"
+
+        "github.com/google/uuid"
+        "golang.org/x/crypto/bcrypt"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
+)
+
+type RateLimiter interface {
+        Allow(ctx context.Context, key string) (bool, error)
+}
+
+type TokenBlacklist interface {
+        Revoke(ctx context.Context, token string, ttl time.Duration) error
+        IsRevoked(ctx context.Context, token string) (bool, error)
+}
+
+type EmailVerificationStore interface {
+        GenerateAndStore(ctx context.Context, email string) (string, error)
+        Verify(ctx context.Context, email, code string) (bool, error)
+}
+
+type Mailer interface {
+        SendVerificationCode(to, code string) error
+        SendPasswordResetToken(to, token string) error
+}
+
+type PasswordResetStore interface {
+        GenerateAndStore(ctx context.Context, email string) (string, error)
+        Consume(ctx context.Context, token string) (email string, ok bool, err error)
+}
+
+type GitHubOAuthClient interface {
+        FetchProfile(code string) (*oauth.GitHubProfile, error)
+}
+
+type EventPublisher interface {
+        PublishUserRegistered(ctx context.Context, event events.UserRegistered) error
+        PublishUserPasswordReset(ctx context.Context, event events.UserPasswordReset) error
+        PublishUserOAuthLinked(ctx context.Context, event events.UserOAuthLinked) error
+}
+
+const oauthPasswordPlaceholder = "oauth-account-no-password"
+
+type AuthService struct {
+        users              repository.UserRepository
+        tokens             *jwtutil.Issuer
+        loginLimiter       RateLimiter
+        refreshBlocked     TokenBlacklist
+        emailCodes         EmailVerificationStore
+        emailVerifyLimiter RateLimiter
+        mailer             Mailer
+        passwordResets     PasswordResetStore
+        github             GitHubOAuthClient
+        events             EventPublisher
+}
+
+func NewAuthService(
+        users repository.UserRepository,
+        tokens *jwtutil.Issuer,
+        loginLimiter RateLimiter,
+        refreshBlocked TokenBlacklist,
+        emailCodes EmailVerificationStore,
+        emailVerifyLimiter RateLimiter,
+        mailer Mailer,
+        passwordResets PasswordResetStore,
+        github GitHubOAuthClient,
+        eventPublisher EventPublisher,
+) *AuthService <span class="cov8" title="1">{
+        return &amp;AuthService{
+                users:              users,
+                tokens:             tokens,
+                loginLimiter:       loginLimiter,
+                refreshBlocked:     refreshBlocked,
+                emailCodes:         emailCodes,
+                emailVerifyLimiter: emailVerifyLimiter,
+                mailer:             mailer,
+                passwordResets:     passwordResets,
+                github:             github,
+                events:             eventPublisher,
+        }
+}</span>
+
+func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) <span class="cov8" title="1">{
+        if err := ValidateEmail(email); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if err := ValidateTag(tag); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if err := ValidatePassword(password); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">emailTaken, err := s.users.ExistsByEmail(ctx, email)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if emailTaken </span><span class="cov8" title="1">{
+                return nil, domain.ErrEmailTaken
+        }</span>
+
+        <span class="cov8" title="1">tagTaken, err := s.users.ExistsByTag(ctx, tag)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if tagTaken </span><span class="cov8" title="1">{
+                return nil, domain.ErrTagTaken
+        }</span>
+
+        <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">user := &amp;domain.User{
+                ID:            uuid.NewString(),
+                Email:         email,
+                Tag:           tag,
+                PasswordHash:  string(passwordHash),
+                EmailVerified: false,
+                CreatedAt:     time.Now(),
+        }
+
+        if err := s.users.Create(ctx, user); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">code, err := s.emailCodes.GenerateAndStore(ctx, email)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.mailer.SendVerificationCode(email, code); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishUserRegistered(ctx, events.UserRegistered{
+                UserID:    user.ID,
+                Email:     user.Email,
+                Tag:       user.Tag,
+                CreatedAt: user.CreatedAt,
+        }); err != nil </span><span class="cov8" title="1">{
+                log.Printf("auth-service: failed to publish user.registered event for %s: %v", user.ID, err)
+        }</span>
+
+        <span class="cov8" title="1">return user, nil</span>
+}
+
+func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error <span class="cov8" title="1">{
+        allowed, err := s.emailVerifyLimiter.Allow(ctx, email)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+                return domain.ErrTooManyAttempts
+        }</span>
+
+        <span class="cov8" title="1">ok, err := s.emailCodes.Verify(ctx, email, code)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !ok </span><span class="cov8" title="1">{
+                return domain.ErrInvalidVerificationCode
+        }</span>
+
+        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return s.users.MarkEmailVerified(ctx, user.ID)</span>
+}
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package service
+
+import (
+        "context"
+        "unicode/utf8"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const (
+        SearchUsersMinQueryLen = 3
+        SearchUsersLimit       = 15
+)
+
+func (s *AuthService) GetUserByTag(ctx context.Context, tag string) (*domain.User, error) <span class="cov8" title="1">{
+        return s.users.GetByTag(ctx, tag)
+}</span>
+
+func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) <span class="cov0" title="0">{
+        return s.users.GetByID(ctx, id)
+}</span>
+
+func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.User, error) <span class="cov8" title="1">{
+        if utf8.RuneCountInString(query) &lt; SearchUsersMinQueryLen </span><span class="cov8" title="1">{
+                return nil, domain.ErrSearchQueryTooShort
+        }</span>
+
+        <span class="cov8" title="1">return s.users.SearchByTagPrefix(ctx, query, SearchUsersLimit)</span>
+}
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package service
+
+import (
+        "net/mail"
+        "regexp"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+var tagPattern = regexp.MustCompile(`^[a-z0-9_]{3,20}$`)
+
+func ValidateEmail(email string) error <span class="cov8" title="1">{
+        if _, err := mail.ParseAddress(email); err != nil </span><span class="cov8" title="1">{
+                return domain.ErrInvalidEmail
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func ValidateTag(tag string) error <span class="cov8" title="1">{
+        if !tagPattern.MatchString(tag) </span><span class="cov8" title="1">{
+                return domain.ErrInvalidTag
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package grpc
+
+import (
+        "context"
+        "errors"
+
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/status"
+
+        authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
+)
+
+type AuthServer struct {
+        authv1.UnimplementedAuthServiceServer
+
+        auth *service.AuthService
+}
+
+func NewAuthServer(auth *service.AuthService) *AuthServer <span class="cov0" title="0">{
+        return &amp;AuthServer{auth: auth}
+}</span>
+
+func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) <span class="cov0" title="0">{
+        user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetPassword())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.RegisterResponse{UserId: user.ID}, nil</span>
+}
+
+func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) <span class="cov0" title="0">{
+        tokens, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.LoginResponse{
+                AccessToken:  tokens.AccessToken,
+                RefreshToken: tokens.RefreshToken,
+        }, nil</span>
+}
+
+func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagRequest) (*authv1.GetUserByTagResponse, error) <span class="cov0" title="0">{
+        user, err := s.auth.GetUserByTag(ctx, req.GetTag())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.GetUserByTagResponse{
+                UserId: user.ID,
+                Email:  user.Email,
+                Tag:    user.Tag,
+        }, nil</span>
+}
+
+func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDRequest) (*authv1.GetUserByIDResponse, error) <span class="cov0" title="0">{
+        user, err := s.auth.GetUserByID(ctx, req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.GetUserByIDResponse{
+                UserId: user.ID,
+                Email:  user.Email,
+                Tag:    user.Tag,
+        }, nil</span>
+}
+
+func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersRequest) (*authv1.SearchUsersResponse, error) <span class="cov0" title="0">{
+        users, err := s.auth.SearchUsers(ctx, req.GetQuery())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">summaries := make([]*authv1.UserSummary, 0, len(users))
+        for _, user := range users </span><span class="cov0" title="0">{
+                summaries = append(summaries, &amp;authv1.UserSummary{
+                        UserId: user.ID,
+                        Email:  user.Email,
+                        Tag:    user.Tag,
+                })
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.SearchUsersResponse{Users: summaries}, nil</span>
+}
+
+func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) <span class="cov0" title="0">{
+        tokens, err := s.auth.RefreshToken(ctx, req.GetRefreshToken())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.RefreshTokenResponse{
+                AccessToken:  tokens.AccessToken,
+                RefreshToken: tokens.RefreshToken,
+        }, nil</span>
+}
+
+func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) <span class="cov0" title="0">{
+        if err := s.auth.Logout(ctx, req.GetRefreshToken()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.LogoutResponse{}, nil</span>
+}
+
+func (s *AuthServer) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest) (*authv1.VerifyEmailResponse, error) <span class="cov0" title="0">{
+        if err := s.auth.VerifyEmail(ctx, req.GetEmail(), req.GetCode()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.VerifyEmailResponse{}, nil</span>
+}
+
+func (s *AuthServer) RequestPasswordReset(ctx context.Context, req *authv1.RequestPasswordResetRequest) (*authv1.RequestPasswordResetResponse, error) <span class="cov0" title="0">{
+        if err := s.auth.RequestPasswordReset(ctx, req.GetEmail()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.RequestPasswordResetResponse{}, nil</span>
+}
+
+func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) <span class="cov0" title="0">{
+        if err := s.auth.ResetPassword(ctx, req.GetToken(), req.GetNewPassword()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.ResetPasswordResponse{}, nil</span>
+}
+
+func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithGitHubRequest) (*authv1.LoginWithGitHubResponse, error) <span class="cov0" title="0">{
+        tokens, err := s.auth.LoginWithGitHub(ctx, req.GetCode())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.LoginWithGitHubResponse{
+                AccessToken:  tokens.AccessToken,
+                RefreshToken: tokens.RefreshToken,
+        }, nil</span>
+}
+
+func toGRPCError(err error) error <span class="cov0" title="0">{
+        switch </span>{
+        case errors.Is(err, domain.ErrInvalidEmail),
+                errors.Is(err, domain.ErrInvalidTag),
+                errors.Is(err, domain.ErrWeakPassword),
+                errors.Is(err, domain.ErrSearchQueryTooShort):<span class="cov0" title="0">
+                return status.Error(codes.InvalidArgument, err.Error())</span>
+        case errors.Is(err, domain.ErrEmailTaken),
+                errors.Is(err, domain.ErrTagTaken):<span class="cov0" title="0">
+                return status.Error(codes.AlreadyExists, err.Error())</span>
+        case errors.Is(err, domain.ErrInvalidCredentials),
+                errors.Is(err, domain.ErrInvalidToken),
+                errors.Is(err, domain.ErrEmailNotVerified),
+                errors.Is(err, domain.ErrInvalidVerificationCode),
+                errors.Is(err, domain.ErrOAuthNoVerifiedEmail):<span class="cov0" title="0">
+                return status.Error(codes.Unauthenticated, err.Error())</span>
+        case errors.Is(err, domain.ErrUserNotFound):<span class="cov0" title="0">
+                return status.Error(codes.NotFound, err.Error())</span>
+        case errors.Is(err, domain.ErrTooManyAttempts):<span class="cov0" title="0">
+                return status.Error(codes.ResourceExhausted, err.Error())</span>
+        default:<span class="cov0" title="0">
+                return status.Error(codes.Internal, "internal error")</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package grpc
+
+import (
+        "context"
+        "strings"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/metadata"
+        "google.golang.org/grpc/status"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+)
+
+type contextKey string
+
+const userIDContextKey contextKey = "user_id"
+
+// publicMethods lists the full gRPC method names that do not require an
+// access token. Everything else is protected by default.
+var publicMethods = map[string]bool{
+        "/auth.v1.AuthService/Health":               true,
+        "/auth.v1.AuthService/Register":             true,
+        "/auth.v1.AuthService/Login":                true,
+        "/auth.v1.AuthService/RefreshToken":         true,
+        "/auth.v1.AuthService/VerifyEmail":          true,
+        "/auth.v1.AuthService/RequestPasswordReset": true,
+        "/auth.v1.AuthService/ResetPassword":        true,
+        "/auth.v1.AuthService/LoginWithGitHub":      true,
+        "/grpc.health.v1.Health/Check":              true,
+        "/grpc.health.v1.Health/Watch":              true,
+}
+
+func AuthInterceptor(issuer *jwtutil.Issuer) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
+        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
+                if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
+                        return handler(ctx, req)
+                }</span>
+
+                <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">claims, err := issuer.Parse(token, jwtutil.TokenTypeAccess)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+                }</span>
+
+                <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, claims.UserID)
+                return handler(ctx, req)</span>
+        }
+}
+
+func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{
+        md, ok := metadata.FromIncomingContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return "", status.Error(codes.Unauthenticated, "missing metadata")
+        }</span>
+
+        <span class="cov8" title="1">values := md.Get("authorization")
+        if len(values) == 0 </span><span class="cov0" title="0">{
+                return "", status.Error(codes.Unauthenticated, "missing authorization header")
+        }</span>
+
+        <span class="cov8" title="1">const prefix = "Bearer "
+        if !strings.HasPrefix(values[0], prefix) </span><span class="cov8" title="1">{
+                return "", status.Error(codes.Unauthenticated, "authorization header must use Bearer scheme")
+        }</span>
+
+        <span class="cov8" title="1">return strings.TrimPrefix(values[0], prefix), nil</span>
+}
+
+func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" title="1">{
+        userID, ok := ctx.Value(userIDContextKey).(string)
+        return userID, ok
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

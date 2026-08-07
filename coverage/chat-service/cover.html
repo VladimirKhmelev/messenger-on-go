@@ -1,0 +1,1001 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient/authclient.go (0.0%)</option>
+				
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache/presence.go (0.0%)</option>
+				
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache/redis.go (0.0%)</option>
+				
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events/events.go (0.0%)</option>
+				
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/migrations.go (0.0%)</option>
+				
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
+				
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (85.1%)</option>
+				
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
+				
+				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.9%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/health"
+        healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+        chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
+        transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
+)
+
+func main() <span class="cov0" title="0">{
+        port := os.Getenv("GRPC_PORT")
+        if port == "" </span><span class="cov0" title="0">{
+                port = "50051"
+        }</span>
+
+        <span class="cov0" title="0">httpPort := os.Getenv("HTTP_PORT")
+        if httpPort == "" </span><span class="cov0" title="0">{
+                httpPort = "8080"
+        }</span>
+
+        <span class="cov0" title="0">dsn := os.Getenv("POSTGRES_DSN")
+        if dsn == "" </span><span class="cov0" title="0">{
+                log.Fatal("chat-service: POSTGRES_DSN is required")
+        }</span>
+
+        <span class="cov0" title="0">jwtSecret := os.Getenv("JWT_SECRET")
+        if jwtSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("chat-service: JWT_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
+        if authServiceAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("chat-service: AUTH_SERVICE_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">natsURL := os.Getenv("NATS_URL")
+        if natsURL == "" </span><span class="cov0" title="0">{
+                log.Fatal("chat-service: NATS_URL is required")
+        }</span>
+
+        <span class="cov0" title="0">redisAddr := os.Getenv("REDIS_ADDR")
+        if redisAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("chat-service: REDIS_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">internalSecret := os.Getenv("INTERNAL_SECRET")
+        if internalSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("chat-service: INTERNAL_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">chatRepo, err := repository.NewPostgresChatRepository(dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to connect to postgres: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := chatRepo.Migrate(); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to run migrations: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">authClient, err := authclient.Dial(authServiceAddr)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to dial auth-service: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = authClient.Close() }</span>()
+
+        <span class="cov0" title="0">eventPublisher, err := events.Connect(context.Background(), natsURL)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to connect to NATS: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">presenceStore := cache.NewPresenceStore(cache.NewClient(redisAddr))
+
+        chatService := service.NewChatService(chatRepo, authClient, eventPublisher, presenceStore)
+
+        lis, err := net.Listen("tcp", ":"+port)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to listen: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret, presenceStore)),
+        )
+
+        chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))
+
+        healthServer := health.NewServer()
+        healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+        healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("chat-service: grpc listening on :%s\n", port)
+                if err := grpcServer.Serve(lis); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("chat-service: serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">gwMux := runtime.NewServeMux()
+        gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+        if err := chatv1.RegisterChatServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to register HTTP gateway: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">httpServer := &amp;http.Server{
+                Addr:    ":" + httpPort,
+                Handler: gwMux,
+        }
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("chat-service: http listening on :%s\n", httpPort)
+                if err := httpServer.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("chat-service: http serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">stop := make(chan os.Signal, 1)
+        signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-stop
+
+        fmt.Println("chat-service: shutting down")
+        grpcServer.GracefulStop()
+        _ = httpServer.Close()</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package authclient
+
+import (
+        "context"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/metadata"
+        "google.golang.org/grpc/status"
+
+        authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+)
+
+type Client struct {
+        conn *grpc.ClientConn
+        auth authv1.AuthServiceClient
+}
+
+func Dial(addr string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, auth: authv1.NewAuthServiceClient(conn)}, nil</span>
+}
+
+func (c *Client) Close() error <span class="cov0" title="0">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) UserExists(ctx context.Context, bearerToken, userID string) (bool, error) <span class="cov0" title="0">{
+        ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+bearerToken)
+
+        _, err := c.auth.GetUserByID(ctx, &amp;authv1.GetUserByIDRequest{UserId: userID})
+        if err != nil </span><span class="cov0" title="0">{
+                if status.Code(err) == codes.NotFound </span><span class="cov0" title="0">{
+                        return false, nil
+                }</span>
+                <span class="cov0" title="0">return false, err</span>
+        }
+        <span class="cov0" title="0">return true, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package cache
+
+import (
+        "context"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const (
+        onlineKeyPrefix = "chat:online:"
+        onlineTTL       = 30 * time.Second
+)
+
+type PresenceStore struct {
+        client *redis.Client
+}
+
+func NewPresenceStore(client *redis.Client) *PresenceStore <span class="cov0" title="0">{
+        return &amp;PresenceStore{client: client}
+}</span>
+
+func (s *PresenceStore) SetOnline(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        return s.client.Set(ctx, onlineKeyPrefix+userID, "1", onlineTTL).Err()
+}</span>
+
+func (s *PresenceStore) SetOffline(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        return s.client.Del(ctx, onlineKeyPrefix+userID).Err()
+}</span>
+
+func (s *PresenceStore) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov0" title="0">{
+        exists, err := s.client.Exists(ctx, onlineKeyPrefix+userID).Result()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return exists &gt; 0, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package cache
+
+import (
+        "github.com/redis/go-redis/v9"
+)
+
+func NewClient(addr string) *redis.Client <span class="cov0" title="0">{
+        return redis.NewClient(&amp;redis.Options{Addr: addr})
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package events
+
+import (
+        "context"
+        "encoding/json"
+        "time"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/jetstream"
+)
+
+const (
+        StreamName = "CHAT_EVENTS"
+
+        SubjectMessageCreated = "msg.created"
+)
+
+type MessageCreated struct {
+        MessageID string    `json:"message_id"`
+        ChatID    string    `json:"chat_id"`
+        SenderID  string    `json:"sender_id"`
+        CreatedAt time.Time `json:"created_at"`
+}
+
+type Publisher struct {
+        js jetstream.JetStream
+}
+
+func Connect(ctx context.Context, url string) (*Publisher, error) <span class="cov0" title="0">{
+        nc, err := nats.Connect(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">js, err := jetstream.New(nc)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+                Name:     StreamName,
+                Subjects: []string{"msg.*"},
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
+}
+
+func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCreated) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectMessageCreated, payload)
+        return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package repository
+
+import (
+        "embed"
+        "errors"
+
+        "github.com/golang-migrate/migrate/v4"
+        "github.com/golang-migrate/migrate/v4/database/pgx"
+        "github.com/golang-migrate/migrate/v4/source/iofs"
+)
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
+func (r *PostgresChatRepository) Migrate() error <span class="cov0" title="0">{
+        files, err := iofs.New(migrationFiles, "migrations")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">driver, err := pgx.WithInstance(r.conn.DB, &amp;pgx.Config{})
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">m, err := migrate.NewWithInstance("iofs", files, "pgx", driver)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := m.Up(); err != nil &amp;&amp; !errors.Is(err, migrate.ErrNoChange) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package repository
+
+import (
+        "context"
+        "database/sql"
+        "errors"
+
+        _ "github.com/jackc/pgx/v5/stdlib"
+        "github.com/jmoiron/sqlx"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+)
+
+type PostgresChatRepository struct {
+        conn *sqlx.DB
+}
+
+func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) <span class="cov0" title="0">{
+        conn, err := sqlx.Connect("pgx", dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;PostgresChatRepository{conn: conn}, nil</span>
+}
+
+func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, memberIDs []string) error <span class="cov0" title="0">{
+        tx, err := r.conn.BeginTxx(ctx, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = tx.Rollback() }</span>()
+
+        <span class="cov0" title="0">if _, err := tx.ExecContext(ctx, `INSERT INTO chats (id, created_at) VALUES ($1, $2)`, chat.ID, chat.CreatedAt); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">for _, memberID := range memberIDs </span><span class="cov0" title="0">{
+                if _, err := tx.ExecContext(ctx, `
+                        INSERT INTO chat_members (chat_id, user_id, joined_at) VALUES ($1, $2, $3)`,
+                        chat.ID, memberID, chat.CreatedAt,
+                ); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return tx.Commit()</span>
+}
+
+func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*domain.Chat, error) <span class="cov0" title="0">{
+        var chat domain.Chat
+        err := r.conn.GetContext(ctx, &amp;chat, `SELECT id, created_at FROM chats WHERE id = $1`, chatID)
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrChatNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;chat, nil</span>
+}
+
+func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) <span class="cov0" title="0">{
+        var chat domain.Chat
+        err := r.conn.GetContext(ctx, &amp;chat, `
+                SELECT c.id, c.created_at FROM chats c
+                WHERE EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
+                  AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $2)
+                  AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = 2`,
+                userA, userB,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrChatNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;chat, nil</span>
+}
+
+func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
+        var exists bool
+        err := r.conn.GetContext(ctx, &amp;exists, `
+                SELECT EXISTS(SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2)`,
+                chatID, userID,
+        )
+        return exists, err
+}</span>
+
+func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
+        var members []*domain.ChatMember
+        err := r.conn.SelectContext(ctx, &amp;members, `
+                SELECT chat_id, user_id, joined_at FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
+                chatID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return members, nil</span>
+}
+
+func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error) <span class="cov0" title="0">{
+        var chats []*domain.Chat
+        err := r.conn.SelectContext(ctx, &amp;chats, `
+                SELECT c.id, c.created_at FROM chats c
+                JOIN chat_members m ON m.chat_id = c.id
+                WHERE m.user_id = $1
+                ORDER BY c.created_at DESC`,
+                userID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return chats, nil</span>
+}
+
+func (r *PostgresChatRepository) CreateMessage(ctx context.Context, message *domain.Message) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO messages (id, chat_id, sender_id, body, created_at)
+                VALUES ($1, $2, $3, $4, $5)`,
+                message.ID, message.ChatID, message.SenderID, message.Body, message.CreatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error) <span class="cov0" title="0">{
+        var messages []*domain.Message
+        err := r.conn.SelectContext(ctx, &amp;messages, `
+                SELECT id, chat_id, sender_id, body, created_at FROM messages
+                WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2`,
+                chatID, limit,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return messages, nil</span>
+}
+
+func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov0" title="0">{
+        var message domain.Message
+        err := r.conn.GetContext(ctx, &amp;message, `
+                SELECT id, chat_id, sender_id, body, created_at FROM messages WHERE id = $1`,
+                messageID,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrMessageNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;message, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package service
+
+import (
+        "context"
+        "errors"
+        "log"
+        "time"
+
+        "github.com/google/uuid"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
+)
+
+const HistoryDefaultLimit = 50
+
+type AuthClient interface {
+        UserExists(ctx context.Context, bearerToken, userID string) (bool, error)
+}
+
+type EventPublisher interface {
+        PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
+}
+
+type PresenceChecker interface {
+        IsOnline(ctx context.Context, userID string) (bool, error)
+}
+
+type ChatService struct {
+        chats    repository.ChatRepository
+        auth     AuthClient
+        events   EventPublisher
+        presence PresenceChecker
+}
+
+func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker) *ChatService <span class="cov8" title="1">{
+        return &amp;ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence}
+}</span>
+
+func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string) (*domain.Chat, error) <span class="cov8" title="1">{
+        if requesterID == targetID </span><span class="cov8" title="1">{
+                return nil, domain.ErrCannotChatWithSelf
+        }</span>
+
+        <span class="cov8" title="1">exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
+                return nil, domain.ErrTargetUserNotFound
+        }</span>
+
+        <span class="cov8" title="1">existing, err := s.chats.FindPrivateChat(ctx, requesterID, targetID)
+        if err == nil </span><span class="cov8" title="1">{
+                return existing, nil
+        }</span>
+        <span class="cov8" title="1">if !errors.Is(err, domain.ErrChatNotFound) </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">chat := &amp;domain.Chat{
+                ID:        uuid.NewString(),
+                CreatedAt: time.Now(),
+        }
+
+        if err := s.chats.CreateChat(ctx, chat, []string{requesterID, targetID}); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return chat, nil</span>
+}
+
+func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) <span class="cov8" title="1">{
+        if body == "" </span><span class="cov8" title="1">{
+                return nil, domain.ErrEmptyMessage
+        }</span>
+
+        <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, chatID, senderID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+                return nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov8" title="1">message := &amp;domain.Message{
+                ID:        uuid.NewString(),
+                ChatID:    chatID,
+                SenderID:  senderID,
+                Body:      body,
+                CreatedAt: time.Now(),
+        }
+
+        if err := s.chats.CreateMessage(ctx, message); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
+                MessageID: message.ID,
+                ChatID:    message.ChatID,
+                SenderID:  message.SenderID,
+                CreatedAt: message.CreatedAt,
+        }); err != nil </span><span class="cov8" title="1">{
+                log.Printf("chat-service: failed to publish msg.created event for %s: %v", message.ID, err)
+        }</span>
+
+        <span class="cov8" title="1">return message, nil</span>
+}
+
+func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) <span class="cov8" title="1">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+                return nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov8" title="1">if limit &lt;= 0 </span><span class="cov8" title="1">{
+                limit = HistoryDefaultLimit
+        }</span>
+
+        <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, limit)</span>
+}
+
+func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
+        members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">userIDs := make([]string, 0, len(members))
+        for _, m := range members </span><span class="cov8" title="1">{
+                userIDs = append(userIDs, m.UserID)
+        }</span>
+        <span class="cov8" title="1">return userIDs, nil</span>
+}
+
+func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov8" title="1">{
+        return s.chats.GetMessage(ctx, messageID)
+}</span>
+
+func (s *ChatService) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov8" title="1">{
+        return s.presence.IsOnline(ctx, userID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package grpc
+
+import (
+        "context"
+        "errors"
+
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/status"
+
+        chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
+)
+
+type ChatServer struct {
+        chatv1.UnimplementedChatServiceServer
+
+        chat *service.ChatService
+}
+
+func NewChatServer(chat *service.ChatService) *ChatServer <span class="cov0" title="0">{
+        return &amp;ChatServer{chat: chat}
+}</span>
+
+func (s *ChatServer) Health(ctx context.Context, req *chatv1.HealthRequest) (*chatv1.HealthResponse, error) <span class="cov0" title="0">{
+        return &amp;chatv1.HealthResponse{Ok: true}, nil
+}</span>
+
+func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatRequest) (*chatv1.CreateChatResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">bearerToken, err := BearerTokenFromIncomingContext(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">chat, err := s.chat.CreateChat(ctx, bearerToken, requesterID, req.GetTargetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.CreateChatResponse{ChatId: chat.ID}, nil</span>
+}
+
+func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov0" title="0">{
+        senderID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">message, err := s.chat.SendMessage(ctx, req.GetChatId(), senderID, req.GetText())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.SendMessageResponse{MessageId: message.ID}, nil</span>
+}
+
+func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryRequest) (*chatv1.GetHistoryResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">messages, err := s.chat.GetHistory(ctx, req.GetChatId(), requesterID, int(req.GetLimit()))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">result := make([]*chatv1.Message, 0, len(messages))
+        for _, m := range messages </span><span class="cov0" title="0">{
+                result = append(result, &amp;chatv1.Message{
+                        MessageId:     m.ID,
+                        SenderUserId:  m.SenderID,
+                        Text:          m.Body,
+                        CreatedAtUnix: m.CreatedAt.Unix(),
+                })
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.GetHistoryResponse{Messages: result}, nil</span>
+}
+
+func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) <span class="cov0" title="0">{
+        userIDs, err := s.chat.ListMembers(ctx, req.GetChatId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.ListMembersResponse{UserIds: userIDs}, nil</span>
+}
+
+func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageRequest) (*chatv1.GetMessageResponse, error) <span class="cov0" title="0">{
+        message, err := s.chat.GetMessage(ctx, req.GetMessageId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.GetMessageResponse{
+                Message: &amp;chatv1.Message{
+                        MessageId:     message.ID,
+                        SenderUserId:  message.SenderID,
+                        Text:          message.Body,
+                        CreatedAtUnix: message.CreatedAt.Unix(),
+                },
+        }, nil</span>
+}
+
+func (s *ChatServer) IsOnline(ctx context.Context, req *chatv1.IsOnlineRequest) (*chatv1.IsOnlineResponse, error) <span class="cov0" title="0">{
+        online, err := s.chat.IsOnline(ctx, req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.IsOnlineResponse{Online: online}, nil</span>
+}
+
+func toGRPCError(err error) error <span class="cov0" title="0">{
+        switch </span>{
+        case errors.Is(err, domain.ErrCannotChatWithSelf),
+                errors.Is(err, domain.ErrEmptyMessage):<span class="cov0" title="0">
+                return status.Error(codes.InvalidArgument, err.Error())</span>
+        case errors.Is(err, domain.ErrTargetUserNotFound),
+                errors.Is(err, domain.ErrChatNotFound),
+                errors.Is(err, domain.ErrMessageNotFound):<span class="cov0" title="0">
+                return status.Error(codes.NotFound, err.Error())</span>
+        case errors.Is(err, domain.ErrNotChatMember):<span class="cov0" title="0">
+                return status.Error(codes.PermissionDenied, err.Error())</span>
+        default:<span class="cov0" title="0">
+                return status.Error(codes.Internal, "internal error")</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package grpc
+
+import (
+        "context"
+        "log"
+        "strings"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/metadata"
+        "google.golang.org/grpc/status"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+)
+
+type PresenceMarker interface {
+        SetOnline(ctx context.Context, userID string) error
+}
+
+type contextKey string
+
+const userIDContextKey contextKey = "user_id"
+
+var publicMethods = map[string]bool{
+        "/chat.v1.ChatService/Health":  true,
+        "/grpc.health.v1.Health/Check": true,
+        "/grpc.health.v1.Health/Watch": true,
+}
+
+var internalMethods = map[string]bool{
+        "/chat.v1.ChatService/ListMembers": true,
+        "/chat.v1.ChatService/GetMessage":  true,
+        "/chat.v1.ChatService/IsOnline":    true,
+}
+
+func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
+        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
+                if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
+                        return handler(ctx, req)
+                }</span>
+
+                <span class="cov8" title="1">if internalMethods[info.FullMethod] </span><span class="cov8" title="1">{
+                        if err := checkInternalSecret(ctx, internalSecret); err != nil </span><span class="cov8" title="1">{
+                                return nil, err
+                        }</span>
+                        <span class="cov8" title="1">return handler(ctx, req)</span>
+                }
+
+                <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+                }</span>
+
+                <span class="cov8" title="1">if err := presence.SetOnline(ctx, userID); err != nil </span><span class="cov8" title="1">{
+                        log.Printf("chat-service: failed to mark user %s online: %v", userID, err)
+                }</span>
+
+                <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
+                return handler(ctx, req)</span>
+        }
+}
+
+func checkInternalSecret(ctx context.Context, internalSecret string) error <span class="cov8" title="1">{
+        md, ok := metadata.FromIncomingContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return status.Error(codes.Unauthenticated, "missing metadata")
+        }</span>
+
+        <span class="cov8" title="1">values := md.Get("x-internal-secret")
+        if len(values) == 0 || values[0] != internalSecret </span><span class="cov0" title="0">{
+                return status.Error(codes.Unauthenticated, "invalid internal secret")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{
+        md, ok := metadata.FromIncomingContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return "", status.Error(codes.Unauthenticated, "missing metadata")
+        }</span>
+
+        <span class="cov8" title="1">values := md.Get("authorization")
+        if len(values) == 0 </span><span class="cov0" title="0">{
+                return "", status.Error(codes.Unauthenticated, "missing authorization header")
+        }</span>
+
+        <span class="cov8" title="1">const prefix = "Bearer "
+        if !strings.HasPrefix(values[0], prefix) </span><span class="cov8" title="1">{
+                return "", status.Error(codes.Unauthenticated, "authorization header must use Bearer scheme")
+        }</span>
+
+        <span class="cov8" title="1">return strings.TrimPrefix(values[0], prefix), nil</span>
+}
+
+func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" title="1">{
+        userID, ok := ctx.Value(userIDContextKey).(string)
+        return userID, ok
+}</span>
+
+func BearerTokenFromIncomingContext(ctx context.Context) (string, error) <span class="cov0" title="0">{
+        return bearerTokenFromContext(ctx)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
