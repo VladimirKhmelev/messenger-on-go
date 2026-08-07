@@ -97,7 +97,9 @@
 				
 				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
 				
-				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
 				
 				</select>
 			</div>
@@ -191,7 +193,9 @@ func main() <span class="cov0" title="0">{
                 log.Fatal("auth-service: NATS_URL is required")
         }</span>
 
-        <span class="cov0" title="0">userRepo, err := repository.NewPostgresUserRepository(dsn)
+        <span class="cov0" title="0">cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
+
+        userRepo, err := repository.NewPostgresUserRepository(dsn)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to connect to postgres: %v", err)
         }</span>
@@ -226,7 +230,7 @@ func main() <span class="cov0" title="0">{
                 grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer)),
         )
 
-        authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService))
+        authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService, cookieSecure))
 
         healthServer := health.NewServer()
         healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -239,8 +243,15 @@ func main() <span class="cov0" title="0">{
                 }</span>
         }()
 
-        <span class="cov0" title="0">gwMux := runtime.NewServeMux()
-        gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+        <span class="cov0" title="0">gwMux := runtime.NewServeMux(
+                runtime.WithOutgoingHeaderMatcher(func(key string) (string, bool) </span><span class="cov0" title="0">{
+                        if key == "set-cookie" </span><span class="cov0" title="0">{
+                                return "Set-Cookie", true
+                        }</span>
+                        <span class="cov0" title="0">return fmt.Sprintf("%s%s", runtime.MetadataHeaderPrefix, key), true</span>
+                }),
+        )
+        <span class="cov0" title="0">gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
         if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
         }</span>
@@ -1620,11 +1631,12 @@ import (
 type AuthServer struct {
         authv1.UnimplementedAuthServiceServer
 
-        auth *service.AuthService
+        auth         *service.AuthService
+        cookieSecure bool
 }
 
-func NewAuthServer(auth *service.AuthService) *AuthServer <span class="cov0" title="0">{
-        return &amp;AuthServer{auth: auth}
+func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer <span class="cov0" title="0">{
+        return &amp;AuthServer{auth: auth, cookieSecure: cookieSecure}
 }</span>
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) <span class="cov0" title="0">{
@@ -1640,6 +1652,10 @@ func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*auth
         tokens, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword())
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Internal, "failed to set refresh cookie")
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.LoginResponse{
@@ -1693,9 +1709,18 @@ func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersReq
 }
 
 func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) <span class="cov0" title="0">{
-        tokens, err := s.auth.RefreshToken(ctx, req.GetRefreshToken())
+        refreshToken := req.GetRefreshToken()
+        if cookieToken, err := refreshTokenFromCookie(ctx); err == nil </span><span class="cov0" title="0">{
+                refreshToken = cookieToken
+        }</span>
+
+        <span class="cov0" title="0">tokens, err := s.auth.RefreshToken(ctx, refreshToken)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Internal, "failed to set refresh cookie")
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.RefreshTokenResponse{
@@ -1705,8 +1730,17 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenR
 }
 
 func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) <span class="cov0" title="0">{
-        if err := s.auth.Logout(ctx, req.GetRefreshToken()); err != nil </span><span class="cov0" title="0">{
+        refreshToken := req.GetRefreshToken()
+        if cookieToken, err := refreshTokenFromCookie(ctx); err == nil </span><span class="cov0" title="0">{
+                refreshToken = cookieToken
+        }</span>
+
+        <span class="cov0" title="0">if err := s.auth.Logout(ctx, refreshToken); err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">if err := clearRefreshCookie(ctx, s.cookieSecure); err != nil </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Internal, "failed to clear refresh cookie")
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.LogoutResponse{}, nil</span>
@@ -1742,6 +1776,10 @@ func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithG
                 return nil, toGRPCError(err)
         }</span>
 
+        <span class="cov0" title="0">if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Internal, "failed to set refresh cookie")
+        }</span>
+
         <span class="cov0" title="0">return &amp;authv1.LoginWithGitHubResponse{
                 AccessToken:  tokens.AccessToken,
                 RefreshToken: tokens.RefreshToken,
@@ -1775,6 +1813,68 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 </pre>
 		
 		<pre class="file" id="file21" style="display: none">package grpc
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "net/http"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/metadata"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+)
+
+var errNoCookie = errors.New("refresh_token cookie not present")
+
+const refreshCookieName = "refresh_token"
+
+func setRefreshCookie(ctx context.Context, token string, secure bool) error <span class="cov8" title="1">{
+        cookie := fmt.Sprintf(
+                "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
+                refreshCookieName, token, int(jwtutil.RefreshTokenTTL.Seconds()), secureAttr(secure),
+        )
+        return grpc.SetHeader(ctx, metadata.Pairs("set-cookie", cookie))
+}</span>
+
+func clearRefreshCookie(ctx context.Context, secure bool) error <span class="cov8" title="1">{
+        cookie := fmt.Sprintf("%s=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax%s", refreshCookieName, secureAttr(secure))
+        return grpc.SetHeader(ctx, metadata.Pairs("set-cookie", cookie))
+}</span>
+
+func secureAttr(secure bool) string <span class="cov8" title="1">{
+        if secure </span><span class="cov8" title="1">{
+                return "; Secure"
+        }</span>
+        <span class="cov8" title="1">return ""</span>
+}
+
+func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="cov8" title="1">{
+        md, ok := metadata.FromIncomingContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return "", errNoCookie
+        }</span>
+
+        <span class="cov8" title="1">values := md.Get("grpcgateway-cookie")
+        if len(values) == 0 </span><span class="cov0" title="0">{
+                return "", errNoCookie
+        }</span>
+
+        <span class="cov8" title="1">header := http.Header{}
+        header.Add("Cookie", values[0])
+        request := http.Request{Header: header}
+
+        cookie, err := request.Cookie(refreshCookieName)
+        if err != nil </span><span class="cov8" title="1">{
+                return "", errNoCookie
+        }</span>
+
+        <span class="cov8" title="1">return cookie.Value, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file22" style="display: none">package grpc
 
 import (
         "context"
