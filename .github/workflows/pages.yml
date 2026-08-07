@@ -1,0 +1,130 @@
+name: Deploy Pages
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download swagger docs
+        uses: actions/download-artifact@v4
+        with:
+          name: swagger-docs
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: public/swagger
+
+      - name: Download auth-service coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-auth-service
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: public/coverage/auth-service
+
+      - name: Download chat-service coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-chat-service
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: public/coverage/chat-service
+
+      - name: Download ws-gateway coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-ws-gateway
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: public/coverage/ws-gateway
+
+      - name: Download notification-worker coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-notification-worker
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: public/coverage/notification-worker
+
+      - name: Build Swagger UI
+        run: |
+          mv public/swagger/messenger.swagger.json public/swagger/swagger.json
+          curl -sL https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-bundle.js -o public/swagger/swagger-ui-bundle.js
+          curl -sL https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui.css -o public/swagger/swagger-ui.css
+          cat > public/swagger/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>Messenger API</title>
+            <link rel="stylesheet" href="swagger-ui.css">
+          </head>
+          <body>
+          <div id="swagger-ui"></div>
+          <script src="swagger-ui-bundle.js"></script>
+          <script>
+            SwaggerUIBundle({ url: "swagger.json", dom_id: "#swagger-ui", presets: [SwaggerUIBundle.presets.apis], defaultModelsExpandDepth: 3, docExpansion: "list" })
+          </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Build coverage index page
+        run: |
+          cat > public/coverage/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>Messenger — Coverage</title>
+            <style>
+              body { font-family: sans-serif; max-width: 600px; margin: 60px auto; }
+              a { display: block; margin: 12px 0; font-size: 18px; }
+            </style>
+          </head>
+          <body>
+            <h1>Coverage by service</h1>
+            <a href="auth-service/cover.html">auth-service</a>
+            <a href="chat-service/cover.html">chat-service</a>
+            <a href="ws-gateway/cover.html">ws-gateway</a>
+            <a href="notification-worker/cover.html">notification-worker</a>
+          </body>
+          </html>
+          EOF
+
+      - name: Build index page
+        run: |
+          cat > public/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>Messenger on Go</title>
+            <style>
+              body { font-family: sans-serif; max-width: 600px; margin: 60px auto; }
+              a { display: block; margin: 12px 0; font-size: 18px; }
+            </style>
+          </head>
+          <body>
+            <h1>Messenger on Go</h1>
+            <a href="swagger/">📖 Swagger UI — API документация</a>
+            <a href="coverage/">📊 Coverage Report — покрытие тестами</a>
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public

@@ -20,6 +20,41 @@ jobs:
       - name: Run protolint
         run: protolint lint proto/auth/v1/auth.proto proto/chat/v1/chat.proto
 
+  swagger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install protoc-gen-go plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+      - name: Generate OpenAPI spec
+        run: make proto
+      - name: Validate OpenAPI spec has expected paths
+        run: |
+          python3 -c "
+          import json
+          with open('proto/gen/openapi/messenger.swagger.json') as f:
+              spec = json.load(f)
+          paths = spec.get('paths', {})
+          required = ['/v1/auth/register', '/v1/auth/login', '/v1/chats']
+          for p in required:
+              assert p in paths, f'missing path: {p}'
+          print('swagger spec OK, paths:', list(paths.keys()))
+          "
+      - name: Upload swagger docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: swagger-docs
+          path: proto/gen/openapi/messenger.swagger.json
+
   service:
     strategy:
       fail-fast: false

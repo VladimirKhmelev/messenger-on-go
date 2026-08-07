@@ -2,15 +2,41 @@ syntax = "proto3";
 
 package chat.v1;
 
+import "google/api/annotations.proto";
+
 option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen"
     "/chat/v1;chatv1";
 
 service ChatService {
-  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = {
+      get: "/v1/chat/health"
+    };
+  }
 
-  rpc CreateChat(CreateChatRequest) returns (CreateChatResponse);
-  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
-  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  rpc CreateChat(CreateChatRequest) returns (CreateChatResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats"
+      body: "*"
+    };
+  }
+
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats/{chat_id}/messages"
+      body: "*"
+    };
+  }
+
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse) {
+    option (google.api.http) = {
+      get: "/v1/chats/{chat_id}/messages"
+    };
+  }
+
+  // ListMembers, GetMessage and IsOnline are internal-only (authorized via
+  // X-Internal-Secret, not a user JWT) and are intentionally not exposed
+  // through the HTTP gateway.
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
   rpc IsOnline(IsOnlineRequest) returns (IsOnlineResponse);
