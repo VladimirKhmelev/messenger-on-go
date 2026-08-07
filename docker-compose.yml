@@ -1,3 +1,8 @@
+volumes:
+  auth-db-data:
+  chat-db-data:
+  redis-data:
+
 services:
   auth-db:
     image: postgres:16
@@ -7,6 +12,8 @@ services:
       POSTGRES_DB: auth
     ports:
       - "5432:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U auth"]
       interval: 5s
@@ -21,6 +28,8 @@ services:
       POSTGRES_DB: chat
     ports:
       - "5433:5432"
+    volumes:
+      - chat-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chat"]
       interval: 5s
@@ -31,6 +40,8 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
