@@ -11,8 +11,12 @@ import (
 )
 
 const (
-	streamName  = "CHAT_EVENTS"
-	subjectMsg  = "msg.created"
+	chatStreamName = "CHAT_EVENTS"
+	subjectMsg     = "msg.created"
+
+	notifyStreamName = "NOTIFY_EVENTS"
+	subjectNotify    = "notify.push"
+
 	pullMaxWait = 5 * time.Second
 	pullBatch   = 10
 )
@@ -24,9 +28,19 @@ type MessageCreated struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type Handler func(ctx context.Context, event MessageCreated)
+type NotifyPush struct {
+	UserID    string    `json:"user_id"`
+	ChatID    string    `json:"chat_id"`
+	MessageID string    `json:"message_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
-func Consume(ctx context.Context, url string, handler Handler) error {
+type Handlers struct {
+	OnMessageCreated func(ctx context.Context, event MessageCreated)
+	OnNotifyPush     func(ctx context.Context, event NotifyPush)
+}
+
+func Consume(ctx context.Context, url string, handlers Handlers) error {
 	nc, err := nats.Connect(url)
 	if err != nil {
 		return err
@@ -38,13 +52,46 @@ func Consume(ctx context.Context, url string, handler Handler) error {
 		return err
 	}
 
+	errCh := make(chan error, 2)
+
+	go func() {
+		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
+			var event MessageCreated
+			if err := json.Unmarshal(data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal msg.created event: %v", err)
+				return
+			}
+			handlers.OnMessageCreated(ctx, event)
+		})
+	}()
+
+	go func() {
+		errCh <- consumeOne(ctx, js, notifyStreamName, subjectNotify, func(ctx context.Context, data []byte) {
+			var event NotifyPush
+			if err := json.Unmarshal(data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal notify.push event: %v", err)
+				return
+			}
+			handlers.OnNotifyPush(ctx, event)
+		})
+	}()
+
+	for range 2 {
+		if err := <-errCh; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterSubject string, handle func(ctx context.Context, data []byte)) error {
 	stream, err := js.Stream(ctx, streamName)
 	if err != nil {
 		return err
 	}
 
 	consumer, err := stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
-		FilterSubject: subjectMsg,
+		FilterSubject: filterSubject,
 		AckPolicy:     jetstream.AckNonePolicy,
 	})
 	if err != nil {
@@ -60,17 +107,12 @@ func Consume(ctx context.Context, url string, handler Handler) error {
 
 		msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
 		if err != nil {
-			log.Printf("ws-gateway: failed to fetch msg.created batch: %v", err)
+			log.Printf("ws-gateway: failed to fetch %s batch: %v", filterSubject, err)
 			continue
 		}
 
 		for msg := range msgs.Messages() {
-			var event MessageCreated
-			if err := json.Unmarshal(msg.Data(), &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal msg.created event: %v", err)
-				continue
-			}
-			handler(ctx, event)
+			handle(ctx, msg.Data())
 		}
 	}
 }

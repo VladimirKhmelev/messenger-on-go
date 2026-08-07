@@ -45,7 +45,7 @@ func connectSession(t *testing.T, server *httptest.Server, userID string) *webso
 	return conn
 }
 
-func TestFanout_Handle_DeliversToChatMembers(t *testing.T) {
+func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 	registry := NewRegistry()
 	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, registry))
 	defer server.Close()
@@ -64,7 +64,7 @@ func TestFanout_Handle_DeliversToChatMembers(t *testing.T) {
 		&fakeMessageGetter{message: chatclient.Message{MessageID: "m1", SenderUserID: "member-1", Text: "hello"}},
 	)
 
-	fanout.Handle(context.Background(), events.MessageCreated{MessageID: "m1", ChatID: "chat-1"})
+	fanout.HandleMessageCreated(context.Background(), events.MessageCreated{MessageID: "m1", ChatID: "chat-1"})
 
 	_ = memberConn.SetReadDeadline(time.Now().Add(time.Second))
 	_, data, err := memberConn.ReadMessage()
