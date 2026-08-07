@@ -15,11 +15,12 @@ import (
 type AuthServer struct {
 	authv1.UnimplementedAuthServiceServer
 
-	auth *service.AuthService
+	auth         *service.AuthService
+	cookieSecure bool
 }
 
-func NewAuthServer(auth *service.AuthService) *AuthServer {
-	return &AuthServer{auth: auth}
+func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer {
+	return &AuthServer{auth: auth, cookieSecure: cookieSecure}
 }
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
@@ -35,6 +36,10 @@ func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*auth
 	tokens, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
 		return nil, toGRPCError(err)
+	}
+
+	if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil {
+		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
 	return &authv1.LoginResponse{
@@ -88,9 +93,18 @@ func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersReq
 }
 
 func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
-	tokens, err := s.auth.RefreshToken(ctx, req.GetRefreshToken())
+	refreshToken := req.GetRefreshToken()
+	if cookieToken, err := refreshTokenFromCookie(ctx); err == nil {
+		refreshToken = cookieToken
+	}
+
+	tokens, err := s.auth.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, toGRPCError(err)
+	}
+
+	if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil {
+		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
 	return &authv1.RefreshTokenResponse{
@@ -100,8 +114,17 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenR
 }
 
 func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
-	if err := s.auth.Logout(ctx, req.GetRefreshToken()); err != nil {
+	refreshToken := req.GetRefreshToken()
+	if cookieToken, err := refreshTokenFromCookie(ctx); err == nil {
+		refreshToken = cookieToken
+	}
+
+	if err := s.auth.Logout(ctx, refreshToken); err != nil {
 		return nil, toGRPCError(err)
+	}
+
+	if err := clearRefreshCookie(ctx, s.cookieSecure); err != nil {
+		return nil, status.Error(codes.Internal, "failed to clear refresh cookie")
 	}
 
 	return &authv1.LogoutResponse{}, nil
@@ -135,6 +158,10 @@ func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithG
 	tokens, err := s.auth.LoginWithGitHub(ctx, req.GetCode())
 	if err != nil {
 		return nil, toGRPCError(err)
+	}
+
+	if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil {
+		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
 	return &authv1.LoginWithGitHubResponse{
