@@ -74,6 +74,7 @@ services:
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SMTP_ADDR: mailhog:1025
       SMTP_FROM: noreply@messenger-on-go.local
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}

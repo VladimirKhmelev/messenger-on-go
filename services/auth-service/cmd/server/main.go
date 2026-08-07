@@ -78,6 +78,8 @@ func main() {
 		log.Fatal("auth-service: NATS_URL is required")
 	}
 
+	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -113,7 +115,7 @@ func main() {
 		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer)),
 	)
 
-	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService))
+	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService, cookieSecure))
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -126,7 +128,14 @@ func main() {
 		}
 	}()
 
-	gwMux := runtime.NewServeMux()
+	gwMux := runtime.NewServeMux(
+		runtime.WithOutgoingHeaderMatcher(func(key string) (string, bool) {
+			if key == "set-cookie" {
+				return "Set-Cookie", true
+			}
+			return fmt.Sprintf("%s%s", runtime.MetadataHeaderPrefix, key), true
+		}),
+	)
 	gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
 		log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
