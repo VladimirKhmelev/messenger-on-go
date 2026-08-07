@@ -7,6 +7,7 @@
 package authv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1197,7 +1198,7 @@ var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x12auth/v1/auth.proto\x12\aauth.v1\"\x0f\n" +
+	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1cgoogle/api/annotations.proto\"\x0f\n" +
 	"\rHealthRequest\" \n" +
 	"\x0eHealthResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\"U\n" +
@@ -1256,20 +1257,20 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\tR\x04code\"a\n" +
 	"\x17LoginWithGitHubResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken2\xff\x06\n" +
-	"\vAuthService\x129\n" +
-	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\x12?\n" +
-	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\x126\n" +
-	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\x12K\n" +
-	"\fGetUserByTag\x12\x1c.auth.v1.GetUserByTagRequest\x1a\x1d.auth.v1.GetUserByTagResponse\x12H\n" +
-	"\vGetUserByID\x12\x1b.auth.v1.GetUserByIDRequest\x1a\x1c.auth.v1.GetUserByIDResponse\x12H\n" +
-	"\vSearchUsers\x12\x1b.auth.v1.SearchUsersRequest\x1a\x1c.auth.v1.SearchUsersResponse\x12K\n" +
-	"\fRefreshToken\x12\x1c.auth.v1.RefreshTokenRequest\x1a\x1d.auth.v1.RefreshTokenResponse\x129\n" +
-	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\x12H\n" +
-	"\vVerifyEmail\x12\x1b.auth.v1.VerifyEmailRequest\x1a\x1c.auth.v1.VerifyEmailResponse\x12c\n" +
-	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\x12N\n" +
-	"\rResetPassword\x12\x1d.auth.v1.ResetPasswordRequest\x1a\x1e.auth.v1.ResetPasswordResponse\x12T\n" +
-	"\x0fLoginWithGitHub\x12\x1f.auth.v1.LoginWithGitHubRequest\x1a .auth.v1.LoginWithGitHubResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken2\xf1\t\n" +
+	"\vAuthService\x12R\n" +
+	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/auth/health\x12]\n" +
+	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12Q\n" +
+	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/auth/login\x12k\n" +
+	"\fGetUserByTag\x12\x1c.auth.v1.GetUserByTagRequest\x1a\x1d.auth.v1.GetUserByTagResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/users/by-tag/{tag}\x12e\n" +
+	"\vGetUserByID\x12\x1b.auth.v1.GetUserByIDRequest\x1a\x1c.auth.v1.GetUserByIDResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/users/{user_id}\x12[\n" +
+	"\vSearchUsers\x12\x1b.auth.v1.SearchUsersRequest\x1a\x1c.auth.v1.SearchUsersResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/users\x12h\n" +
+	"\fRefreshToken\x12\x1c.auth.v1.RefreshTokenRequest\x1a\x1d.auth.v1.RefreshTokenResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/v1/auth/refresh\x12U\n" +
+	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/logout\x12j\n" +
+	"\vVerifyEmail\x12\x1b.auth.v1.VerifyEmailRequest\x1a\x1c.auth.v1.VerifyEmailResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/v1/auth/verify-email\x12\x8f\x01\n" +
+	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\"*\x82\xd3\xe4\x93\x02$:\x01*\"\x1f/v1/auth/password-reset/request\x12z\n" +
+	"\rResetPassword\x12\x1d.auth.v1.ResetPasswordRequest\x1a\x1e.auth.v1.ResetPasswordResponse\"*\x82\xd3\xe4\x93\x02$:\x01*\"\x1f/v1/auth/password-reset/confirm\x12p\n" +
+	"\x0fLoginWithGitHub\x12\x1f.auth.v1.LoginWithGitHubRequest\x1a .auth.v1.LoginWithGitHubResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/githubBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once

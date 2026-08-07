@@ -36,6 +36,9 @@ type ChatServiceClient interface {
 	CreateChat(ctx context.Context, in *CreateChatRequest, opts ...grpc.CallOption) (*CreateChatResponse, error)
 	SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (*SendMessageResponse, error)
 	GetHistory(ctx context.Context, in *GetHistoryRequest, opts ...grpc.CallOption) (*GetHistoryResponse, error)
+	// ListMembers, GetMessage and IsOnline are internal-only (authorized via
+	// X-Internal-Secret, not a user JWT) and are intentionally not exposed
+	// through the HTTP gateway.
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
 	IsOnline(ctx context.Context, in *IsOnlineRequest, opts ...grpc.CallOption) (*IsOnlineResponse, error)
@@ -127,6 +130,9 @@ type ChatServiceServer interface {
 	CreateChat(context.Context, *CreateChatRequest) (*CreateChatResponse, error)
 	SendMessage(context.Context, *SendMessageRequest) (*SendMessageResponse, error)
 	GetHistory(context.Context, *GetHistoryRequest) (*GetHistoryResponse, error)
+	// ListMembers, GetMessage and IsOnline are internal-only (authorized via
+	// X-Internal-Secret, not a user JWT) and are intentionally not exposed
+	// through the HTTP gateway.
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
 	IsOnline(context.Context, *IsOnlineRequest) (*IsOnlineResponse, error)

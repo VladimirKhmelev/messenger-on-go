@@ -2,24 +2,93 @@ syntax = "proto3";
 
 package auth.v1;
 
+import "google/api/annotations.proto";
+
 option go_package = "github.com/VladimirKhmelev/messenger-on-go/proto/gen"
     "/auth/v1;authv1";
 
 service AuthService {
-  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = {
+      get: "/v1/auth/health"
+    };
+  }
 
-  rpc Register(RegisterRequest) returns (RegisterResponse);
-  rpc Login(LoginRequest) returns (LoginResponse);
-  rpc GetUserByTag(GetUserByTagRequest) returns (GetUserByTagResponse);
-  rpc GetUserByID(GetUserByIDRequest) returns (GetUserByIDResponse);
-  rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
-  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
-  rpc Logout(LogoutRequest) returns (LogoutResponse);
-  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+  }
+
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  rpc GetUserByTag(GetUserByTagRequest) returns (GetUserByTagResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/by-tag/{tag}"
+    };
+  }
+
+  rpc GetUserByID(GetUserByIDRequest) returns (GetUserByIDResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}"
+    };
+  }
+
+  rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/users"
+    };
+  }
+
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/logout"
+      body: "*"
+    };
+  }
+
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/verify-email"
+      body: "*"
+    };
+  }
+
   rpc RequestPasswordReset(RequestPasswordResetRequest)
-      returns (RequestPasswordResetResponse);
-  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
-  rpc LoginWithGitHub(LoginWithGitHubRequest) returns (LoginWithGitHubResponse);
+      returns (RequestPasswordResetResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/password-reset/request"
+      body: "*"
+    };
+  }
+
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/password-reset/confirm"
+      body: "*"
+    };
+  }
+
+  rpc LoginWithGitHub(LoginWithGitHubRequest)
+      returns (LoginWithGitHubResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/github"
+      body: "*"
+    };
+  }
 }
 
 message HealthRequest {

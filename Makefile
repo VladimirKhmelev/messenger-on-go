@@ -3,9 +3,13 @@ SERVICES := auth-service chat-service ws-gateway notification-worker
 .PHONY: proto up down build-images logs unit tidy ci integration
 
 proto:
-	protoc --proto_path=proto \
+	mkdir -p proto/gen/openapi
+	protoc --proto_path=proto --proto_path=proto/third_party \
 		--go_out=proto/gen --go_opt=module=github.com/VladimirKhmelev/messenger-on-go/proto/gen \
 		--go-grpc_out=proto/gen --go-grpc_opt=module=github.com/VladimirKhmelev/messenger-on-go/proto/gen \
+		--grpc-gateway_out=proto/gen --grpc-gateway_opt=module=github.com/VladimirKhmelev/messenger-on-go/proto/gen \
+		--grpc-gateway_opt=generate_unbound_methods=true \
+		--openapiv2_out=proto/gen/openapi --openapiv2_opt=allow_merge=true,merge_file_name=messenger \
 		proto/auth/v1/auth.proto proto/chat/v1/chat.proto
 
 up:
