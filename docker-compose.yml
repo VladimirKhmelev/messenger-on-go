@@ -55,8 +55,10 @@ services:
       dockerfile: services/auth-service/Dockerfile
     ports:
       - "50051:50051"
+      - "8082:8080"
     environment:
       GRPC_PORT: "50051"
+      HTTP_PORT: "8080"
       POSTGRES_DSN: postgres://auth:auth@auth-db:5432/auth?sslmode=disable
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
@@ -81,8 +83,10 @@ services:
       dockerfile: services/chat-service/Dockerfile
     ports:
       - "50052:50051"
+      - "8083:8080"
     environment:
       GRPC_PORT: "50051"
+      HTTP_PORT: "8080"
       POSTGRES_DSN: postgres://chat:chat@chat-db:5432/chat?sslmode=disable
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
