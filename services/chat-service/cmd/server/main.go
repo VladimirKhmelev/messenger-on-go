@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -26,6 +29,11 @@ func main() {
 	port := os.Getenv("GRPC_PORT")
 	if port == "" {
 		port = "50051"
+	}
+
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
 	}
 
 	dsn := os.Getenv("POSTGRES_DSN")
@@ -98,9 +106,27 @@ func main() {
 	healthpb.RegisterHealthServer(grpcServer, healthServer)
 
 	go func() {
-		fmt.Printf("chat-service: listening on :%s\n", port)
+		fmt.Printf("chat-service: grpc listening on :%s\n", port)
 		if err := grpcServer.Serve(lis); err != nil {
 			log.Fatalf("chat-service: serve failed: %v", err)
+		}
+	}()
+
+	gwMux := runtime.NewServeMux()
+	gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if err := chatv1.RegisterChatServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
+		log.Fatalf("chat-service: failed to register HTTP gateway: %v", err)
+	}
+
+	httpServer := &http.Server{
+		Addr:    ":" + httpPort,
+		Handler: gwMux,
+	}
+
+	go func() {
+		fmt.Printf("chat-service: http listening on :%s\n", httpPort)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("chat-service: http serve failed: %v", err)
 		}
 	}()
 
@@ -110,4 +136,5 @@ func main() {
 
 	fmt.Println("chat-service: shutting down")
 	grpcServer.GracefulStop()
+	_ = httpServer.Close()
 }
