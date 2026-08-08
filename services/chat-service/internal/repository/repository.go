@@ -17,4 +17,5 @@ type ChatRepository interface {
 	CreateMessage(ctx context.Context, message *domain.Message) error
 	ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error)
 	GetMessage(ctx context.Context, messageID string) (*domain.Message, error)
+	GetLastMessage(ctx context.Context, chatID string) (*domain.Message, error)
 }

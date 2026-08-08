@@ -124,14 +124,32 @@ func (r *PostgresChatRepository) CreateMessage(ctx context.Context, message *dom
 func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error) {
 	var messages []*domain.Message
 	err := r.conn.SelectContext(ctx, &messages, `
-		SELECT id, chat_id, sender_id, body, created_at FROM messages
-		WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2`,
+		SELECT id, chat_id, sender_id, body, created_at FROM (
+			SELECT id, chat_id, sender_id, body, created_at FROM messages
+			WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2
+		) recent ORDER BY created_at ASC`,
 		chatID, limit,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return messages, nil
+}
+
+func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID string) (*domain.Message, error) {
+	var message domain.Message
+	err := r.conn.GetContext(ctx, &message, `
+		SELECT id, chat_id, sender_id, body, created_at FROM messages
+		WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1`,
+		chatID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
 }
 
 func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) {
