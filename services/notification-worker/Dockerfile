@@ -1,5 +1,7 @@
 FROM golang:1.26.2 AS builder
 
+ENV GODEBUG=netdns=go+4
+
 WORKDIR /src
 
 COPY proto/gen proto/gen
