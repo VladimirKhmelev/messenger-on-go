@@ -34,6 +34,12 @@ service ChatService {
     };
   }
 
+  rpc ListChats(ListChatsRequest) returns (ListChatsResponse) {
+    option (google.api.http) = {
+      get: "/v1/chats"
+    };
+  }
+
   // ListMembers, GetMessage and IsOnline are internal-only (authorized via
   // X-Internal-Secret, not a user JWT) and are intentionally not exposed
   // through the HTTP gateway.
@@ -80,6 +86,19 @@ message Message {
   string sender_user_id = 2;
   string text = 3;
   int64 created_at_unix = 4;
+}
+
+message ListChatsRequest {
+}
+
+message ListChatsResponse {
+  repeated ChatSummary chats = 1;
+}
+
+message ChatSummary {
+  string chat_id = 1;
+  repeated string member_user_ids = 2;
+  Message last_message = 3;
 }
 
 message ListMembersRequest {

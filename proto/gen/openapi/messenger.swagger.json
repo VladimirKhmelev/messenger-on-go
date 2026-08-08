@@ -320,6 +320,26 @@
       }
     },
     "/v1/chats": {
+      "get": {
+        "operationId": "ChatService_ListChats",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListChatsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "ChatService"
+        ]
+      },
       "post": {
         "operationId": "ChatService_CreateChat",
         "responses": {
@@ -568,6 +588,23 @@
         }
       }
     },
+    "v1ChatSummary": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        },
+        "memberUserIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lastMessage": {
+          "$ref": "#/definitions/v1Message"
+        }
+      }
+    },
     "v1CreateChatRequest": {
       "type": "object",
       "properties": {
@@ -621,6 +658,18 @@
         },
         "tag": {
           "type": "string"
+        }
+      }
+    },
+    "v1ListChatsResponse": {
+      "type": "object",
+      "properties": {
+        "chats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ChatSummary"
+          }
         }
       }
     },
