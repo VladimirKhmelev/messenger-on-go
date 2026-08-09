@@ -766,27 +766,27 @@ func (x *GetMessageResponse) GetMessage() *Message {
 	return nil
 }
 
-type IsOnlineRequest struct {
+type GetPresenceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *IsOnlineRequest) Reset() {
-	*x = IsOnlineRequest{}
+func (x *GetPresenceRequest) Reset() {
+	*x = GetPresenceRequest{}
 	mi := &file_chat_v1_chat_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IsOnlineRequest) String() string {
+func (x *GetPresenceRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IsOnlineRequest) ProtoMessage() {}
+func (*GetPresenceRequest) ProtoMessage() {}
 
-func (x *IsOnlineRequest) ProtoReflect() protoreflect.Message {
+func (x *GetPresenceRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_chat_v1_chat_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -798,39 +798,40 @@ func (x *IsOnlineRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IsOnlineRequest.ProtoReflect.Descriptor instead.
-func (*IsOnlineRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetPresenceRequest.ProtoReflect.Descriptor instead.
+func (*GetPresenceRequest) Descriptor() ([]byte, []int) {
 	return file_chat_v1_chat_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *IsOnlineRequest) GetUserId() string {
+func (x *GetPresenceRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-type IsOnlineResponse struct {
+type GetPresenceResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Online        bool                   `protobuf:"varint,1,opt,name=online,proto3" json:"online,omitempty"`
+	LastSeenUnix  int64                  `protobuf:"varint,2,opt,name=last_seen_unix,json=lastSeenUnix,proto3" json:"last_seen_unix,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *IsOnlineResponse) Reset() {
-	*x = IsOnlineResponse{}
+func (x *GetPresenceResponse) Reset() {
+	*x = GetPresenceResponse{}
 	mi := &file_chat_v1_chat_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IsOnlineResponse) String() string {
+func (x *GetPresenceResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IsOnlineResponse) ProtoMessage() {}
+func (*GetPresenceResponse) ProtoMessage() {}
 
-func (x *IsOnlineResponse) ProtoReflect() protoreflect.Message {
+func (x *GetPresenceResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_chat_v1_chat_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -842,16 +843,191 @@ func (x *IsOnlineResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IsOnlineResponse.ProtoReflect.Descriptor instead.
-func (*IsOnlineResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetPresenceResponse.ProtoReflect.Descriptor instead.
+func (*GetPresenceResponse) Descriptor() ([]byte, []int) {
 	return file_chat_v1_chat_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *IsOnlineResponse) GetOnline() bool {
+func (x *GetPresenceResponse) GetOnline() bool {
 	if x != nil {
 		return x.Online
 	}
 	return false
+}
+
+func (x *GetPresenceResponse) GetLastSeenUnix() int64 {
+	if x != nil {
+		return x.LastSeenUnix
+	}
+	return 0
+}
+
+type SetOfflineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetOfflineRequest) Reset() {
+	*x = SetOfflineRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetOfflineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetOfflineRequest) ProtoMessage() {}
+
+func (x *SetOfflineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetOfflineRequest.ProtoReflect.Descriptor instead.
+func (*SetOfflineRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SetOfflineRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type SetOfflineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetOfflineResponse) Reset() {
+	*x = SetOfflineResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetOfflineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetOfflineResponse) ProtoMessage() {}
+
+func (x *SetOfflineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetOfflineResponse.ProtoReflect.Descriptor instead.
+func (*SetOfflineResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{19}
+}
+
+type ListContactsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListContactsRequest) Reset() {
+	*x = ListContactsRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListContactsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListContactsRequest) ProtoMessage() {}
+
+func (x *ListContactsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListContactsRequest.ProtoReflect.Descriptor instead.
+func (*ListContactsRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListContactsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListContactsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserIds       []string               `protobuf:"bytes,1,rep,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListContactsResponse) Reset() {
+	*x = ListContactsResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListContactsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListContactsResponse) ProtoMessage() {}
+
+func (x *ListContactsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListContactsResponse.ProtoReflect.Descriptor instead.
+func (*ListContactsResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListContactsResponse) GetUserIds() []string {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
 }
 
 var File_chat_v1_chat_proto protoreflect.FileDescriptor
@@ -898,11 +1074,19 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\"@\n" +
 	"\x12GetMessageResponse\x12*\n" +
-	"\amessage\x18\x01 \x01(\v2\x10.chat.v1.MessageR\amessage\"*\n" +
-	"\x0fIsOnlineRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"*\n" +
-	"\x10IsOnlineResponse\x12\x16\n" +
-	"\x06online\x18\x01 \x01(\bR\x06online2\xc7\x05\n" +
+	"\amessage\x18\x01 \x01(\v2\x10.chat.v1.MessageR\amessage\"-\n" +
+	"\x12GetPresenceRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"S\n" +
+	"\x13GetPresenceResponse\x12\x16\n" +
+	"\x06online\x18\x01 \x01(\bR\x06online\x12$\n" +
+	"\x0elast_seen_unix\x18\x02 \x01(\x03R\flastSeenUnix\",\n" +
+	"\x11SetOfflineRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x14\n" +
+	"\x12SetOfflineResponse\".\n" +
+	"\x13ListContactsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"1\n" +
+	"\x14ListContactsResponse\x12\x19\n" +
+	"\buser_ids\x18\x01 \x03(\tR\auserIds2\xe4\x06\n" +
 	"\vChatService\x12R\n" +
 	"\x06Health\x12\x16.chat.v1.HealthRequest\x1a\x17.chat.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/chat/health\x12[\n" +
 	"\n" +
@@ -913,8 +1097,11 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\tListChats\x12\x19.chat.v1.ListChatsRequest\x1a\x1a.chat.v1.ListChatsResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/chats\x12H\n" +
 	"\vListMembers\x12\x1b.chat.v1.ListMembersRequest\x1a\x1c.chat.v1.ListMembersResponse\x12E\n" +
 	"\n" +
-	"GetMessage\x12\x1a.chat.v1.GetMessageRequest\x1a\x1b.chat.v1.GetMessageResponse\x12?\n" +
-	"\bIsOnline\x12\x18.chat.v1.IsOnlineRequest\x1a\x19.chat.v1.IsOnlineResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1b\x06proto3"
+	"GetMessage\x12\x1a.chat.v1.GetMessageRequest\x1a\x1b.chat.v1.GetMessageResponse\x12H\n" +
+	"\vGetPresence\x12\x1b.chat.v1.GetPresenceRequest\x1a\x1c.chat.v1.GetPresenceResponse\x12E\n" +
+	"\n" +
+	"SetOffline\x12\x1a.chat.v1.SetOfflineRequest\x1a\x1b.chat.v1.SetOfflineResponse\x12K\n" +
+	"\fListContacts\x12\x1c.chat.v1.ListContactsRequest\x1a\x1d.chat.v1.ListContactsResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1b\x06proto3"
 
 var (
 	file_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -928,26 +1115,30 @@ func file_chat_v1_chat_proto_rawDescGZIP() []byte {
 	return file_chat_v1_chat_proto_rawDescData
 }
 
-var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_chat_v1_chat_proto_goTypes = []any{
-	(*HealthRequest)(nil),       // 0: chat.v1.HealthRequest
-	(*HealthResponse)(nil),      // 1: chat.v1.HealthResponse
-	(*CreateChatRequest)(nil),   // 2: chat.v1.CreateChatRequest
-	(*CreateChatResponse)(nil),  // 3: chat.v1.CreateChatResponse
-	(*SendMessageRequest)(nil),  // 4: chat.v1.SendMessageRequest
-	(*SendMessageResponse)(nil), // 5: chat.v1.SendMessageResponse
-	(*GetHistoryRequest)(nil),   // 6: chat.v1.GetHistoryRequest
-	(*GetHistoryResponse)(nil),  // 7: chat.v1.GetHistoryResponse
-	(*Message)(nil),             // 8: chat.v1.Message
-	(*ListChatsRequest)(nil),    // 9: chat.v1.ListChatsRequest
-	(*ListChatsResponse)(nil),   // 10: chat.v1.ListChatsResponse
-	(*ChatSummary)(nil),         // 11: chat.v1.ChatSummary
-	(*ListMembersRequest)(nil),  // 12: chat.v1.ListMembersRequest
-	(*ListMembersResponse)(nil), // 13: chat.v1.ListMembersResponse
-	(*GetMessageRequest)(nil),   // 14: chat.v1.GetMessageRequest
-	(*GetMessageResponse)(nil),  // 15: chat.v1.GetMessageResponse
-	(*IsOnlineRequest)(nil),     // 16: chat.v1.IsOnlineRequest
-	(*IsOnlineResponse)(nil),    // 17: chat.v1.IsOnlineResponse
+	(*HealthRequest)(nil),        // 0: chat.v1.HealthRequest
+	(*HealthResponse)(nil),       // 1: chat.v1.HealthResponse
+	(*CreateChatRequest)(nil),    // 2: chat.v1.CreateChatRequest
+	(*CreateChatResponse)(nil),   // 3: chat.v1.CreateChatResponse
+	(*SendMessageRequest)(nil),   // 4: chat.v1.SendMessageRequest
+	(*SendMessageResponse)(nil),  // 5: chat.v1.SendMessageResponse
+	(*GetHistoryRequest)(nil),    // 6: chat.v1.GetHistoryRequest
+	(*GetHistoryResponse)(nil),   // 7: chat.v1.GetHistoryResponse
+	(*Message)(nil),              // 8: chat.v1.Message
+	(*ListChatsRequest)(nil),     // 9: chat.v1.ListChatsRequest
+	(*ListChatsResponse)(nil),    // 10: chat.v1.ListChatsResponse
+	(*ChatSummary)(nil),          // 11: chat.v1.ChatSummary
+	(*ListMembersRequest)(nil),   // 12: chat.v1.ListMembersRequest
+	(*ListMembersResponse)(nil),  // 13: chat.v1.ListMembersResponse
+	(*GetMessageRequest)(nil),    // 14: chat.v1.GetMessageRequest
+	(*GetMessageResponse)(nil),   // 15: chat.v1.GetMessageResponse
+	(*GetPresenceRequest)(nil),   // 16: chat.v1.GetPresenceRequest
+	(*GetPresenceResponse)(nil),  // 17: chat.v1.GetPresenceResponse
+	(*SetOfflineRequest)(nil),    // 18: chat.v1.SetOfflineRequest
+	(*SetOfflineResponse)(nil),   // 19: chat.v1.SetOfflineResponse
+	(*ListContactsRequest)(nil),  // 20: chat.v1.ListContactsRequest
+	(*ListContactsResponse)(nil), // 21: chat.v1.ListContactsResponse
 }
 var file_chat_v1_chat_proto_depIdxs = []int32{
 	8,  // 0: chat.v1.GetHistoryResponse.messages:type_name -> chat.v1.Message
@@ -961,17 +1152,21 @@ var file_chat_v1_chat_proto_depIdxs = []int32{
 	9,  // 8: chat.v1.ChatService.ListChats:input_type -> chat.v1.ListChatsRequest
 	12, // 9: chat.v1.ChatService.ListMembers:input_type -> chat.v1.ListMembersRequest
 	14, // 10: chat.v1.ChatService.GetMessage:input_type -> chat.v1.GetMessageRequest
-	16, // 11: chat.v1.ChatService.IsOnline:input_type -> chat.v1.IsOnlineRequest
-	1,  // 12: chat.v1.ChatService.Health:output_type -> chat.v1.HealthResponse
-	3,  // 13: chat.v1.ChatService.CreateChat:output_type -> chat.v1.CreateChatResponse
-	5,  // 14: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
-	7,  // 15: chat.v1.ChatService.GetHistory:output_type -> chat.v1.GetHistoryResponse
-	10, // 16: chat.v1.ChatService.ListChats:output_type -> chat.v1.ListChatsResponse
-	13, // 17: chat.v1.ChatService.ListMembers:output_type -> chat.v1.ListMembersResponse
-	15, // 18: chat.v1.ChatService.GetMessage:output_type -> chat.v1.GetMessageResponse
-	17, // 19: chat.v1.ChatService.IsOnline:output_type -> chat.v1.IsOnlineResponse
-	12, // [12:20] is the sub-list for method output_type
-	4,  // [4:12] is the sub-list for method input_type
+	16, // 11: chat.v1.ChatService.GetPresence:input_type -> chat.v1.GetPresenceRequest
+	18, // 12: chat.v1.ChatService.SetOffline:input_type -> chat.v1.SetOfflineRequest
+	20, // 13: chat.v1.ChatService.ListContacts:input_type -> chat.v1.ListContactsRequest
+	1,  // 14: chat.v1.ChatService.Health:output_type -> chat.v1.HealthResponse
+	3,  // 15: chat.v1.ChatService.CreateChat:output_type -> chat.v1.CreateChatResponse
+	5,  // 16: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
+	7,  // 17: chat.v1.ChatService.GetHistory:output_type -> chat.v1.GetHistoryResponse
+	10, // 18: chat.v1.ChatService.ListChats:output_type -> chat.v1.ListChatsResponse
+	13, // 19: chat.v1.ChatService.ListMembers:output_type -> chat.v1.ListMembersResponse
+	15, // 20: chat.v1.ChatService.GetMessage:output_type -> chat.v1.GetMessageResponse
+	17, // 21: chat.v1.ChatService.GetPresence:output_type -> chat.v1.GetPresenceResponse
+	19, // 22: chat.v1.ChatService.SetOffline:output_type -> chat.v1.SetOfflineResponse
+	21, // 23: chat.v1.ChatService.ListContacts:output_type -> chat.v1.ListContactsResponse
+	14, // [14:24] is the sub-list for method output_type
+	4,  // [4:14] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -988,7 +1183,7 @@ func file_chat_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_v1_chat_proto_rawDesc), len(file_chat_v1_chat_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

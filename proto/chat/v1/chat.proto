@@ -40,12 +40,11 @@ service ChatService {
     };
   }
 
-  // ListMembers, GetMessage and IsOnline are internal-only (authorized via
-  // X-Internal-Secret, not a user JWT) and are intentionally not exposed
-  // through the HTTP gateway.
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
-  rpc IsOnline(IsOnlineRequest) returns (IsOnlineResponse);
+  rpc GetPresence(GetPresenceRequest) returns (GetPresenceResponse);
+  rpc SetOffline(SetOfflineRequest) returns (SetOfflineResponse);
+  rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
 }
 
 message HealthRequest {
@@ -117,10 +116,26 @@ message GetMessageResponse {
   Message message = 1;
 }
 
-message IsOnlineRequest {
+message GetPresenceRequest {
   string user_id = 1;
 }
 
-message IsOnlineResponse {
+message GetPresenceResponse {
   bool online = 1;
+  int64 last_seen_unix = 2;
+}
+
+message SetOfflineRequest {
+  string user_id = 1;
+}
+
+message SetOfflineResponse {
+}
+
+message ListContactsRequest {
+  string user_id = 1;
+}
+
+message ListContactsResponse {
+  repeated string user_ids = 1;
 }
