@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (63.5%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (52.9%)</option>
 				
 				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -278,14 +278,16 @@ func (c *Client) UserExists(ctx context.Context, bearerToken, userID string) (bo
 
 import (
         "context"
+        "errors"
         "time"
 
         "github.com/redis/go-redis/v9"
 )
 
 const (
-        onlineKeyPrefix = "chat:online:"
-        onlineTTL       = 30 * time.Second
+        onlineKeyPrefix   = "chat:online:"
+        lastSeenKeyPrefix = "chat:last_seen:"
+        onlineTTL         = 30 * time.Second
 )
 
 type PresenceStore struct {
@@ -301,8 +303,11 @@ func (s *PresenceStore) SetOnline(ctx context.Context, userID string) error <spa
 }</span>
 
 func (s *PresenceStore) SetOffline(ctx context.Context, userID string) error <span class="cov0" title="0">{
-        return s.client.Del(ctx, onlineKeyPrefix+userID).Err()
-}</span>
+        if err := s.client.Set(ctx, lastSeenKeyPrefix+userID, time.Now().Unix(), 0).Err(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return s.client.Del(ctx, onlineKeyPrefix+userID).Err()</span>
+}
 
 func (s *PresenceStore) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov0" title="0">{
         exists, err := s.client.Exists(ctx, onlineKeyPrefix+userID).Result()
@@ -310,6 +315,17 @@ func (s *PresenceStore) IsOnline(ctx context.Context, userID string) (bool, erro
                 return false, err
         }</span>
         <span class="cov0" title="0">return exists &gt; 0, nil</span>
+}
+
+func (s *PresenceStore) LastSeen(ctx context.Context, userID string) (int64, error) <span class="cov0" title="0">{
+        val, err := s.client.Get(ctx, lastSeenKeyPrefix+userID).Int64()
+        if errors.Is(err, redis.Nil) </span><span class="cov0" title="0">{
+                return 0, nil
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+        <span class="cov0" title="0">return val, nil</span>
 }
 </pre>
 		
@@ -620,6 +636,8 @@ type EventPublisher interface {
 
 type PresenceChecker interface {
         IsOnline(ctx context.Context, userID string) (bool, error)
+        LastSeen(ctx context.Context, userID string) (int64, error)
+        SetOffline(ctx context.Context, userID string) error
 }
 
 type ChatService struct {
@@ -757,6 +775,31 @@ func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSumm
         <span class="cov0" title="0">return summaries, nil</span>
 }
 
+func (s *ChatService) ListContacts(ctx context.Context, userID string) ([]string, error) <span class="cov0" title="0">{
+        chats, err := s.chats.ListChatsForUser(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">seen := make(map[string]bool)
+        contacts := make([]string, 0, len(chats))
+        for _, chat := range chats </span><span class="cov0" title="0">{
+                members, err := s.chats.ListMembers(ctx, chat.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">for _, m := range members </span><span class="cov0" title="0">{
+                        if m.UserID == userID || seen[m.UserID] </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">seen[m.UserID] = true
+                        contacts = append(contacts, m.UserID)</span>
+                }
+        }
+
+        <span class="cov0" title="0">return contacts, nil</span>
+}
+
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
         members, err := s.chats.ListMembers(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
@@ -774,8 +817,22 @@ func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain
         return s.chats.GetMessage(ctx, messageID)
 }</span>
 
-func (s *ChatService) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov8" title="1">{
-        return s.presence.IsOnline(ctx, userID)
+func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) <span class="cov8" title="1">{
+        online, err = s.presence.IsOnline(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, 0, err
+        }</span>
+
+        <span class="cov8" title="1">lastSeenUnix, err = s.presence.LastSeen(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, 0, err
+        }</span>
+
+        <span class="cov8" title="1">return online, lastSeenUnix, nil</span>
+}
+
+func (s *ChatService) SetOffline(ctx context.Context, userID string) error <span class="cov8" title="1">{
+        return s.presence.SetOffline(ctx, userID)
 }</span>
 </pre>
 		
@@ -922,13 +979,30 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
         }, nil</span>
 }
 
-func (s *ChatServer) IsOnline(ctx context.Context, req *chatv1.IsOnlineRequest) (*chatv1.IsOnlineResponse, error) <span class="cov0" title="0">{
-        online, err := s.chat.IsOnline(ctx, req.GetUserId())
+func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceRequest) (*chatv1.GetPresenceResponse, error) <span class="cov0" title="0">{
+        online, lastSeenUnix, err := s.chat.GetPresence(ctx, req.GetUserId())
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
 
-        <span class="cov0" title="0">return &amp;chatv1.IsOnlineResponse{Online: online}, nil</span>
+        <span class="cov0" title="0">return &amp;chatv1.GetPresenceResponse{Online: online, LastSeenUnix: lastSeenUnix}, nil</span>
+}
+
+func (s *ChatServer) SetOffline(ctx context.Context, req *chatv1.SetOfflineRequest) (*chatv1.SetOfflineResponse, error) <span class="cov0" title="0">{
+        if err := s.chat.SetOffline(ctx, req.GetUserId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.SetOfflineResponse{}, nil</span>
+}
+
+func (s *ChatServer) ListContacts(ctx context.Context, req *chatv1.ListContactsRequest) (*chatv1.ListContactsResponse, error) <span class="cov0" title="0">{
+        userIDs, err := s.chat.ListContacts(ctx, req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.ListContactsResponse{UserIds: userIDs}, nil</span>
 }
 
 func toGRPCError(err error) error <span class="cov0" title="0">{
@@ -978,9 +1052,11 @@ var publicMethods = map[string]bool{
 }
 
 var internalMethods = map[string]bool{
-        "/chat.v1.ChatService/ListMembers": true,
-        "/chat.v1.ChatService/GetMessage":  true,
-        "/chat.v1.ChatService/IsOnline":    true,
+        "/chat.v1.ChatService/ListMembers":  true,
+        "/chat.v1.ChatService/GetMessage":   true,
+        "/chat.v1.ChatService/GetPresence":  true,
+        "/chat.v1.ChatService/SetOffline":   true,
+        "/chat.v1.ChatService/ListContacts": true,
 }
 
 func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor <span class="cov8" title="1">{

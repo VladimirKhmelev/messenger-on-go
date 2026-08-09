@@ -61,13 +61,13 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (57.1%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (38.1%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (87.5%)</option>
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (100.0%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (70.3%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (61.8%)</option>
 				
 				</select>
 			</div>
@@ -139,16 +139,23 @@ func main() <span class="cov0" title="0">{
         }</span>
         <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = chatClient.Close() }</span>()
 
-        <span class="cov0" title="0">registry := ws.NewRegistry()
-        fanout := ws.NewFanout(registry, chatClient, chatClient)
+        <span class="cov0" title="0">presencePublisher, err := events.ConnectPresencePublisher(natsURL)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("ws-gateway: failed to connect presence publisher: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer presencePublisher.Close()
+
+        registry := ws.NewRegistry()
+        fanout := ws.NewFanout(registry, chatClient, chatClient, chatClient)
 
         consumerCtx, cancelConsumer := context.WithCancel(context.Background())
         defer cancelConsumer()
 
         go func() </span><span class="cov0" title="0">{
                 handlers := events.Handlers{
-                        OnMessageCreated: fanout.HandleMessageCreated,
-                        OnNotifyPush:     fanout.HandleNotifyPush,
+                        OnMessageCreated:  fanout.HandleMessageCreated,
+                        OnNotifyPush:      fanout.HandleNotifyPush,
+                        OnPresenceChanged: fanout.HandlePresenceChanged,
                 }
                 if err := events.Consume(consumerCtx, natsURL, handlers); err != nil </span><span class="cov0" title="0">{
                         log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
@@ -174,7 +181,7 @@ func main() <span class="cov0" title="0">{
         }()
 
         <span class="cov0" title="0">mux := http.NewServeMux()
-        mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry))
+        mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher))
 
         httpServer := &amp;http.Server{
                 Addr:    ":" + httpPort,
@@ -275,6 +282,33 @@ func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, erro
         <span class="cov0" title="0">return resp.GetUserIds(), nil</span>
 }
 
+func (c *Client) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.GetPresence(ctx, &amp;chatv1.GetPresenceRequest{UserId: userID})
+        if err != nil </span><span class="cov0" title="0">{
+                return false, 0, err
+        }</span>
+        <span class="cov0" title="0">return resp.GetOnline(), resp.GetLastSeenUnix(), nil</span>
+}
+
+func (c *Client) SetOffline(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        _, err := c.chat.SetOffline(ctx, &amp;chatv1.SetOfflineRequest{UserId: userID})
+        return err
+}</span>
+
+func (c *Client) ListContacts(ctx context.Context, userID string) ([]string, error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.ListContacts(ctx, &amp;chatv1.ListContactsRequest{UserId: userID})
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return resp.GetUserIds(), nil</span>
+}
+
 func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, error) <span class="cov0" title="0">{
         ctx = c.withInternalSecret(ctx)
 
@@ -320,6 +354,8 @@ const (
         notifyStreamName = "NOTIFY_EVENTS"
         subjectNotify    = "notify.push"
 
+        subjectPresence = "user.presence"
+
         pullMaxWait = 5 * time.Second
         pullBatch   = 10
 )
@@ -338,9 +374,40 @@ type NotifyPush struct {
         CreatedAt time.Time `json:"created_at"`
 }
 
+type PresenceChanged struct {
+        UserID       string `json:"user_id"`
+        Online       bool   `json:"online"`
+        LastSeenUnix int64  `json:"last_seen_unix"`
+}
+
 type Handlers struct {
-        OnMessageCreated func(ctx context.Context, event MessageCreated)
-        OnNotifyPush     func(ctx context.Context, event NotifyPush)
+        OnMessageCreated  func(ctx context.Context, event MessageCreated)
+        OnNotifyPush      func(ctx context.Context, event NotifyPush)
+        OnPresenceChanged func(ctx context.Context, event PresenceChanged)
+}
+
+type PresencePublisher struct {
+        nc *nats.Conn
+}
+
+func ConnectPresencePublisher(url string) (*PresencePublisher, error) <span class="cov0" title="0">{
+        nc, err := nats.Connect(url)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;PresencePublisher{nc: nc}, nil</span>
+}
+
+func (p *PresencePublisher) Close() <span class="cov0" title="0">{
+        p.nc.Close()
+}</span>
+
+func (p *PresencePublisher) PublishPresenceChanged(event PresenceChanged) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return p.nc.Publish(subjectPresence, payload)</span>
 }
 
 func Consume(ctx context.Context, url string, handlers Handlers) error <span class="cov0" title="0">{
@@ -355,7 +422,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 return err
         }</span>
 
-        <span class="cov0" title="0">errCh := make(chan error, 2)
+        <span class="cov0" title="0">errCh := make(chan error, 3)
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
@@ -379,7 +446,26 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 })
         }()
 
-        <span class="cov0" title="0">for range 2 </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) </span><span class="cov0" title="0">{
+                        var event PresenceChanged
+                        if err := json.Unmarshal(msg.Data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnPresenceChanged(ctx, event)</span>
+                })
+                <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                        errCh &lt;- err
+                        return
+                }</span>
+                <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = sub.Unsubscribe() }</span>()
+
+                <span class="cov0" title="0">&lt;-ctx.Done()
+                errCh &lt;- nil</span>
+        }()
+
+        <span class="cov0" title="0">for range 3 </span><span class="cov0" title="0">{
                 if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
@@ -439,14 +525,19 @@ type MessageGetter interface {
         GetMessage(ctx context.Context, messageID string) (chatclient.Message, error)
 }
 
+type ContactsLister interface {
+        ListContacts(ctx context.Context, userID string) ([]string, error)
+}
+
 type Fanout struct {
         registry *Registry
         members  MembersLister
         messages MessageGetter
+        contacts ContactsLister
 }
 
-func NewFanout(registry *Registry, members MembersLister, messages MessageGetter) *Fanout <span class="cov8" title="1">{
-        return &amp;Fanout{registry: registry, members: members, messages: messages}
+func NewFanout(registry *Registry, members MembersLister, messages MessageGetter, contacts ContactsLister) *Fanout <span class="cov8" title="1">{
+        return &amp;Fanout{registry: registry, members: members, messages: messages, contacts: contacts}
 }</span>
 
 func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageCreated) <span class="cov8" title="1">{
@@ -482,6 +573,25 @@ func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) <s
 
         f.registry.Broadcast(event.UserID, payload)
 }</span>
+
+func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.PresenceChanged) <span class="cov0" title="0">{
+        contacts, err := f.contacts.ListContacts(ctx, event.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to list contacts for presence fanout of %s: %v", event.UserID, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">payload := serverMessage{
+                Type:         "presence_changed",
+                PeerUserID:   event.UserID,
+                Online:       event.Online,
+                LastSeenUnix: event.LastSeenUnix,
+        }
+
+        for _, contactID := range contacts </span><span class="cov0" title="0">{
+                f.registry.Broadcast(contactID, payload)
+        }</span>
+}
 </pre>
 		
 		<pre class="file" id="file4" style="display: none">package ws
@@ -495,6 +605,7 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 var upgrader = websocket.Upgrader{
@@ -504,16 +615,23 @@ var upgrader = websocket.Upgrader{
 type ChatClient interface {
         SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
         GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
+        GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
+        SetOffline(ctx context.Context, userID string) error
+}
+
+type PresencePublisher interface {
+        PublishPresenceChanged(event events.PresenceChanged) error
 }
 
 type Handler struct {
         jwtSecret string
         chat      ChatClient
         registry  *Registry
+        presence  PresencePublisher
 }
 
-func NewHandler(jwtSecret string, chat ChatClient, registry *Registry) *Handler <span class="cov8" title="1">{
-        return &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry}
+func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher) *Handler <span class="cov8" title="1">{
+        return &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence}
 }</span>
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
@@ -535,7 +653,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class=
                 return
         }</span>
 
-        <span class="cov8" title="1">session := newSession(userID, token, conn, h.chat)
+        <span class="cov8" title="1">session := newSession(userID, token, conn, h.chat, h.presence)
         session.run(h.registry)</span>
 }
 </pre>
@@ -594,35 +712,41 @@ import (
         "github.com/gorilla/websocket"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 type clientMessage struct {
-        Type   string `json:"type"`
-        ChatID string `json:"chat_id"`
-        Text   string `json:"text,omitempty"`
-        Limit  int32  `json:"limit,omitempty"`
+        Type       string `json:"type"`
+        ChatID     string `json:"chat_id"`
+        Text       string `json:"text,omitempty"`
+        Limit      int32  `json:"limit,omitempty"`
+        PeerUserID string `json:"peer_user_id,omitempty"`
 }
 
 type serverMessage struct {
-        Type      string               `json:"type"`
-        Error     string               `json:"error,omitempty"`
-        MessageID string               `json:"message_id,omitempty"`
-        Messages  []chatclient.Message `json:"messages,omitempty"`
-        ChatID    string               `json:"chat_id,omitempty"`
-        Message   *chatclient.Message  `json:"message,omitempty"`
+        Type         string               `json:"type"`
+        Error        string               `json:"error,omitempty"`
+        MessageID    string               `json:"message_id,omitempty"`
+        Messages     []chatclient.Message `json:"messages,omitempty"`
+        ChatID       string               `json:"chat_id,omitempty"`
+        Message      *chatclient.Message  `json:"message,omitempty"`
+        PeerUserID   string               `json:"peer_user_id,omitempty"`
+        Online       bool                 `json:"online,omitempty"`
+        LastSeenUnix int64                `json:"last_seen_unix,omitempty"`
 }
 
 type session struct {
-        userID string
-        token  string
-        conn   *websocket.Conn
-        chat   ChatClient
+        userID   string
+        token    string
+        conn     *websocket.Conn
+        chat     ChatClient
+        presence PresencePublisher
 
         writeMu sync.Mutex
 }
 
-func newSession(userID, token string, conn *websocket.Conn, chat ChatClient) *session <span class="cov8" title="1">{
-        return &amp;session{userID: userID, token: token, conn: conn, chat: chat}
+func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, presence PresencePublisher) *session <span class="cov8" title="1">{
+        return &amp;session{userID: userID, token: token, conn: conn, chat: chat, presence: presence}
 }</span>
 
 func (s *session) run(registry *Registry) <span class="cov8" title="1">{
@@ -631,7 +755,10 @@ func (s *session) run(registry *Registry) <span class="cov8" title="1">{
 
         defer func() </span><span class="cov8" title="1">{ _ = s.conn.Close() }</span>()
 
-        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
+        <span class="cov8" title="1">s.announcePresence(true, 0)
+        defer s.markOffline()
+
+        for </span><span class="cov8" title="1">{
                 _, data, err := s.conn.ReadMessage()
                 if err != nil </span><span class="cov8" title="1">{
                         log.Printf("ws-gateway: connection closed for user %s: %v", s.userID, err)
@@ -640,6 +767,32 @@ func (s *session) run(registry *Registry) <span class="cov8" title="1">{
 
                 <span class="cov8" title="1">s.handle(data)</span>
         }
+}
+
+func (s *session) markOffline() <span class="cov8" title="1">{
+        ctx := context.Background()
+        if err := s.chat.SetOffline(ctx, s.userID); err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to set user %s offline: %v", s.userID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">_, lastSeenUnix, err := s.chat.GetPresence(ctx, s.userID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to read last-seen for user %s: %v", s.userID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">s.announcePresence(false, lastSeenUnix)</span>
+}
+
+func (s *session) announcePresence(online bool, lastSeenUnix int64) <span class="cov8" title="1">{
+        if err := s.presence.PublishPresenceChanged(events.PresenceChanged{
+                UserID:       s.userID,
+                Online:       online,
+                LastSeenUnix: lastSeenUnix,
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to publish presence for user %s: %v", s.userID, err)
+        }</span>
 }
 
 func (s *session) handle(data []byte) <span class="cov8" title="1">{
@@ -667,6 +820,19 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         return
                 }</span>
                 <span class="cov8" title="1">s.write(serverMessage{Type: "history", Messages: messages})</span>
+
+        case "get_presence":<span class="cov0" title="0">
+                online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)
+                if err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+                <span class="cov0" title="0">s.write(serverMessage{
+                        Type:         "presence_changed",
+                        PeerUserID:   msg.PeerUserID,
+                        Online:       online,
+                        LastSeenUnix: lastSeenUnix,
+                })</span>
 
         default:<span class="cov0" title="0">
                 s.writeError("unknown message type: " + msg.Type)</span>
