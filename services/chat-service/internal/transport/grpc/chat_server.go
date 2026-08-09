@@ -83,6 +83,39 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
 	return &chatv1.GetHistoryResponse{Messages: result}, nil
 }
 
+func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest) (*chatv1.ListChatsResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	summaries, err := s.chat.ListChats(ctx, requesterID)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	result := make([]*chatv1.ChatSummary, 0, len(summaries))
+	for _, summary := range summaries {
+		var lastMessage *chatv1.Message
+		if summary.LastMessage != nil {
+			lastMessage = &chatv1.Message{
+				MessageId:     summary.LastMessage.ID,
+				SenderUserId:  summary.LastMessage.SenderID,
+				Text:          summary.LastMessage.Body,
+				CreatedAtUnix: summary.LastMessage.CreatedAt.Unix(),
+			}
+		}
+
+		result = append(result, &chatv1.ChatSummary{
+			ChatId:        summary.ChatID,
+			MemberUserIds: summary.MemberUserIDs,
+			LastMessage:   lastMessage,
+		})
+	}
+
+	return &chatv1.ListChatsResponse{Chats: result}, nil
+}
+
 func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) {
 	userIDs, err := s.chat.ListMembers(ctx, req.GetChatId())
 	if err != nil {

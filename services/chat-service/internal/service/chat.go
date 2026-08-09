@@ -124,6 +124,44 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 	return s.chats.ListMessages(ctx, chatID, limit)
 }
 
+type ChatSummary struct {
+	ChatID        string
+	MemberUserIDs []string
+	LastMessage   *domain.Message
+}
+
+func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSummary, error) {
+	chats, err := s.chats.ListChatsForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]*ChatSummary, 0, len(chats))
+	for _, chat := range chats {
+		members, err := s.chats.ListMembers(ctx, chat.ID)
+		if err != nil {
+			return nil, err
+		}
+		memberIDs := make([]string, 0, len(members))
+		for _, m := range members {
+			memberIDs = append(memberIDs, m.UserID)
+		}
+
+		lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		summaries = append(summaries, &ChatSummary{
+			ChatID:        chat.ID,
+			MemberUserIDs: memberIDs,
+			LastMessage:   lastMessage,
+		})
+	}
+
+	return summaries, nil
+}
+
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) {
 	members, err := s.chats.ListMembers(ctx, chatID)
 	if err != nil {

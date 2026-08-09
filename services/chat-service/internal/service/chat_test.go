@@ -104,6 +104,14 @@ func (r *fakeChatRepository) ListMessages(_ context.Context, chatID string, limi
 	return messages, nil
 }
 
+func (r *fakeChatRepository) GetLastMessage(_ context.Context, chatID string) (*domain.Message, error) {
+	messages := r.messages[chatID]
+	if len(messages) == 0 {
+		return nil, nil
+	}
+	return messages[len(messages)-1], nil
+}
+
 func (r *fakeChatRepository) GetMessage(_ context.Context, messageID string) (*domain.Message, error) {
 	for _, messages := range r.messages {
 		for _, m := range messages {
