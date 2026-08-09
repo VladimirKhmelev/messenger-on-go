@@ -16,14 +16,19 @@ type MessageGetter interface {
 	GetMessage(ctx context.Context, messageID string) (chatclient.Message, error)
 }
 
+type ContactsLister interface {
+	ListContacts(ctx context.Context, userID string) ([]string, error)
+}
+
 type Fanout struct {
 	registry *Registry
 	members  MembersLister
 	messages MessageGetter
+	contacts ContactsLister
 }
 
-func NewFanout(registry *Registry, members MembersLister, messages MessageGetter) *Fanout {
-	return &Fanout{registry: registry, members: members, messages: messages}
+func NewFanout(registry *Registry, members MembersLister, messages MessageGetter, contacts ContactsLister) *Fanout {
+	return &Fanout{registry: registry, members: members, messages: messages, contacts: contacts}
 }
 
 func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageCreated) {
@@ -58,4 +63,23 @@ func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) {
 	}
 
 	f.registry.Broadcast(event.UserID, payload)
+}
+
+func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.PresenceChanged) {
+	contacts, err := f.contacts.ListContacts(ctx, event.UserID)
+	if err != nil {
+		log.Printf("ws-gateway: failed to list contacts for presence fanout of %s: %v", event.UserID, err)
+		return
+	}
+
+	payload := serverMessage{
+		Type:         "presence_changed",
+		PeerUserID:   event.UserID,
+		Online:       event.Online,
+		LastSeenUnix: event.LastSeenUnix,
+	}
+
+	for _, contactID := range contacts {
+		f.registry.Broadcast(contactID, payload)
+	}
 }

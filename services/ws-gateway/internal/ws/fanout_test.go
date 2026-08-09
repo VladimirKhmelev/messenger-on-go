@@ -32,6 +32,15 @@ func (g *fakeMessageGetter) GetMessage(_ context.Context, _ string) (chatclient.
 	return g.message, g.err
 }
 
+type fakeContactsLister struct {
+	userIDs []string
+	err     error
+}
+
+func (l *fakeContactsLister) ListContacts(_ context.Context, _ string) ([]string, error) {
+	return l.userIDs, l.err
+}
+
 func connectSession(t *testing.T, server *httptest.Server, userID string) *websocket.Conn {
 	t.Helper()
 
@@ -47,7 +56,7 @@ func connectSession(t *testing.T, server *httptest.Server, userID string) *webso
 
 func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 	registry := NewRegistry()
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, registry))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, registry, fakePresencePublisher{}))
 	defer server.Close()
 
 	memberConn := connectSession(t, server, "member-1")
@@ -62,6 +71,7 @@ func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 		registry,
 		&fakeMembersLister{userIDs: []string{"member-1"}},
 		&fakeMessageGetter{message: chatclient.Message{MessageID: "m1", SenderUserID: "member-1", Text: "hello"}},
+		&fakeContactsLister{},
 	)
 
 	fanout.HandleMessageCreated(context.Background(), events.MessageCreated{MessageID: "m1", ChatID: "chat-1"})

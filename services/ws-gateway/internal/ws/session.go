@@ -9,35 +9,41 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 type clientMessage struct {
-	Type   string `json:"type"`
-	ChatID string `json:"chat_id"`
-	Text   string `json:"text,omitempty"`
-	Limit  int32  `json:"limit,omitempty"`
+	Type       string `json:"type"`
+	ChatID     string `json:"chat_id"`
+	Text       string `json:"text,omitempty"`
+	Limit      int32  `json:"limit,omitempty"`
+	PeerUserID string `json:"peer_user_id,omitempty"`
 }
 
 type serverMessage struct {
-	Type      string               `json:"type"`
-	Error     string               `json:"error,omitempty"`
-	MessageID string               `json:"message_id,omitempty"`
-	Messages  []chatclient.Message `json:"messages,omitempty"`
-	ChatID    string               `json:"chat_id,omitempty"`
-	Message   *chatclient.Message  `json:"message,omitempty"`
+	Type         string               `json:"type"`
+	Error        string               `json:"error,omitempty"`
+	MessageID    string               `json:"message_id,omitempty"`
+	Messages     []chatclient.Message `json:"messages,omitempty"`
+	ChatID       string               `json:"chat_id,omitempty"`
+	Message      *chatclient.Message  `json:"message,omitempty"`
+	PeerUserID   string               `json:"peer_user_id,omitempty"`
+	Online       bool                 `json:"online,omitempty"`
+	LastSeenUnix int64                `json:"last_seen_unix,omitempty"`
 }
 
 type session struct {
-	userID string
-	token  string
-	conn   *websocket.Conn
-	chat   ChatClient
+	userID   string
+	token    string
+	conn     *websocket.Conn
+	chat     ChatClient
+	presence PresencePublisher
 
 	writeMu sync.Mutex
 }
 
-func newSession(userID, token string, conn *websocket.Conn, chat ChatClient) *session {
-	return &session{userID: userID, token: token, conn: conn, chat: chat}
+func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, presence PresencePublisher) *session {
+	return &session{userID: userID, token: token, conn: conn, chat: chat, presence: presence}
 }
 
 func (s *session) run(registry *Registry) {
@@ -45,6 +51,9 @@ func (s *session) run(registry *Registry) {
 	defer registry.remove(s)
 
 	defer func() { _ = s.conn.Close() }()
+
+	s.announcePresence(true, 0)
+	defer s.markOffline()
 
 	for {
 		_, data, err := s.conn.ReadMessage()
@@ -54,6 +63,32 @@ func (s *session) run(registry *Registry) {
 		}
 
 		s.handle(data)
+	}
+}
+
+func (s *session) markOffline() {
+	ctx := context.Background()
+	if err := s.chat.SetOffline(ctx, s.userID); err != nil {
+		log.Printf("ws-gateway: failed to set user %s offline: %v", s.userID, err)
+		return
+	}
+
+	_, lastSeenUnix, err := s.chat.GetPresence(ctx, s.userID)
+	if err != nil {
+		log.Printf("ws-gateway: failed to read last-seen for user %s: %v", s.userID, err)
+		return
+	}
+
+	s.announcePresence(false, lastSeenUnix)
+}
+
+func (s *session) announcePresence(online bool, lastSeenUnix int64) {
+	if err := s.presence.PublishPresenceChanged(events.PresenceChanged{
+		UserID:       s.userID,
+		Online:       online,
+		LastSeenUnix: lastSeenUnix,
+	}); err != nil {
+		log.Printf("ws-gateway: failed to publish presence for user %s: %v", s.userID, err)
 	}
 }
 
@@ -82,6 +117,19 @@ func (s *session) handle(data []byte) {
 			return
 		}
 		s.write(serverMessage{Type: "history", Messages: messages})
+
+	case "get_presence":
+		online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)
+		if err != nil {
+			s.writeError(err.Error())
+			return
+		}
+		s.write(serverMessage{
+			Type:         "presence_changed",
+			PeerUserID:   msg.PeerUserID,
+			Online:       online,
+			LastSeenUnix: lastSeenUnix,
+		})
 
 	default:
 		s.writeError("unknown message type: " + msg.Type)

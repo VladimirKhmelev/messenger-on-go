@@ -17,6 +17,8 @@ const (
 	notifyStreamName = "NOTIFY_EVENTS"
 	subjectNotify    = "notify.push"
 
+	subjectPresence = "user.presence"
+
 	pullMaxWait = 5 * time.Second
 	pullBatch   = 10
 )
@@ -35,9 +37,40 @@ type NotifyPush struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type PresenceChanged struct {
+	UserID       string `json:"user_id"`
+	Online       bool   `json:"online"`
+	LastSeenUnix int64  `json:"last_seen_unix"`
+}
+
 type Handlers struct {
-	OnMessageCreated func(ctx context.Context, event MessageCreated)
-	OnNotifyPush     func(ctx context.Context, event NotifyPush)
+	OnMessageCreated  func(ctx context.Context, event MessageCreated)
+	OnNotifyPush      func(ctx context.Context, event NotifyPush)
+	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
+}
+
+type PresencePublisher struct {
+	nc *nats.Conn
+}
+
+func ConnectPresencePublisher(url string) (*PresencePublisher, error) {
+	nc, err := nats.Connect(url)
+	if err != nil {
+		return nil, err
+	}
+	return &PresencePublisher{nc: nc}, nil
+}
+
+func (p *PresencePublisher) Close() {
+	p.nc.Close()
+}
+
+func (p *PresencePublisher) PublishPresenceChanged(event PresenceChanged) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	return p.nc.Publish(subjectPresence, payload)
 }
 
 func Consume(ctx context.Context, url string, handlers Handlers) error {
@@ -52,7 +85,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		return err
 	}
 
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 3)
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
@@ -76,7 +109,26 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		})
 	}()
 
-	for range 2 {
+	go func() {
+		sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) {
+			var event PresenceChanged
+			if err := json.Unmarshal(msg.Data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
+				return
+			}
+			handlers.OnPresenceChanged(ctx, event)
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer func() { _ = sub.Unsubscribe() }()
+
+		<-ctx.Done()
+		errCh <- nil
+	}()
+
+	for range 3 {
 		if err := <-errCh; err != nil {
 			return err
 		}
