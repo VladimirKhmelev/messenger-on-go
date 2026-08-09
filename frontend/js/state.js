@@ -7,7 +7,7 @@ export const state = {
 
   currentUser: null, // { id, email, tag }
 
-  chats: [], // { id, peer: {id, email, tag}, messages: [], online }
+  chats: [], // { id, peer: {id, email, tag}, messages: [], online, lastSeenUnix }
   selectedChatId: null,
   searchQuery: '',
   foundUser: null, // { id, tag } — result of an exact-tag lookup when search matches no existing chat

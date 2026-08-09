@@ -1,10 +1,11 @@
 export class WsClient {
-  constructor({ onMessageReceived, onNotifyPush, onHistory, onMessageSent, onError }) {
+  constructor({ onMessageReceived, onNotifyPush, onHistory, onMessageSent, onPresenceChanged, onError }) {
     this.socket = null;
     this.onMessageReceived = onMessageReceived;
     this.onNotifyPush = onNotifyPush;
     this.onHistory = onHistory;
     this.onMessageSent = onMessageSent;
+    this.onPresenceChanged = onPresenceChanged;
     this.onError = onError;
   }
 
@@ -38,6 +39,13 @@ export class WsClient {
       case 'message_sent':
         this.onMessageSent?.({ messageId: msg.message_id });
         break;
+      case 'presence_changed':
+        this.onPresenceChanged?.({
+          peerUserId: msg.peer_user_id,
+          online: msg.online,
+          lastSeenUnix: msg.last_seen_unix,
+        });
+        break;
       case 'error':
         this.onError?.({ error: msg.error });
         break;
@@ -50,6 +58,10 @@ export class WsClient {
 
   getHistory(chatId, limit = 50) {
     this.send({ type: 'get_history', chat_id: chatId, limit });
+  }
+
+  getPresence(peerUserId) {
+    this.send({ type: 'get_presence', peer_user_id: peerUserId });
   }
 
   send(payload) {

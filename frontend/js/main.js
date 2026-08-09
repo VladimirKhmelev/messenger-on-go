@@ -183,6 +183,7 @@ async function loadChats(myUserId) {
           messages: lastMessage ? [lastMessage] : [],
           historyLoaded: false,
           online: false,
+          lastSeenUnix: 0,
         };
       })
     );
@@ -241,12 +242,14 @@ async function handleCreateChat(user) {
       messages: [],
       historyLoaded: true, // brand new chat, nothing to fetch
       online: false,
+      lastSeenUnix: 0,
     };
     state.chats.unshift(chat);
     state.foundUser = null;
     state.searchQuery = '';
     handleSelectChat(chat.id);
     notify('sidebar');
+    ws?.getPresence(chat.peer.id);
   } catch (err) {
     console.error('failed to create chat:', err);
   }
@@ -334,11 +337,24 @@ function connectWs() {
     onMessageSent: () => {
       /* ack only; the actual message is appended via onMessageReceived fanout */
     },
+    onPresenceChanged: ({ peerUserId, online, lastSeenUnix }) => {
+      const chat = state.chats.find((c) => c.peer.id === peerUserId);
+      if (!chat) return;
+      chat.online = online;
+      chat.lastSeenUnix = lastSeenUnix;
+      notify('sidebar');
+      if (chat.id === state.selectedChatId) notify('conversation');
+    },
     onError: ({ error }) => {
       console.error('ws-gateway error:', error);
     },
   });
   ws.connect(getAccessToken());
+  ws.socket.addEventListener('open', () => {
+    for (const chat of state.chats) {
+      ws.getPresence(chat.peer.id);
+    }
+  });
 }
 
 function appendMessage(chatId, message) {
