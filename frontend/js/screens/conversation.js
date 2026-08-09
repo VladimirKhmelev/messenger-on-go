@@ -20,7 +20,7 @@ export function renderConversation(root, handlers) {
   }
 
   const palette = avatarPalette(chat.peer.tag);
-  const statusText = chat.online ? 'В сети' : 'Не в сети';
+  const statusText = presenceText(chat);
   const sendDisabled = !state.draft.trim();
 
   const prevInput = root.querySelector('[data-input="draft"]');
@@ -82,6 +82,12 @@ export function renderConversation(root, handlers) {
     draftInput.focus();
     draftInput.setSelectionRange(selectionStart, selectionEnd);
   }
+}
+
+function presenceText(chat) {
+  if (chat.online) return 'В сети';
+  if (!chat.lastSeenUnix) return 'Не в сети';
+  return `Был(а) в сети в ${formatTime(chat.lastSeenUnix)}`;
 }
 
 function renderMessage(msg) {

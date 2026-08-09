@@ -149,7 +149,7 @@ jobs:
       - name: Check JS syntax
         run: |
           for f in $(find frontend/js -name '*.js'); do
-            node --check "$f"
+            node --input-type=module --check < "$f"
           done
 
   auth-service-integration:
