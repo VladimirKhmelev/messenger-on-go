@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (85.1%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (63.5%)</option>
 				
 				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -549,14 +549,32 @@ func (r *PostgresChatRepository) CreateMessage(ctx context.Context, message *dom
 func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error) <span class="cov0" title="0">{
         var messages []*domain.Message
         err := r.conn.SelectContext(ctx, &amp;messages, `
-                SELECT id, chat_id, sender_id, body, created_at FROM messages
-                WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2`,
+                SELECT id, chat_id, sender_id, body, created_at FROM (
+                        SELECT id, chat_id, sender_id, body, created_at FROM messages
+                        WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2
+                ) recent ORDER BY created_at ASC`,
                 chatID, limit,
         )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
         <span class="cov0" title="0">return messages, nil</span>
+}
+
+func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID string) (*domain.Message, error) <span class="cov0" title="0">{
+        var message domain.Message
+        err := r.conn.GetContext(ctx, &amp;message, `
+                SELECT id, chat_id, sender_id, body, created_at FROM messages
+                WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1`,
+                chatID,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;message, nil</span>
 }
 
 func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov0" title="0">{
@@ -701,6 +719,44 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
         <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, limit)</span>
 }
 
+type ChatSummary struct {
+        ChatID        string
+        MemberUserIDs []string
+        LastMessage   *domain.Message
+}
+
+func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSummary, error) <span class="cov0" title="0">{
+        chats, err := s.chats.ListChatsForUser(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">summaries := make([]*ChatSummary, 0, len(chats))
+        for _, chat := range chats </span><span class="cov0" title="0">{
+                members, err := s.chats.ListMembers(ctx, chat.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">memberIDs := make([]string, 0, len(members))
+                for _, m := range members </span><span class="cov0" title="0">{
+                        memberIDs = append(memberIDs, m.UserID)
+                }</span>
+
+                <span class="cov0" title="0">lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">summaries = append(summaries, &amp;ChatSummary{
+                        ChatID:        chat.ID,
+                        MemberUserIDs: memberIDs,
+                        LastMessage:   lastMessage,
+                })</span>
+        }
+
+        <span class="cov0" title="0">return summaries, nil</span>
+}
+
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
         members, err := s.chats.ListMembers(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
@@ -806,6 +862,39 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
         }</span>
 
         <span class="cov0" title="0">return &amp;chatv1.GetHistoryResponse{Messages: result}, nil</span>
+}
+
+func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest) (*chatv1.ListChatsResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">summaries, err := s.chat.ListChats(ctx, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">result := make([]*chatv1.ChatSummary, 0, len(summaries))
+        for _, summary := range summaries </span><span class="cov0" title="0">{
+                var lastMessage *chatv1.Message
+                if summary.LastMessage != nil </span><span class="cov0" title="0">{
+                        lastMessage = &amp;chatv1.Message{
+                                MessageId:     summary.LastMessage.ID,
+                                SenderUserId:  summary.LastMessage.SenderID,
+                                Text:          summary.LastMessage.Body,
+                                CreatedAtUnix: summary.LastMessage.CreatedAt.Unix(),
+                        }
+                }</span>
+
+                <span class="cov0" title="0">result = append(result, &amp;chatv1.ChatSummary{
+                        ChatId:        summary.ChatID,
+                        MemberUserIds: summary.MemberUserIDs,
+                        LastMessage:   lastMessage,
+                })</span>
+        }
+
+        <span class="cov0" title="0">return &amp;chatv1.ListChatsResponse{Chats: result}, nil</span>
 }
 
 func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) <span class="cov0" title="0">{
