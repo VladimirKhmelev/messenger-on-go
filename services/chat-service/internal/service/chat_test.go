@@ -154,6 +154,7 @@ func (p *fakeEventPublisher) PublishMessageCreated(_ context.Context, event even
 
 type fakePresenceChecker struct {
 	onlineUserIDs map[string]bool
+	lastSeen      map[string]int64
 }
 
 func newFakePresenceChecker(onlineUserIDs ...string) *fakePresenceChecker {
@@ -161,11 +162,20 @@ func newFakePresenceChecker(onlineUserIDs ...string) *fakePresenceChecker {
 	for _, id := range onlineUserIDs {
 		set[id] = true
 	}
-	return &fakePresenceChecker{onlineUserIDs: set}
+	return &fakePresenceChecker{onlineUserIDs: set, lastSeen: make(map[string]int64)}
 }
 
 func (c *fakePresenceChecker) IsOnline(_ context.Context, userID string) (bool, error) {
 	return c.onlineUserIDs[userID], nil
+}
+
+func (c *fakePresenceChecker) LastSeen(_ context.Context, userID string) (int64, error) {
+	return c.lastSeen[userID], nil
+}
+
+func (c *fakePresenceChecker) SetOffline(_ context.Context, userID string) error {
+	delete(c.onlineUserIDs, userID)
+	return nil
 }
 
 func TestChatService_CreateChat_Success(t *testing.T) {
@@ -326,23 +336,41 @@ func TestChatService_GetMessage_NotFound(t *testing.T) {
 	}
 }
 
-func TestChatService_IsOnline(t *testing.T) {
+func TestChatService_GetPresence(t *testing.T) {
 	repo := newFakeChatRepository()
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker("user-a"))
 
-	online, err := svc.IsOnline(context.Background(), "user-a")
+	online, _, err := svc.GetPresence(context.Background(), "user-a")
 	if err != nil {
-		t.Fatalf("IsOnline() unexpected error: %v", err)
+		t.Fatalf("GetPresence() unexpected error: %v", err)
 	}
 	if !online {
-		t.Error("IsOnline() = false for an online user, want true")
+		t.Error("GetPresence() online = false for an online user, want true")
 	}
 
-	online, err = svc.IsOnline(context.Background(), "user-b")
+	online, _, err = svc.GetPresence(context.Background(), "user-b")
 	if err != nil {
-		t.Fatalf("IsOnline() unexpected error: %v", err)
+		t.Fatalf("GetPresence() unexpected error: %v", err)
 	}
 	if online {
-		t.Error("IsOnline() = true for an offline user, want false")
+		t.Error("GetPresence() online = true for an offline user, want false")
+	}
+}
+
+func TestChatService_SetOffline(t *testing.T) {
+	repo := newFakeChatRepository()
+	presence := newFakePresenceChecker("user-a")
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), presence)
+
+	if err := svc.SetOffline(context.Background(), "user-a"); err != nil {
+		t.Fatalf("SetOffline() unexpected error: %v", err)
+	}
+
+	online, _, err := svc.GetPresence(context.Background(), "user-a")
+	if err != nil {
+		t.Fatalf("GetPresence() unexpected error: %v", err)
+	}
+	if online {
+		t.Error("GetPresence() online = true after SetOffline, want false")
 	}
 }

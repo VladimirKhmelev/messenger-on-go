@@ -19,14 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Health_FullMethodName      = "/chat.v1.ChatService/Health"
-	ChatService_CreateChat_FullMethodName  = "/chat.v1.ChatService/CreateChat"
-	ChatService_SendMessage_FullMethodName = "/chat.v1.ChatService/SendMessage"
-	ChatService_GetHistory_FullMethodName  = "/chat.v1.ChatService/GetHistory"
-	ChatService_ListChats_FullMethodName   = "/chat.v1.ChatService/ListChats"
-	ChatService_ListMembers_FullMethodName = "/chat.v1.ChatService/ListMembers"
-	ChatService_GetMessage_FullMethodName  = "/chat.v1.ChatService/GetMessage"
-	ChatService_IsOnline_FullMethodName    = "/chat.v1.ChatService/IsOnline"
+	ChatService_Health_FullMethodName       = "/chat.v1.ChatService/Health"
+	ChatService_CreateChat_FullMethodName   = "/chat.v1.ChatService/CreateChat"
+	ChatService_SendMessage_FullMethodName  = "/chat.v1.ChatService/SendMessage"
+	ChatService_GetHistory_FullMethodName   = "/chat.v1.ChatService/GetHistory"
+	ChatService_ListChats_FullMethodName    = "/chat.v1.ChatService/ListChats"
+	ChatService_ListMembers_FullMethodName  = "/chat.v1.ChatService/ListMembers"
+	ChatService_GetMessage_FullMethodName   = "/chat.v1.ChatService/GetMessage"
+	ChatService_GetPresence_FullMethodName  = "/chat.v1.ChatService/GetPresence"
+	ChatService_SetOffline_FullMethodName   = "/chat.v1.ChatService/SetOffline"
+	ChatService_ListContacts_FullMethodName = "/chat.v1.ChatService/ListContacts"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -38,12 +40,14 @@ type ChatServiceClient interface {
 	SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (*SendMessageResponse, error)
 	GetHistory(ctx context.Context, in *GetHistoryRequest, opts ...grpc.CallOption) (*GetHistoryResponse, error)
 	ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error)
-	// ListMembers, GetMessage and IsOnline are internal-only (authorized via
-	// X-Internal-Secret, not a user JWT) and are intentionally not exposed
-	// through the HTTP gateway.
+	// ListMembers, GetMessage, GetPresence, SetOffline and ListContacts are
+	// internal-only (authorized via X-Internal-Secret, not a user JWT) and are
+	// intentionally not exposed through the HTTP gateway.
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
-	IsOnline(ctx context.Context, in *IsOnlineRequest, opts ...grpc.CallOption) (*IsOnlineResponse, error)
+	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*GetPresenceResponse, error)
+	SetOffline(ctx context.Context, in *SetOfflineRequest, opts ...grpc.CallOption) (*SetOfflineResponse, error)
+	ListContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (*ListContactsResponse, error)
 }
 
 type chatServiceClient struct {
@@ -124,10 +128,30 @@ func (c *chatServiceClient) GetMessage(ctx context.Context, in *GetMessageReques
 	return out, nil
 }
 
-func (c *chatServiceClient) IsOnline(ctx context.Context, in *IsOnlineRequest, opts ...grpc.CallOption) (*IsOnlineResponse, error) {
+func (c *chatServiceClient) GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*GetPresenceResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IsOnlineResponse)
-	err := c.cc.Invoke(ctx, ChatService_IsOnline_FullMethodName, in, out, cOpts...)
+	out := new(GetPresenceResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetPresence_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetOffline(ctx context.Context, in *SetOfflineRequest, opts ...grpc.CallOption) (*SetOfflineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetOfflineResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetOffline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (*ListContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListContactsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListContacts_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,12 +167,14 @@ type ChatServiceServer interface {
 	SendMessage(context.Context, *SendMessageRequest) (*SendMessageResponse, error)
 	GetHistory(context.Context, *GetHistoryRequest) (*GetHistoryResponse, error)
 	ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error)
-	// ListMembers, GetMessage and IsOnline are internal-only (authorized via
-	// X-Internal-Secret, not a user JWT) and are intentionally not exposed
-	// through the HTTP gateway.
+	// ListMembers, GetMessage, GetPresence, SetOffline and ListContacts are
+	// internal-only (authorized via X-Internal-Secret, not a user JWT) and are
+	// intentionally not exposed through the HTTP gateway.
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
-	IsOnline(context.Context, *IsOnlineRequest) (*IsOnlineResponse, error)
+	GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error)
+	SetOffline(context.Context, *SetOfflineRequest) (*SetOfflineResponse, error)
+	ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -180,8 +206,14 @@ func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersR
 func (UnimplementedChatServiceServer) GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMessage not implemented")
 }
-func (UnimplementedChatServiceServer) IsOnline(context.Context, *IsOnlineRequest) (*IsOnlineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method IsOnline not implemented")
+func (UnimplementedChatServiceServer) GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPresence not implemented")
+}
+func (UnimplementedChatServiceServer) SetOffline(context.Context, *SetOfflineRequest) (*SetOfflineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetOffline not implemented")
+}
+func (UnimplementedChatServiceServer) ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListContacts not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -330,20 +362,56 @@ func _ChatService_GetMessage_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatService_IsOnline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsOnlineRequest)
+func _ChatService_GetPresence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPresenceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).IsOnline(ctx, in)
+		return srv.(ChatServiceServer).GetPresence(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChatService_IsOnline_FullMethodName,
+		FullMethod: ChatService_GetPresence_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).IsOnline(ctx, req.(*IsOnlineRequest))
+		return srv.(ChatServiceServer).GetPresence(ctx, req.(*GetPresenceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetOffline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetOfflineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetOffline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetOffline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetOffline(ctx, req.(*SetOfflineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListContacts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListContactsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListContacts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListContacts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListContacts(ctx, req.(*ListContactsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -384,8 +452,16 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_GetMessage_Handler,
 		},
 		{
-			MethodName: "IsOnline",
-			Handler:    _ChatService_IsOnline_Handler,
+			MethodName: "GetPresence",
+			Handler:    _ChatService_GetPresence_Handler,
+		},
+		{
+			MethodName: "SetOffline",
+			Handler:    _ChatService_SetOffline_Handler,
+		},
+		{
+			MethodName: "ListContacts",
+			Handler:    _ChatService_ListContacts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -75,6 +75,33 @@ func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, erro
 	return resp.GetUserIds(), nil
 }
 
+func (c *Client) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) {
+	ctx = c.withInternalSecret(ctx)
+
+	resp, err := c.chat.GetPresence(ctx, &chatv1.GetPresenceRequest{UserId: userID})
+	if err != nil {
+		return false, 0, err
+	}
+	return resp.GetOnline(), resp.GetLastSeenUnix(), nil
+}
+
+func (c *Client) SetOffline(ctx context.Context, userID string) error {
+	ctx = c.withInternalSecret(ctx)
+
+	_, err := c.chat.SetOffline(ctx, &chatv1.SetOfflineRequest{UserId: userID})
+	return err
+}
+
+func (c *Client) ListContacts(ctx context.Context, userID string) ([]string, error) {
+	ctx = c.withInternalSecret(ctx)
+
+	resp, err := c.chat.ListContacts(ctx, &chatv1.ListContactsRequest{UserId: userID})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetUserIds(), nil
+}
+
 func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, error) {
 	ctx = c.withInternalSecret(ctx)
 

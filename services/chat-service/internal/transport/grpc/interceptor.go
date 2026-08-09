@@ -28,9 +28,11 @@ var publicMethods = map[string]bool{
 }
 
 var internalMethods = map[string]bool{
-	"/chat.v1.ChatService/ListMembers": true,
-	"/chat.v1.ChatService/GetMessage":  true,
-	"/chat.v1.ChatService/IsOnline":    true,
+	"/chat.v1.ChatService/ListMembers":  true,
+	"/chat.v1.ChatService/GetMessage":   true,
+	"/chat.v1.ChatService/GetPresence":  true,
+	"/chat.v1.ChatService/SetOffline":   true,
+	"/chat.v1.ChatService/ListContacts": true,
 }
 
 func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor {

@@ -41,7 +41,7 @@ func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, erro
 func (c *Client) IsOnline(ctx context.Context, userID string) (bool, error) {
 	ctx = c.withInternalSecret(ctx)
 
-	resp, err := c.chat.IsOnline(ctx, &chatv1.IsOnlineRequest{UserId: userID})
+	resp, err := c.chat.GetPresence(ctx, &chatv1.GetPresenceRequest{UserId: userID})
 	if err != nil {
 		return false, err
 	}

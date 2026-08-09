@@ -56,16 +56,23 @@ func main() {
 	}
 	defer func() { _ = chatClient.Close() }()
 
+	presencePublisher, err := events.ConnectPresencePublisher(natsURL)
+	if err != nil {
+		log.Fatalf("ws-gateway: failed to connect presence publisher: %v", err)
+	}
+	defer presencePublisher.Close()
+
 	registry := ws.NewRegistry()
-	fanout := ws.NewFanout(registry, chatClient, chatClient)
+	fanout := ws.NewFanout(registry, chatClient, chatClient, chatClient)
 
 	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
 	defer cancelConsumer()
 
 	go func() {
 		handlers := events.Handlers{
-			OnMessageCreated: fanout.HandleMessageCreated,
-			OnNotifyPush:     fanout.HandleNotifyPush,
+			OnMessageCreated:  fanout.HandleMessageCreated,
+			OnNotifyPush:      fanout.HandleNotifyPush,
+			OnPresenceChanged: fanout.HandlePresenceChanged,
 		}
 		if err := events.Consume(consumerCtx, natsURL, handlers); err != nil {
 			log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
@@ -91,7 +98,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry))
+	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher))
 
 	httpServer := &http.Server{
 		Addr:    ":" + httpPort,

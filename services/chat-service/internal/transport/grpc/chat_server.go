@@ -141,13 +141,30 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
 	}, nil
 }
 
-func (s *ChatServer) IsOnline(ctx context.Context, req *chatv1.IsOnlineRequest) (*chatv1.IsOnlineResponse, error) {
-	online, err := s.chat.IsOnline(ctx, req.GetUserId())
+func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceRequest) (*chatv1.GetPresenceResponse, error) {
+	online, lastSeenUnix, err := s.chat.GetPresence(ctx, req.GetUserId())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return &chatv1.IsOnlineResponse{Online: online}, nil
+	return &chatv1.GetPresenceResponse{Online: online, LastSeenUnix: lastSeenUnix}, nil
+}
+
+func (s *ChatServer) SetOffline(ctx context.Context, req *chatv1.SetOfflineRequest) (*chatv1.SetOfflineResponse, error) {
+	if err := s.chat.SetOffline(ctx, req.GetUserId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.SetOfflineResponse{}, nil
+}
+
+func (s *ChatServer) ListContacts(ctx context.Context, req *chatv1.ListContactsRequest) (*chatv1.ListContactsResponse, error) {
+	userIDs, err := s.chat.ListContacts(ctx, req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.ListContactsResponse{UserIds: userIDs}, nil
 }
 
 func toGRPCError(err error) error {

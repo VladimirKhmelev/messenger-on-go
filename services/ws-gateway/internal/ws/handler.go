@@ -9,6 +9,7 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 var upgrader = websocket.Upgrader{
@@ -18,16 +19,23 @@ var upgrader = websocket.Upgrader{
 type ChatClient interface {
 	SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
 	GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
+	GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
+	SetOffline(ctx context.Context, userID string) error
+}
+
+type PresencePublisher interface {
+	PublishPresenceChanged(event events.PresenceChanged) error
 }
 
 type Handler struct {
 	jwtSecret string
 	chat      ChatClient
 	registry  *Registry
+	presence  PresencePublisher
 }
 
-func NewHandler(jwtSecret string, chat ChatClient, registry *Registry) *Handler {
-	return &Handler{jwtSecret: jwtSecret, chat: chat, registry: registry}
+func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher) *Handler {
+	return &Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +57,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := newSession(userID, token, conn, h.chat)
+	session := newSession(userID, token, conn, h.chat, h.presence)
 	session.run(h.registry)
 }
