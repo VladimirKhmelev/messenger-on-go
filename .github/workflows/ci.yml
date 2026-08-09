@@ -142,6 +142,16 @@ jobs:
       - run: go build ./...
       - run: go test ./... -cover
 
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JS syntax
+        run: |
+          for f in $(find frontend/js -name '*.js'); do
+            node --check "$f"
+          done
+
   auth-service-integration:
     runs-on: ubuntu-latest
     defaults:
