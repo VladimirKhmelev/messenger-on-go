@@ -183,16 +183,16 @@ func TestAuthInterceptor_InternalMethod_MissingSecret(t *testing.T) {
 	}
 }
 
-func TestAuthInterceptor_IsOnline_IsInternalMethod(t *testing.T) {
+func TestAuthInterceptor_GetPresence_IsInternalMethod(t *testing.T) {
 	interceptor := AuthInterceptor(testJWTSecret, testInternalSecret, &fakePresenceMarker{})
 
 	md := metadata.New(map[string]string{"x-internal-secret": testInternalSecret})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
-	info := &grpc.UnaryServerInfo{FullMethod: "/chat.v1.ChatService/IsOnline"}
+	info := &grpc.UnaryServerInfo{FullMethod: "/chat.v1.ChatService/GetPresence"}
 
 	_, err := interceptor(ctx, nil, info, noopHandler)
 	if err != nil {
-		t.Errorf("interceptor() unexpected error for IsOnline with valid internal secret: %v", err)
+		t.Errorf("interceptor() unexpected error for GetPresence with valid internal secret: %v", err)
 	}
 }
