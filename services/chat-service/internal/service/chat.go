@@ -25,6 +25,8 @@ type EventPublisher interface {
 
 type PresenceChecker interface {
 	IsOnline(ctx context.Context, userID string) (bool, error)
+	LastSeen(ctx context.Context, userID string) (int64, error)
+	SetOffline(ctx context.Context, userID string) error
 }
 
 type ChatService struct {
@@ -162,6 +164,31 @@ func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSumm
 	return summaries, nil
 }
 
+func (s *ChatService) ListContacts(ctx context.Context, userID string) ([]string, error) {
+	chats, err := s.chats.ListChatsForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]bool)
+	contacts := make([]string, 0, len(chats))
+	for _, chat := range chats {
+		members, err := s.chats.ListMembers(ctx, chat.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range members {
+			if m.UserID == userID || seen[m.UserID] {
+				continue
+			}
+			seen[m.UserID] = true
+			contacts = append(contacts, m.UserID)
+		}
+	}
+
+	return contacts, nil
+}
+
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) {
 	members, err := s.chats.ListMembers(ctx, chatID)
 	if err != nil {
@@ -179,6 +206,20 @@ func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain
 	return s.chats.GetMessage(ctx, messageID)
 }
 
-func (s *ChatService) IsOnline(ctx context.Context, userID string) (bool, error) {
-	return s.presence.IsOnline(ctx, userID)
+func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) {
+	online, err = s.presence.IsOnline(ctx, userID)
+	if err != nil {
+		return false, 0, err
+	}
+
+	lastSeenUnix, err = s.presence.LastSeen(ctx, userID)
+	if err != nil {
+		return false, 0, err
+	}
+
+	return online, lastSeenUnix, nil
+}
+
+func (s *ChatService) SetOffline(ctx context.Context, userID string) error {
+	return s.presence.SetOffline(ctx, userID)
 }

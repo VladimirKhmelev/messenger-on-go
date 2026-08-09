@@ -2,14 +2,16 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	onlineKeyPrefix = "chat:online:"
-	onlineTTL       = 30 * time.Second
+	onlineKeyPrefix   = "chat:online:"
+	lastSeenKeyPrefix = "chat:last_seen:"
+	onlineTTL         = 30 * time.Second
 )
 
 type PresenceStore struct {
@@ -25,6 +27,9 @@ func (s *PresenceStore) SetOnline(ctx context.Context, userID string) error {
 }
 
 func (s *PresenceStore) SetOffline(ctx context.Context, userID string) error {
+	if err := s.client.Set(ctx, lastSeenKeyPrefix+userID, time.Now().Unix(), 0).Err(); err != nil {
+		return err
+	}
 	return s.client.Del(ctx, onlineKeyPrefix+userID).Err()
 }
 
@@ -34,4 +39,15 @@ func (s *PresenceStore) IsOnline(ctx context.Context, userID string) (bool, erro
 		return false, err
 	}
 	return exists > 0, nil
+}
+
+func (s *PresenceStore) LastSeen(ctx context.Context, userID string) (int64, error) {
+	val, err := s.client.Get(ctx, lastSeenKeyPrefix+userID).Int64()
+	if errors.Is(err, redis.Nil) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return val, nil
 }
