@@ -19,16 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Health_FullMethodName       = "/chat.v1.ChatService/Health"
-	ChatService_CreateChat_FullMethodName   = "/chat.v1.ChatService/CreateChat"
-	ChatService_SendMessage_FullMethodName  = "/chat.v1.ChatService/SendMessage"
-	ChatService_GetHistory_FullMethodName   = "/chat.v1.ChatService/GetHistory"
-	ChatService_ListChats_FullMethodName    = "/chat.v1.ChatService/ListChats"
-	ChatService_ListMembers_FullMethodName  = "/chat.v1.ChatService/ListMembers"
-	ChatService_GetMessage_FullMethodName   = "/chat.v1.ChatService/GetMessage"
-	ChatService_GetPresence_FullMethodName  = "/chat.v1.ChatService/GetPresence"
-	ChatService_SetOffline_FullMethodName   = "/chat.v1.ChatService/SetOffline"
-	ChatService_ListContacts_FullMethodName = "/chat.v1.ChatService/ListContacts"
+	ChatService_Health_FullMethodName              = "/chat.v1.ChatService/Health"
+	ChatService_CreateChat_FullMethodName          = "/chat.v1.ChatService/CreateChat"
+	ChatService_SendMessage_FullMethodName         = "/chat.v1.ChatService/SendMessage"
+	ChatService_GetHistory_FullMethodName          = "/chat.v1.ChatService/GetHistory"
+	ChatService_ListChats_FullMethodName           = "/chat.v1.ChatService/ListChats"
+	ChatService_EditMessage_FullMethodName         = "/chat.v1.ChatService/EditMessage"
+	ChatService_DeleteMessageForAll_FullMethodName = "/chat.v1.ChatService/DeleteMessageForAll"
+	ChatService_DeleteMessageForMe_FullMethodName  = "/chat.v1.ChatService/DeleteMessageForMe"
+	ChatService_ListMembers_FullMethodName         = "/chat.v1.ChatService/ListMembers"
+	ChatService_GetMessage_FullMethodName          = "/chat.v1.ChatService/GetMessage"
+	ChatService_GetPresence_FullMethodName         = "/chat.v1.ChatService/GetPresence"
+	ChatService_SetOffline_FullMethodName          = "/chat.v1.ChatService/SetOffline"
+	ChatService_ListContacts_FullMethodName        = "/chat.v1.ChatService/ListContacts"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -40,9 +43,9 @@ type ChatServiceClient interface {
 	SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (*SendMessageResponse, error)
 	GetHistory(ctx context.Context, in *GetHistoryRequest, opts ...grpc.CallOption) (*GetHistoryResponse, error)
 	ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error)
-	// ListMembers, GetMessage, GetPresence, SetOffline and ListContacts are
-	// internal-only (authorized via X-Internal-Secret, not a user JWT) and are
-	// intentionally not exposed through the HTTP gateway.
+	EditMessage(ctx context.Context, in *EditMessageRequest, opts ...grpc.CallOption) (*EditMessageResponse, error)
+	DeleteMessageForAll(ctx context.Context, in *DeleteMessageForAllRequest, opts ...grpc.CallOption) (*DeleteMessageForAllResponse, error)
+	DeleteMessageForMe(ctx context.Context, in *DeleteMessageForMeRequest, opts ...grpc.CallOption) (*DeleteMessageForMeResponse, error)
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*GetPresenceResponse, error)
@@ -108,6 +111,36 @@ func (c *chatServiceClient) ListChats(ctx context.Context, in *ListChatsRequest,
 	return out, nil
 }
 
+func (c *chatServiceClient) EditMessage(ctx context.Context, in *EditMessageRequest, opts ...grpc.CallOption) (*EditMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EditMessageResponse)
+	err := c.cc.Invoke(ctx, ChatService_EditMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteMessageForAll(ctx context.Context, in *DeleteMessageForAllRequest, opts ...grpc.CallOption) (*DeleteMessageForAllResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteMessageForAllResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteMessageForAll_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteMessageForMe(ctx context.Context, in *DeleteMessageForMeRequest, opts ...grpc.CallOption) (*DeleteMessageForMeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteMessageForMeResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteMessageForMe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListMembersResponse)
@@ -167,9 +200,9 @@ type ChatServiceServer interface {
 	SendMessage(context.Context, *SendMessageRequest) (*SendMessageResponse, error)
 	GetHistory(context.Context, *GetHistoryRequest) (*GetHistoryResponse, error)
 	ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error)
-	// ListMembers, GetMessage, GetPresence, SetOffline and ListContacts are
-	// internal-only (authorized via X-Internal-Secret, not a user JWT) and are
-	// intentionally not exposed through the HTTP gateway.
+	EditMessage(context.Context, *EditMessageRequest) (*EditMessageResponse, error)
+	DeleteMessageForAll(context.Context, *DeleteMessageForAllRequest) (*DeleteMessageForAllResponse, error)
+	DeleteMessageForMe(context.Context, *DeleteMessageForMeRequest) (*DeleteMessageForMeResponse, error)
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
 	GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error)
@@ -199,6 +232,15 @@ func (UnimplementedChatServiceServer) GetHistory(context.Context, *GetHistoryReq
 }
 func (UnimplementedChatServiceServer) ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListChats not implemented")
+}
+func (UnimplementedChatServiceServer) EditMessage(context.Context, *EditMessageRequest) (*EditMessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EditMessage not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteMessageForAll(context.Context, *DeleteMessageForAllRequest) (*DeleteMessageForAllResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMessageForAll not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteMessageForMe(context.Context, *DeleteMessageForMeRequest) (*DeleteMessageForMeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMessageForMe not implemented")
 }
 func (UnimplementedChatServiceServer) ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMembers not implemented")
@@ -326,6 +368,60 @@ func _ChatService_ListChats_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_EditMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EditMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).EditMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_EditMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).EditMessage(ctx, req.(*EditMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteMessageForAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMessageForAllRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteMessageForAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteMessageForAll_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteMessageForAll(ctx, req.(*DeleteMessageForAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteMessageForMe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMessageForMeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteMessageForMe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteMessageForMe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteMessageForMe(ctx, req.(*DeleteMessageForMeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_ListMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListMembersRequest)
 	if err := dec(in); err != nil {
@@ -442,6 +538,18 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListChats",
 			Handler:    _ChatService_ListChats_Handler,
+		},
+		{
+			MethodName: "EditMessage",
+			Handler:    _ChatService_EditMessage_Handler,
+		},
+		{
+			MethodName: "DeleteMessageForAll",
+			Handler:    _ChatService_DeleteMessageForAll_Handler,
+		},
+		{
+			MethodName: "DeleteMessageForMe",
+			Handler:    _ChatService_DeleteMessageForMe_Handler,
 		},
 		{
 			MethodName: "ListMembers",

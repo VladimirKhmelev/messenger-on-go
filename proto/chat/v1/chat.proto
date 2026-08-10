@@ -40,6 +40,25 @@ service ChatService {
     };
   }
 
+  rpc EditMessage(EditMessageRequest) returns (EditMessageResponse) {
+    option (google.api.http) = {
+      patch: "/v1/chats/{chat_id}/messages/{message_id}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteMessageForAll(DeleteMessageForAllRequest) returns (DeleteMessageForAllResponse) {
+    option (google.api.http) = {
+      delete: "/v1/chats/{chat_id}/messages/{message_id}"
+    };
+  }
+
+  rpc DeleteMessageForMe(DeleteMessageForMeRequest) returns (DeleteMessageForMeResponse) {
+    option (google.api.http) = {
+      delete: "/v1/chats/{chat_id}/messages/{message_id}/for-me"
+    };
+  }
+
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
   rpc GetPresence(GetPresenceRequest) returns (GetPresenceResponse);
@@ -85,6 +104,34 @@ message Message {
   string sender_user_id = 2;
   string text = 3;
   int64 created_at_unix = 4;
+  int64 edited_at_unix = 5;
+  bool deleted = 6;
+}
+
+message EditMessageRequest {
+  string chat_id = 1;
+  string message_id = 2;
+  string text = 3;
+}
+
+message EditMessageResponse {
+  Message message = 1;
+}
+
+message DeleteMessageForAllRequest {
+  string chat_id = 1;
+  string message_id = 2;
+}
+
+message DeleteMessageForAllResponse {
+}
+
+message DeleteMessageForMeRequest {
+  string chat_id = 1;
+  string message_id = 2;
+}
+
+message DeleteMessageForMeResponse {
 }
 
 message ListChatsRequest {
