@@ -10,4 +10,6 @@ var (
 	ErrCannotChatWithSelf = errors.New("cannot create a chat with yourself")
 	ErrTargetUserNotFound = errors.New("target user not found")
 	ErrMessageNotFound    = errors.New("message not found")
+	ErrMessageDeleted     = errors.New("message has been deleted")
+	ErrNotMessageSender   = errors.New("only the sender can edit or delete this message for everyone")
 )
