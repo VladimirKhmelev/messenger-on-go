@@ -47,13 +47,15 @@ service ChatService {
     };
   }
 
-  rpc DeleteMessageForAll(DeleteMessageForAllRequest) returns (DeleteMessageForAllResponse) {
+  rpc DeleteMessageForAll(DeleteMessageForAllRequest)
+      returns (DeleteMessageForAllResponse) {
     option (google.api.http) = {
       delete: "/v1/chats/{chat_id}/messages/{message_id}"
     };
   }
 
-  rpc DeleteMessageForMe(DeleteMessageForMeRequest) returns (DeleteMessageForMeResponse) {
+  rpc DeleteMessageForMe(DeleteMessageForMeRequest)
+      returns (DeleteMessageForMeResponse) {
     option (google.api.http) = {
       delete: "/v1/chats/{chat_id}/messages/{message_id}/for-me"
     };
