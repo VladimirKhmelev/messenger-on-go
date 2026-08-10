@@ -21,6 +21,7 @@ type AuthClient interface {
 
 type EventPublisher interface {
 	PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
+	PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
 }
 
 type PresenceChecker interface {
@@ -123,7 +124,103 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 		limit = HistoryDefaultLimit
 	}
 
-	return s.chats.ListMessages(ctx, chatID, limit)
+	return s.chats.ListMessages(ctx, chatID, requesterID, limit)
+}
+
+func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) {
+	if newBody == "" {
+		return nil, domain.ErrEmptyMessage
+	}
+
+	message, err := s.chats.GetMessage(ctx, messageID)
+	if err != nil {
+		return nil, err
+	}
+	if message.DeletedAt != nil {
+		return nil, domain.ErrMessageDeleted
+	}
+	if message.SenderID != requesterID {
+		return nil, domain.ErrNotMessageSender
+	}
+
+	now := time.Now()
+	if err := s.chats.AppendMessageEvent(ctx, &domain.MessageEvent{
+		ID:        uuid.NewString(),
+		MessageID: messageID,
+		ChatID:    message.ChatID,
+		ActorID:   requesterID,
+		Type:      domain.MessageEventEdited,
+		NewBody:   &newBody,
+		CreatedAt: now,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+		MessageID: messageID,
+		ChatID:    message.ChatID,
+		NewBody:   &newBody,
+		UpdatedAt: now,
+	}); err != nil {
+		log.Printf("chat-service: failed to publish msg.updated event for %s: %v", messageID, err)
+	}
+
+	message.Body = newBody
+	message.EditedAt = &now
+	return message, nil
+}
+
+func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, requesterID string) error {
+	message, err := s.chats.GetMessage(ctx, messageID)
+	if err != nil {
+		return err
+	}
+	if message.DeletedAt != nil {
+		return nil
+	}
+	if message.SenderID != requesterID {
+		return domain.ErrNotMessageSender
+	}
+
+	now := time.Now()
+	if err := s.chats.AppendMessageEvent(ctx, &domain.MessageEvent{
+		ID:        uuid.NewString(),
+		MessageID: messageID,
+		ChatID:    message.ChatID,
+		ActorID:   requesterID,
+		Type:      domain.MessageEventDeletedForAll,
+		CreatedAt: now,
+	}); err != nil {
+		return err
+	}
+
+	if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+		MessageID: messageID,
+		ChatID:    message.ChatID,
+		Deleted:   true,
+		UpdatedAt: now,
+	}); err != nil {
+		log.Printf("chat-service: failed to publish msg.deleted event for %s: %v", messageID, err)
+	}
+
+	return nil
+}
+
+func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, requesterID string) error {
+	message, err := s.chats.GetMessage(ctx, messageID)
+	if err != nil {
+		return err
+	}
+
+	isMember, err := s.chats.IsMember(ctx, message.ChatID, requesterID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return domain.ErrNotChatMember
+	}
+
+	return s.chats.HideMessageForUser(ctx, messageID, requesterID)
 }
 
 type ChatSummary struct {
@@ -149,7 +246,7 @@ func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSumm
 			memberIDs = append(memberIDs, m.UserID)
 		}
 
-		lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID)
+		lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID, userID)
 		if err != nil {
 			return nil, err
 		}
