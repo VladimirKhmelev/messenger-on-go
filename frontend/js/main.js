@@ -70,6 +70,9 @@ function wireZones() {
       renderConversation(conversationRoot, {
         onDraftChange: () => notify('conversation'),
         onSend: handleSend,
+        onEditMessage: handleEditMessage,
+        onDeleteMessageForAll: handleDeleteMessageForAll,
+        onDeleteMessageForMe: handleDeleteMessageForMe,
       })
     );
   }
@@ -279,6 +282,22 @@ function handleSend() {
   notify('conversation');
 }
 
+function handleEditMessage(messageId, newText) {
+  const text = newText.trim();
+  if (!text || !state.selectedChatId) return;
+  ws?.editMessage(state.selectedChatId, messageId, text);
+}
+
+function handleDeleteMessageForAll(messageId) {
+  if (!state.selectedChatId) return;
+  ws?.deleteMessageForAll(state.selectedChatId, messageId);
+}
+
+function handleDeleteMessageForMe(messageId) {
+  if (!state.selectedChatId) return;
+  ws?.deleteMessageForMe(state.selectedChatId, messageId);
+}
+
 async function handleLogout() {
   ws?.close();
   ws = null;
@@ -344,6 +363,23 @@ function connectWs() {
       chat.lastSeenUnix = lastSeenUnix;
       notify('sidebar');
       if (chat.id === state.selectedChatId) notify('conversation');
+    },
+    onMessageUpdated: ({ chatId, messageId, newText, deleted }) => {
+      const chat = state.chats.find((c) => c.id === chatId);
+      if (!chat) return;
+
+      const message = chat.messages.find((m) => m.messageId === messageId);
+      if (message) {
+        if (deleted) {
+          message.deleted = true;
+        } else if (newText !== null) {
+          message.text = newText;
+          message.editedAtUnix = Math.floor(Date.now() / 1000);
+        }
+      }
+
+      notify('sidebar');
+      if (chatId === state.selectedChatId) notify('conversation');
     },
     onError: ({ error }) => {
       console.error('ws-gateway error:', error);

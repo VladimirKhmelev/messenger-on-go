@@ -12,6 +12,7 @@ export const state = {
   searchQuery: '',
   foundUser: null, // { id, tag } — result of an exact-tag lookup when search matches no existing chat
   draft: '',
+  editingMessageId: null, // set while a message's inline edit field is open
 
   toast: null, // { chatId, name, text }
 };

@@ -22,6 +22,7 @@
   --empty-accent-tint: oklch(91% 0.03 35);
 
   --row-selected-bg: oklch(91% 0.02 35);
+  --message-row-hover-bg: oklch(24% 0.01 75 / 0.035);
 
   --avatar-bg-1: oklch(90% 0.05 25);
   --avatar-text-1: oklch(35% 0.09 25);
@@ -58,4 +59,5 @@ html[data-theme='dark'] {
   --empty-accent-tint: oklch(32% 0.06 35);
 
   --row-selected-bg: oklch(33% 0.04 35);
+  --message-row-hover-bg: oklch(92% 0.005 75 / 0.045);
 }

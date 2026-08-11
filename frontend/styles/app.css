@@ -218,6 +218,10 @@ a:hover { color: var(--accent); }
   height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 24px;
   border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
+.conversation-header-inner {
+  width: 100%; max-width: 1040px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+}
 .conversation-header-name { font-size: 15px; font-weight: 600; }
 .conversation-header-status { font-size: 12px; color: var(--text-muted); }
 
@@ -225,20 +229,80 @@ a:hover { color: var(--accent); }
   flex: 1; overflow-y: auto; padding: 24px;
   display: flex; flex-direction: column; gap: 14px;
 }
-.message-row { display: flex; flex-direction: column; }
+.message-list-inner {
+  width: 100%; max-width: 1040px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.message-row {
+  display: flex; flex-direction: column; width: 100%; padding: 2px 0;
+  transition: background-color 0.1s;
+}
+.message-row[data-menu-open='true'] { background: var(--message-row-hover-bg); }
 .message-row[data-mine='true'] { align-items: flex-end; }
 .message-row[data-mine='false'] { align-items: flex-start; }
-.bubble {
-  max-width: 60%; padding: 10px 14px; border-radius: 16px;
-  font-size: 14px; line-height: 1.5; white-space: pre-wrap;
+
+.message-row-inner {
+  display: flex; align-items: flex-end; gap: 4px; max-width: 60%;
+  padding: 2px 8px; border-radius: 12px; transition: background-color 0.1s;
 }
+.message-row-inner:hover { background: var(--message-row-hover-bg); }
+.message-row[data-mine='true'] .message-row-inner { flex-direction: row-reverse; align-self: flex-end; }
+.message-row[data-mine='false'] .message-row-inner { align-self: flex-start; }
+
+.bubble {
+  position: relative; padding: 10px 14px; border-radius: 16px;
+  font-size: 14px; line-height: 1.5; min-width: 0;
+}
+.bubble-text { white-space: pre-wrap; }
 .message-row[data-mine='true'] .bubble { background: var(--accent); color: var(--accent-text); }
 .message-row[data-mine='false'] .bubble { background: var(--bg-white); color: var(--text); }
 .message-time { font-size: 11px; color: var(--text-muted-2); margin-top: 4px; padding: 0 4px; }
+.message-edited-tag { margin-left: 6px; font-style: italic; }
+
+.bubble--deleted {
+  max-width: 60%; font-style: italic; color: var(--text-muted-2);
+  background: transparent !important; border: 1px dashed var(--border-soft);
+}
+
+.message-menu-btn {
+  flex-shrink: 0; width: 24px; height: 24px; margin-bottom: 2px;
+  border: none; background: transparent; cursor: pointer; border-radius: 50%;
+  font-size: 14px; line-height: 1; color: var(--text-muted-3); opacity: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.1s;
+}
+.message-row:hover .message-menu-btn { opacity: 1; }
+.message-menu-btn:hover { background: rgba(0, 0, 0, 0.08); color: var(--text); }
+
+.message-menu {
+  position: fixed; z-index: 20;
+  background: var(--bg-white); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 20px var(--shadow); overflow: hidden; min-width: 150px;
+}
+.message-menu[hidden] { display: none; }
+.message-menu-item {
+  padding: 7px 12px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap;
+}
+.message-menu-item:hover { background: var(--row-selected-bg); }
+.message-menu-item--danger { color: oklch(55% 0.18 25); }
+
+.bubble--editing { max-width: 70%; padding: 10px 14px; }
+.edit-input {
+  width: 100%; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid var(--border-soft); background: var(--bg-card);
+  font-size: 14px; outline: none; color: var(--text); font-family: inherit;
+}
+.edit-actions { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; }
+.edit-actions .action { cursor: pointer; color: var(--text-muted-3); }
+.edit-actions .action:hover { color: var(--accent); }
 
 .composer {
   padding: 16px 24px; border-top: 1px solid var(--border);
-  display: flex; gap: 10px; align-items: center; flex-shrink: 0;
+  display: flex; justify-content: center; flex-shrink: 0;
+}
+.composer-inner {
+  width: 100%; max-width: 1040px;
+  display: flex; gap: 10px; align-items: center;
 }
 .composer-input {
   flex: 1; padding: 12px 16px; border-radius: 999px;

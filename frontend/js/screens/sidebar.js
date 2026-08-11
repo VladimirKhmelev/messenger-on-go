@@ -117,7 +117,6 @@ function renderChatRow(chat) {
           <div class="chat-row-name">${escapeHtml(chat.peer.tag)}</div>
           <div class="chat-row-time">${lastTime}</div>
         </div>
-        <div class="chat-row-tag">@${escapeHtml(chat.peer.tag)}</div>
         <div class="chat-row-preview">${lastPreview}</div>
       </div>
     </button>
