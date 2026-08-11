@@ -31,6 +31,8 @@ const (
 	AuthService_RequestPasswordReset_FullMethodName = "/auth.v1.AuthService/RequestPasswordReset"
 	AuthService_ResetPassword_FullMethodName        = "/auth.v1.AuthService/ResetPassword"
 	AuthService_LoginWithGitHub_FullMethodName      = "/auth.v1.AuthService/LoginWithGitHub"
+	AuthService_UpdateTag_FullMethodName            = "/auth.v1.AuthService/UpdateTag"
+	AuthService_CheckTagAvailable_FullMethodName    = "/auth.v1.AuthService/CheckTagAvailable"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -49,6 +51,8 @@ type AuthServiceClient interface {
 	RequestPasswordReset(ctx context.Context, in *RequestPasswordResetRequest, opts ...grpc.CallOption) (*RequestPasswordResetResponse, error)
 	ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error)
 	LoginWithGitHub(ctx context.Context, in *LoginWithGitHubRequest, opts ...grpc.CallOption) (*LoginWithGitHubResponse, error)
+	UpdateTag(ctx context.Context, in *UpdateTagRequest, opts ...grpc.CallOption) (*UpdateTagResponse, error)
+	CheckTagAvailable(ctx context.Context, in *CheckTagAvailableRequest, opts ...grpc.CallOption) (*CheckTagAvailableResponse, error)
 }
 
 type authServiceClient struct {
@@ -179,6 +183,26 @@ func (c *authServiceClient) LoginWithGitHub(ctx context.Context, in *LoginWithGi
 	return out, nil
 }
 
+func (c *authServiceClient) UpdateTag(ctx context.Context, in *UpdateTagRequest, opts ...grpc.CallOption) (*UpdateTagResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTagResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) CheckTagAvailable(ctx context.Context, in *CheckTagAvailableRequest, opts ...grpc.CallOption) (*CheckTagAvailableResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckTagAvailableResponse)
+	err := c.cc.Invoke(ctx, AuthService_CheckTagAvailable_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -195,6 +219,8 @@ type AuthServiceServer interface {
 	RequestPasswordReset(context.Context, *RequestPasswordResetRequest) (*RequestPasswordResetResponse, error)
 	ResetPassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error)
 	LoginWithGitHub(context.Context, *LoginWithGitHubRequest) (*LoginWithGitHubResponse, error)
+	UpdateTag(context.Context, *UpdateTagRequest) (*UpdateTagResponse, error)
+	CheckTagAvailable(context.Context, *CheckTagAvailableRequest) (*CheckTagAvailableResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -240,6 +266,12 @@ func (UnimplementedAuthServiceServer) ResetPassword(context.Context, *ResetPassw
 }
 func (UnimplementedAuthServiceServer) LoginWithGitHub(context.Context, *LoginWithGitHubRequest) (*LoginWithGitHubResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method LoginWithGitHub not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateTag(context.Context, *UpdateTagRequest) (*UpdateTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTag not implemented")
+}
+func (UnimplementedAuthServiceServer) CheckTagAvailable(context.Context, *CheckTagAvailableRequest) (*CheckTagAvailableResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckTagAvailable not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -478,6 +510,42 @@ func _AuthService_LoginWithGitHub_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_UpdateTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateTag(ctx, req.(*UpdateTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_CheckTagAvailable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckTagAvailableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CheckTagAvailable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CheckTagAvailable_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CheckTagAvailable(ctx, req.(*CheckTagAvailableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -532,6 +600,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LoginWithGitHub",
 			Handler:    _AuthService_LoginWithGitHub_Handler,
+		},
+		{
+			MethodName: "UpdateTag",
+			Handler:    _AuthService_UpdateTag_Handler,
+		},
+		{
+			MethodName: "CheckTagAvailable",
+			Handler:    _AuthService_CheckTagAvailable_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -618,6 +618,68 @@
         ]
       }
     },
+    "/v1/users/me/tag": {
+      "patch": {
+        "operationId": "AuthService_UpdateTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateTagResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1UpdateTagRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/users/tag-available/{tag}": {
+      "get": {
+        "operationId": "AuthService_CheckTagAvailable",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CheckTagAvailableResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tag",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
     "/v1/users/{userId}": {
       "get": {
         "operationId": "AuthService_GetUserByID",
@@ -724,6 +786,18 @@
         },
         "lastMessage": {
           "$ref": "#/definitions/v1Message"
+        }
+      }
+    },
+    "v1CheckTagAvailableResponse": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "suggestedTag": {
+          "type": "string",
+          "description": "Populated only when available is false: an unused suggestion derived\nfrom the requested tag (same base + random digits), so the client can\noffer a one-click alternative instead of a dead end."
         }
       }
     },
@@ -968,6 +1042,22 @@
       "type": "object",
       "properties": {
         "messageId": {
+          "type": "string"
+        }
+      }
+    },
+    "v1UpdateTagRequest": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string"
+        }
+      }
+    },
+    "v1UpdateTagResponse": {
+      "type": "object",
+      "properties": {
+        "tag": {
           "type": "string"
         }
       }
