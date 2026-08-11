@@ -27,6 +27,7 @@ var publicMethods = map[string]bool{
 	"/auth.v1.AuthService/RequestPasswordReset": true,
 	"/auth.v1.AuthService/ResetPassword":        true,
 	"/auth.v1.AuthService/LoginWithGitHub":      true,
+	"/auth.v1.AuthService/CheckTagAvailable":    true,
 	"/grpc.health.v1.Health/Check":              true,
 	"/grpc.health.v1.Health/Watch":              true,
 }
