@@ -894,7 +894,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         s.writeError(err.Error())
                         return
                 }</span>
-                <span class="cov8" title="1">s.write(serverMessage{Type: "history", Messages: messages})</span>
+                <span class="cov8" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages})</span>
 
         case "get_presence":<span class="cov0" title="0">
                 online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)
