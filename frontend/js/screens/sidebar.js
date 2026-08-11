@@ -30,6 +30,7 @@ export function renderSidebar(root, handlers) {
             <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
               <span class="knob"></span>
             </button>
+            <button class="settings-btn" title="Настройки" data-action="open-settings">⚙</button>
             <button class="logout-btn" title="Выйти" data-action="logout">Выход</button>
           </div>
         </div>
@@ -59,6 +60,10 @@ export function renderSidebar(root, handlers) {
 
   root.querySelector('[data-action="logout"]').addEventListener('click', () => {
     handlers.onLogout();
+  });
+
+  root.querySelector('[data-action="open-settings"]').addEventListener('click', () => {
+    handlers.onOpenSettings();
   });
 
   const searchInput = root.querySelector('[data-input="search"]');
