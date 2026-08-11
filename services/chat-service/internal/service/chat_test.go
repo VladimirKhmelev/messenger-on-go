@@ -16,6 +16,8 @@ type fakeChatRepository struct {
 	chats    map[string]*domain.Chat
 	members  map[string][]*domain.ChatMember
 	messages map[string][]*domain.Message
+	events   map[string][]*domain.MessageEvent
+	hidden   map[string]map[string]bool
 }
 
 func newFakeChatRepository() *fakeChatRepository {
@@ -23,7 +25,25 @@ func newFakeChatRepository() *fakeChatRepository {
 		chats:    make(map[string]*domain.Chat),
 		members:  make(map[string][]*domain.ChatMember),
 		messages: make(map[string][]*domain.Message),
+		events:   make(map[string][]*domain.MessageEvent),
+		hidden:   make(map[string]map[string]bool),
 	}
+}
+
+func (r *fakeChatRepository) project(m *domain.Message) *domain.Message {
+	projected := *m
+	for _, e := range r.events[m.ID] {
+		switch e.Type {
+		case domain.MessageEventEdited:
+			projected.Body = *e.NewBody
+			t := e.CreatedAt
+			projected.EditedAt = &t
+		case domain.MessageEventDeletedForAll:
+			t := e.CreatedAt
+			projected.DeletedAt = &t
+		}
+	}
+	return &projected
 }
 
 func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, memberIDs []string) error {
@@ -96,31 +116,53 @@ func (r *fakeChatRepository) CreateMessage(_ context.Context, message *domain.Me
 	return nil
 }
 
-func (r *fakeChatRepository) ListMessages(_ context.Context, chatID string, limit int) ([]*domain.Message, error) {
-	messages := r.messages[chatID]
-	if len(messages) > limit {
-		messages = messages[len(messages)-limit:]
+func (r *fakeChatRepository) ListMessages(_ context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) {
+	var visible []*domain.Message
+	for _, m := range r.messages[chatID] {
+		if r.hidden[m.ID][requesterID] {
+			continue
+		}
+		visible = append(visible, r.project(m))
 	}
-	return messages, nil
+	if len(visible) > limit {
+		visible = visible[len(visible)-limit:]
+	}
+	return visible, nil
 }
 
-func (r *fakeChatRepository) GetLastMessage(_ context.Context, chatID string) (*domain.Message, error) {
+func (r *fakeChatRepository) GetLastMessage(_ context.Context, chatID, requesterID string) (*domain.Message, error) {
 	messages := r.messages[chatID]
-	if len(messages) == 0 {
-		return nil, nil
+	for i := len(messages) - 1; i >= 0; i-- {
+		if r.hidden[messages[i].ID][requesterID] {
+			continue
+		}
+		return r.project(messages[i]), nil
 	}
-	return messages[len(messages)-1], nil
+	return nil, nil
 }
 
 func (r *fakeChatRepository) GetMessage(_ context.Context, messageID string) (*domain.Message, error) {
 	for _, messages := range r.messages {
 		for _, m := range messages {
 			if m.ID == messageID {
-				return m, nil
+				return r.project(m), nil
 			}
 		}
 	}
 	return nil, domain.ErrMessageNotFound
+}
+
+func (r *fakeChatRepository) AppendMessageEvent(_ context.Context, event *domain.MessageEvent) error {
+	r.events[event.MessageID] = append(r.events[event.MessageID], event)
+	return nil
+}
+
+func (r *fakeChatRepository) HideMessageForUser(_ context.Context, messageID, userID string) error {
+	if r.hidden[messageID] == nil {
+		r.hidden[messageID] = make(map[string]bool)
+	}
+	r.hidden[messageID][userID] = true
+	return nil
 }
 
 type fakeAuthClient struct {
@@ -141,6 +183,7 @@ func (c *fakeAuthClient) UserExists(_ context.Context, _, userID string) (bool, 
 
 type fakeEventPublisher struct {
 	messageCreatedEvents []events.MessageCreated
+	messageUpdatedEvents []events.MessageUpdated
 }
 
 func newFakeEventPublisher() *fakeEventPublisher {
@@ -149,6 +192,11 @@ func newFakeEventPublisher() *fakeEventPublisher {
 
 func (p *fakeEventPublisher) PublishMessageCreated(_ context.Context, event events.MessageCreated) error {
 	p.messageCreatedEvents = append(p.messageCreatedEvents, event)
+	return nil
+}
+
+func (p *fakeEventPublisher) PublishMessageUpdated(_ context.Context, event events.MessageUpdated) error {
+	p.messageUpdatedEvents = append(p.messageUpdatedEvents, event)
 	return nil
 }
 
@@ -372,5 +420,119 @@ func TestChatService_SetOffline(t *testing.T) {
 	}
 	if online {
 		t.Error("GetPresence() online = true after SetOffline, want false")
+	}
+}
+
+func TestChatService_EditMessage_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	publisher := newFakeEventPublisher()
+	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker())
+
+	sent, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	edited, err := svc.EditMessage(context.Background(), sent.ID, "user-a", "hello, edited")
+	if err != nil {
+		t.Fatalf("EditMessage() unexpected error: %v", err)
+	}
+	if edited.Body != "hello, edited" {
+		t.Errorf("EditMessage() body = %q, want %q", edited.Body, "hello, edited")
+	}
+	if edited.EditedAt == nil {
+		t.Error("EditMessage() EditedAt = nil, want set")
+	}
+
+	if len(publisher.messageUpdatedEvents) != 1 {
+		t.Fatalf("EditMessage() published %d msg.updated events, want 1", len(publisher.messageUpdatedEvents))
+	}
+	event := publisher.messageUpdatedEvents[0]
+	if event.Deleted || event.NewBody == nil || *event.NewBody != "hello, edited" {
+		t.Errorf("EditMessage() published event = %+v, want NewBody=hello, edited, Deleted=false", event)
+	}
+
+	stored, err := svc.GetMessage(context.Background(), sent.ID)
+	if err != nil {
+		t.Fatalf("GetMessage() unexpected error: %v", err)
+	}
+	if stored.Body != "hello, edited" {
+		t.Errorf("GetMessage() after edit body = %q, want %q", stored.Body, "hello, edited")
+	}
+}
+
+func TestChatService_EditMessage_NotSender(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
+
+	sent, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	_, err = svc.EditMessage(context.Background(), sent.ID, "user-b", "hijacked")
+	if !errors.Is(err, domain.ErrNotMessageSender) {
+		t.Errorf("EditMessage() error = %v, want %v", err, domain.ErrNotMessageSender)
+	}
+}
+
+func TestChatService_DeleteMessageForAll_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	publisher := newFakeEventPublisher()
+	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker())
+
+	sent, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	if err := svc.DeleteMessageForAll(context.Background(), sent.ID, "user-a"); err != nil {
+		t.Fatalf("DeleteMessageForAll() unexpected error: %v", err)
+	}
+
+	if len(publisher.messageUpdatedEvents) != 1 || !publisher.messageUpdatedEvents[0].Deleted {
+		t.Fatalf("DeleteMessageForAll() published events = %+v, want 1 deleted event", publisher.messageUpdatedEvents)
+	}
+
+	stored, err := svc.GetMessage(context.Background(), sent.ID)
+	if err != nil {
+		t.Fatalf("GetMessage() unexpected error: %v", err)
+	}
+	if stored.DeletedAt == nil {
+		t.Error("GetMessage() after delete DeletedAt = nil, want set")
+	}
+
+	messages, err := repo.ListMessages(context.Background(), chat.ID, "user-b", 10)
+	if err != nil {
+		t.Fatalf("ListMessages() unexpected error: %v", err)
+	}
+	if len(messages) != 1 || messages[0].DeletedAt == nil {
+		t.Errorf("ListMessages() after delete-for-all = %+v, want 1 tombstoned message", messages)
+	}
+}
+func TestChatService_DeleteMessageForMe_NotChatMember(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
+
+	sent, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	err = svc.DeleteMessageForMe(context.Background(), sent.ID, "user-stranger")
+	if !errors.Is(err, domain.ErrNotChatMember) {
+		t.Errorf("DeleteMessageForMe() error = %v, want %v", err, domain.ErrNotChatMember)
 	}
 }
