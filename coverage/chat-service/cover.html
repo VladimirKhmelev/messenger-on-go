@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (52.9%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (57.3%)</option>
 				
 				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -355,6 +355,8 @@ const (
         StreamName = "CHAT_EVENTS"
 
         SubjectMessageCreated = "msg.created"
+        SubjectMessageUpdated = "msg.updated"
+        SubjectMessageDeleted = "msg.deleted"
 )
 
 type MessageCreated struct {
@@ -362,6 +364,14 @@ type MessageCreated struct {
         ChatID    string    `json:"chat_id"`
         SenderID  string    `json:"sender_id"`
         CreatedAt time.Time `json:"created_at"`
+}
+
+type MessageUpdated struct {
+        MessageID string    `json:"message_id"`
+        ChatID    string    `json:"chat_id"`
+        NewBody   *string   `json:"new_body,omitempty"`
+        Deleted   bool      `json:"deleted"`
+        UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Publisher struct {
@@ -397,6 +407,21 @@ func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCrea
         }</span>
 
         <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectMessageCreated, payload)
+        return err</span>
+}
+
+func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpdated) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">subject := SubjectMessageUpdated
+        if event.Deleted </span><span class="cov0" title="0">{
+                subject = SubjectMessageDeleted
+        }</span>
+
+        <span class="cov0" title="0">_, err = p.js.Publish(ctx, subject, payload)
         return err</span>
 }
 </pre>
@@ -562,14 +587,42 @@ func (r *PostgresChatRepository) CreateMessage(ctx context.Context, message *dom
         return err
 }</span>
 
-func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error) <span class="cov0" title="0">{
+const messageProjectionColumns = `
+        m.id, m.chat_id, m.sender_id,
+        COALESCE(latest_edit.new_body, m.body) AS body,
+        m.created_at,
+        latest_edit.created_at AS edited_at,
+        latest_delete.created_at AS deleted_at`
+
+const messageProjectionLateralJoins = `
+        LEFT JOIN LATERAL (
+                SELECT new_body, created_at FROM message_events
+                WHERE message_id = m.id AND event_type = 'edited'
+                ORDER BY created_at DESC LIMIT 1
+        ) latest_edit ON true
+        LEFT JOIN LATERAL (
+                SELECT created_at FROM message_events
+                WHERE message_id = m.id AND event_type = 'deleted_for_all'
+                ORDER BY created_at DESC LIMIT 1
+        ) latest_delete ON true`
+
+const messageProjectionJoins = `FROM messages m` + messageProjectionLateralJoins
+
+func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) <span class="cov0" title="0">{
         var messages []*domain.Message
         err := r.conn.SelectContext(ctx, &amp;messages, `
-                SELECT id, chat_id, sender_id, body, created_at FROM (
-                        SELECT id, chat_id, sender_id, body, created_at FROM messages
-                        WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2
-                ) recent ORDER BY created_at ASC`,
-                chatID, limit,
+                SELECT `+messageProjectionColumns+` FROM (
+                        SELECT m.id `+messageProjectionJoins+`
+                        WHERE m.chat_id = $1
+                          AND NOT EXISTS (
+                                SELECT 1 FROM message_hidden_for_user h WHERE h.message_id = m.id AND h.user_id = $3
+                          )
+                        ORDER BY m.created_at DESC LIMIT $2
+                ) recent
+                JOIN messages m ON m.id = recent.id
+                `+messageProjectionLateralJoins+`
+                ORDER BY m.created_at ASC`,
+                chatID, limit, requesterID,
         )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -577,12 +630,17 @@ func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string
         <span class="cov0" title="0">return messages, nil</span>
 }
 
-func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID string) (*domain.Message, error) <span class="cov0" title="0">{
+func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID, requesterID string) (*domain.Message, error) <span class="cov0" title="0">{
         var message domain.Message
         err := r.conn.GetContext(ctx, &amp;message, `
-                SELECT id, chat_id, sender_id, body, created_at FROM messages
-                WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1`,
-                chatID,
+                SELECT `+messageProjectionColumns+`
+                `+messageProjectionJoins+`
+                WHERE m.chat_id = $1
+                  AND NOT EXISTS (
+                        SELECT 1 FROM message_hidden_for_user h WHERE h.message_id = m.id AND h.user_id = $2
+                  )
+                ORDER BY m.created_at DESC LIMIT 1`,
+                chatID, requesterID,
         )
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, nil
@@ -596,7 +654,9 @@ func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID stri
 func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov0" title="0">{
         var message domain.Message
         err := r.conn.GetContext(ctx, &amp;message, `
-                SELECT id, chat_id, sender_id, body, created_at FROM messages WHERE id = $1`,
+                SELECT `+messageProjectionColumns+`
+                `+messageProjectionJoins+`
+                WHERE m.id = $1`,
                 messageID,
         )
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
@@ -607,6 +667,25 @@ func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID strin
         }</span>
         <span class="cov0" title="0">return &amp;message, nil</span>
 }
+
+func (r *PostgresChatRepository) AppendMessageEvent(ctx context.Context, event *domain.MessageEvent) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO message_events (id, message_id, chat_id, actor_id, event_type, new_body, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                event.ID, event.MessageID, event.ChatID, event.ActorID, event.Type, event.NewBody, event.CreatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, messageID, userID string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO message_hidden_for_user (message_id, user_id, hidden_at)
+                VALUES ($1, $2, now())
+                ON CONFLICT (message_id, user_id) DO NOTHING`,
+                messageID, userID,
+        )
+        return err
+}</span>
 </pre>
 		
 		<pre class="file" id="file7" style="display: none">package service
@@ -632,6 +711,7 @@ type AuthClient interface {
 
 type EventPublisher interface {
         PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
+        PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
 }
 
 type PresenceChecker interface {
@@ -734,7 +814,103 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
                 limit = HistoryDefaultLimit
         }</span>
 
-        <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, limit)</span>
+        <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, requesterID, limit)</span>
+}
+
+func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov8" title="1">{
+        if newBody == "" </span><span class="cov0" title="0">{
+                return nil, domain.ErrEmptyMessage
+        }</span>
+
+        <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if message.DeletedAt != nil </span><span class="cov0" title="0">{
+                return nil, domain.ErrMessageDeleted
+        }</span>
+        <span class="cov8" title="1">if message.SenderID != requesterID </span><span class="cov8" title="1">{
+                return nil, domain.ErrNotMessageSender
+        }</span>
+
+        <span class="cov8" title="1">now := time.Now()
+        if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
+                ID:        uuid.NewString(),
+                MessageID: messageID,
+                ChatID:    message.ChatID,
+                ActorID:   requesterID,
+                Type:      domain.MessageEventEdited,
+                NewBody:   &amp;newBody,
+                CreatedAt: now,
+        }); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+                MessageID: messageID,
+                ChatID:    message.ChatID,
+                NewBody:   &amp;newBody,
+                UpdatedAt: now,
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("chat-service: failed to publish msg.updated event for %s: %v", messageID, err)
+        }</span>
+
+        <span class="cov8" title="1">message.Body = newBody
+        message.EditedAt = &amp;now
+        return message, nil</span>
+}
+
+func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, requesterID string) error <span class="cov8" title="1">{
+        message, err := s.chats.GetMessage(ctx, messageID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if message.DeletedAt != nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">if message.SenderID != requesterID </span><span class="cov0" title="0">{
+                return domain.ErrNotMessageSender
+        }</span>
+
+        <span class="cov8" title="1">now := time.Now()
+        if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
+                ID:        uuid.NewString(),
+                MessageID: messageID,
+                ChatID:    message.ChatID,
+                ActorID:   requesterID,
+                Type:      domain.MessageEventDeletedForAll,
+                CreatedAt: now,
+        }); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+                MessageID: messageID,
+                ChatID:    message.ChatID,
+                Deleted:   true,
+                UpdatedAt: now,
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("chat-service: failed to publish msg.deleted event for %s: %v", messageID, err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, requesterID string) error <span class="cov8" title="1">{
+        message, err := s.chats.GetMessage(ctx, messageID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, message.ChatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+                return domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.HideMessageForUser(ctx, messageID, requesterID)</span>
 }
 
 type ChatSummary struct {
@@ -760,7 +936,7 @@ func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSumm
                         memberIDs = append(memberIDs, m.UserID)
                 }</span>
 
-                <span class="cov0" title="0">lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID)
+                <span class="cov0" title="0">lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID, userID)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
@@ -841,6 +1017,7 @@ func (s *ChatService) SetOffline(ctx context.Context, userID string) error <span
 import (
         "context"
         "errors"
+        "log"
 
         "google.golang.org/grpc/codes"
         "google.golang.org/grpc/status"
@@ -910,12 +1087,7 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
 
         <span class="cov0" title="0">result := make([]*chatv1.Message, 0, len(messages))
         for _, m := range messages </span><span class="cov0" title="0">{
-                result = append(result, &amp;chatv1.Message{
-                        MessageId:     m.ID,
-                        SenderUserId:  m.SenderID,
-                        Text:          m.Body,
-                        CreatedAtUnix: m.CreatedAt.Unix(),
-                })
+                result = append(result, toProtoMessage(m))
         }</span>
 
         <span class="cov0" title="0">return &amp;chatv1.GetHistoryResponse{Messages: result}, nil</span>
@@ -936,12 +1108,7 @@ func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest
         for _, summary := range summaries </span><span class="cov0" title="0">{
                 var lastMessage *chatv1.Message
                 if summary.LastMessage != nil </span><span class="cov0" title="0">{
-                        lastMessage = &amp;chatv1.Message{
-                                MessageId:     summary.LastMessage.ID,
-                                SenderUserId:  summary.LastMessage.SenderID,
-                                Text:          summary.LastMessage.Body,
-                                CreatedAtUnix: summary.LastMessage.CreatedAt.Unix(),
-                        }
+                        lastMessage = toProtoMessage(summary.LastMessage)
                 }</span>
 
                 <span class="cov0" title="0">result = append(result, &amp;chatv1.ChatSummary{
@@ -969,14 +1136,61 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
                 return nil, toGRPCError(err)
         }</span>
 
-        <span class="cov0" title="0">return &amp;chatv1.GetMessageResponse{
-                Message: &amp;chatv1.Message{
-                        MessageId:     message.ID,
-                        SenderUserId:  message.SenderID,
-                        Text:          message.Body,
-                        CreatedAtUnix: message.CreatedAt.Unix(),
-                },
-        }, nil</span>
+        <span class="cov0" title="0">return &amp;chatv1.GetMessageResponse{Message: toProtoMessage(message)}, nil</span>
+}
+
+func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageRequest) (*chatv1.EditMessageResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">message, err := s.chat.EditMessage(ctx, req.GetMessageId(), requesterID, req.GetText())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.EditMessageResponse{Message: toProtoMessage(message)}, nil</span>
+}
+
+func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.DeleteMessageForAllRequest) (*chatv1.DeleteMessageForAllResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.DeleteMessageForAll(ctx, req.GetMessageId(), requesterID); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForAllResponse{}, nil</span>
+}
+
+func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteMessageForMeRequest) (*chatv1.DeleteMessageForMeResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.DeleteMessageForMe(ctx, req.GetMessageId(), requesterID); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForMeResponse{}, nil</span>
+}
+
+func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov0" title="0">{
+        result := &amp;chatv1.Message{
+                MessageId:     m.ID,
+                SenderUserId:  m.SenderID,
+                Text:          m.Body,
+                CreatedAtUnix: m.CreatedAt.Unix(),
+                Deleted:       m.DeletedAt != nil,
+        }
+        if m.EditedAt != nil </span><span class="cov0" title="0">{
+                result.EditedAtUnix = m.EditedAt.Unix()
+        }</span>
+        <span class="cov0" title="0">return result</span>
 }
 
 func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceRequest) (*chatv1.GetPresenceResponse, error) <span class="cov0" title="0">{
@@ -1014,9 +1228,13 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 errors.Is(err, domain.ErrChatNotFound),
                 errors.Is(err, domain.ErrMessageNotFound):<span class="cov0" title="0">
                 return status.Error(codes.NotFound, err.Error())</span>
-        case errors.Is(err, domain.ErrNotChatMember):<span class="cov0" title="0">
+        case errors.Is(err, domain.ErrNotChatMember),
+                errors.Is(err, domain.ErrNotMessageSender):<span class="cov0" title="0">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
+        case errors.Is(err, domain.ErrMessageDeleted):<span class="cov0" title="0">
+                return status.Error(codes.FailedPrecondition, err.Error())</span>
         default:<span class="cov0" title="0">
+                log.Printf("chat-service: internal error: %v", err)
                 return status.Error(codes.Internal, "internal error")</span>
         }
 }

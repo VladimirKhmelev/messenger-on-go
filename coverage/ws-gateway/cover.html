@@ -61,13 +61,13 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (38.1%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (28.6%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (87.5%)</option>
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (100.0%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (61.8%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (53.8%)</option>
 				
 				</select>
 			</div>
@@ -154,6 +154,7 @@ func main() <span class="cov0" title="0">{
         go func() </span><span class="cov0" title="0">{
                 handlers := events.Handlers{
                         OnMessageCreated:  fanout.HandleMessageCreated,
+                        OnMessageUpdated:  fanout.HandleMessageUpdated,
                         OnNotifyPush:      fanout.HandleNotifyPush,
                         OnPresenceChanged: fanout.HandlePresenceChanged,
                 }
@@ -222,6 +223,8 @@ type Message struct {
         SenderUserID  string
         Text          string
         CreatedAtUnix int64
+        EditedAtUnix  int64
+        Deleted       bool
 }
 
 type Client struct {
@@ -262,12 +265,7 @@ func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, lim
 
         <span class="cov0" title="0">messages := make([]Message, 0, len(resp.GetMessages()))
         for _, m := range resp.GetMessages() </span><span class="cov0" title="0">{
-                messages = append(messages, Message{
-                        MessageID:     m.GetMessageId(),
-                        SenderUserID:  m.GetSenderUserId(),
-                        Text:          m.GetText(),
-                        CreatedAtUnix: m.GetCreatedAtUnix(),
-                })
+                messages = append(messages, toClientMessage(m))
         }</span>
         <span class="cov0" title="0">return messages, nil</span>
 }
@@ -316,15 +314,40 @@ func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, err
         if err != nil </span><span class="cov0" title="0">{
                 return Message{}, err
         }</span>
+        <span class="cov0" title="0">return toClientMessage(resp.GetMessage()), nil</span>
+}
 
-        <span class="cov0" title="0">m := resp.GetMessage()
+func (c *Client) EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error <span class="cov0" title="0">{
+        ctx = withBearerToken(ctx, bearerToken)
+
+        _, err := c.chat.EditMessage(ctx, &amp;chatv1.EditMessageRequest{ChatId: chatID, MessageId: messageID, Text: text})
+        return err
+}</span>
+
+func (c *Client) DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error <span class="cov0" title="0">{
+        ctx = withBearerToken(ctx, bearerToken)
+
+        _, err := c.chat.DeleteMessageForAll(ctx, &amp;chatv1.DeleteMessageForAllRequest{ChatId: chatID, MessageId: messageID})
+        return err
+}</span>
+
+func (c *Client) DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error <span class="cov0" title="0">{
+        ctx = withBearerToken(ctx, bearerToken)
+
+        _, err := c.chat.DeleteMessageForMe(ctx, &amp;chatv1.DeleteMessageForMeRequest{ChatId: chatID, MessageId: messageID})
+        return err
+}</span>
+
+func toClientMessage(m *chatv1.Message) Message <span class="cov0" title="0">{
         return Message{
                 MessageID:     m.GetMessageId(),
                 SenderUserID:  m.GetSenderUserId(),
                 Text:          m.GetText(),
                 CreatedAtUnix: m.GetCreatedAtUnix(),
-        }, nil</span>
-}
+                EditedAtUnix:  m.GetEditedAtUnix(),
+                Deleted:       m.GetDeleted(),
+        }
+}</span>
 
 func (c *Client) withInternalSecret(ctx context.Context) context.Context <span class="cov0" title="0">{
         return metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
@@ -348,8 +371,10 @@ import (
 )
 
 const (
-        chatStreamName = "CHAT_EVENTS"
-        subjectMsg     = "msg.created"
+        chatStreamName   = "CHAT_EVENTS"
+        subjectMsg       = "msg.created"
+        subjectMsgEdit   = "msg.updated"
+        subjectMsgDelete = "msg.deleted"
 
         notifyStreamName = "NOTIFY_EVENTS"
         subjectNotify    = "notify.push"
@@ -367,6 +392,14 @@ type MessageCreated struct {
         CreatedAt time.Time `json:"created_at"`
 }
 
+type MessageUpdated struct {
+        MessageID string    `json:"message_id"`
+        ChatID    string    `json:"chat_id"`
+        NewBody   *string   `json:"new_body,omitempty"`
+        Deleted   bool      `json:"deleted"`
+        UpdatedAt time.Time `json:"updated_at"`
+}
+
 type NotifyPush struct {
         UserID    string    `json:"user_id"`
         ChatID    string    `json:"chat_id"`
@@ -382,6 +415,7 @@ type PresenceChanged struct {
 
 type Handlers struct {
         OnMessageCreated  func(ctx context.Context, event MessageCreated)
+        OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
         OnNotifyPush      func(ctx context.Context, event NotifyPush)
         OnPresenceChanged func(ctx context.Context, event PresenceChanged)
 }
@@ -422,7 +456,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 return err
         }</span>
 
-        <span class="cov0" title="0">errCh := make(chan error, 3)
+        <span class="cov0" title="0">errCh := make(chan error, 4)
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
@@ -432,6 +466,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                                 return
                         }</span>
                         <span class="cov0" title="0">handlers.OnMessageCreated(ctx, event)</span>
+                })
+        }()
+
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                errCh &lt;- consumeMulti(ctx, js, chatStreamName, []string{subjectMsgEdit, subjectMsgDelete}, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
+                        var event MessageUpdated
+                        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal msg.updated/deleted event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnMessageUpdated(ctx, event)</span>
                 })
         }()
 
@@ -465,7 +510,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 errCh &lt;- nil</span>
         }()
 
-        <span class="cov0" title="0">for range 3 </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">for range 4 </span><span class="cov0" title="0">{
                 if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
@@ -474,14 +519,18 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 }
 
 func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterSubject string, handle func(ctx context.Context, data []byte)) error <span class="cov0" title="0">{
+        return consumeMulti(ctx, js, streamName, []string{filterSubject}, handle)
+}</span>
+
+func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, handle func(ctx context.Context, data []byte)) error <span class="cov0" title="0">{
         stream, err := js.Stream(ctx, streamName)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
         <span class="cov0" title="0">consumer, err := stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
-                FilterSubject: filterSubject,
-                AckPolicy:     jetstream.AckNonePolicy,
+                FilterSubjects: filterSubjects,
+                AckPolicy:      jetstream.AckNonePolicy,
         })
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -496,7 +545,7 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterS
 
                 <span class="cov0" title="0">msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
                 if err != nil </span><span class="cov0" title="0">{
-                        log.Printf("ws-gateway: failed to fetch %s batch: %v", filterSubject, err)
+                        log.Printf("ws-gateway: failed to fetch %v batch: %v", filterSubjects, err)
                         continue</span>
                 }
 
@@ -564,6 +613,26 @@ func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageC
         }</span>
 }
 
+func (f *Fanout) HandleMessageUpdated(ctx context.Context, event events.MessageUpdated) <span class="cov0" title="0">{
+        userIDs, err := f.members.ListMembers(ctx, event.ChatID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">payload := serverMessage{
+                Type:      "message_updated",
+                ChatID:    event.ChatID,
+                MessageID: event.MessageID,
+                NewText:   event.NewBody,
+                Deleted:   event.Deleted,
+        }
+
+        for _, userID := range userIDs </span><span class="cov0" title="0">{
+                f.registry.Broadcast(userID, payload)
+        }</span>
+}
+
 func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) <span class="cov0" title="0">{
         payload := serverMessage{
                 Type:      "notify_push",
@@ -617,6 +686,9 @@ type ChatClient interface {
         GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
         GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
         SetOffline(ctx context.Context, userID string) error
+        EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
+        DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
+        DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
 }
 
 type PresencePublisher interface {
@@ -718,6 +790,7 @@ import (
 type clientMessage struct {
         Type       string `json:"type"`
         ChatID     string `json:"chat_id"`
+        MessageID  string `json:"message_id,omitempty"`
         Text       string `json:"text,omitempty"`
         Limit      int32  `json:"limit,omitempty"`
         PeerUserID string `json:"peer_user_id,omitempty"`
@@ -733,6 +806,8 @@ type serverMessage struct {
         PeerUserID   string               `json:"peer_user_id,omitempty"`
         Online       bool                 `json:"online,omitempty"`
         LastSeenUnix int64                `json:"last_seen_unix,omitempty"`
+        NewText      *string              `json:"new_text,omitempty"`
+        Deleted      bool                 `json:"deleted,omitempty"`
 }
 
 type session struct {
@@ -833,6 +908,25 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         Online:       online,
                         LastSeenUnix: lastSeenUnix,
                 })</span>
+
+        case "edit_message":<span class="cov8" title="1">
+                if err := s.chat.EditMessage(ctx, s.token, msg.ChatID, msg.MessageID, msg.Text); err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+
+        case "delete_message_for_all":<span class="cov0" title="0">
+                if err := s.chat.DeleteMessageForAll(ctx, s.token, msg.ChatID, msg.MessageID); err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+
+        case "delete_message_for_me":<span class="cov0" title="0">
+                if err := s.chat.DeleteMessageForMe(ctx, s.token, msg.ChatID, msg.MessageID); err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+                <span class="cov0" title="0">s.write(serverMessage{Type: "message_updated", ChatID: msg.ChatID, MessageID: msg.MessageID, Deleted: true})</span>
 
         default:<span class="cov0" title="0">
                 s.writeError("unknown message type: " + msg.Type)</span>
