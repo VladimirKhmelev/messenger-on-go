@@ -114,6 +114,11 @@ a:hover { color: var(--accent); }
 }
 .field--tag input { padding-left: 28px; }
 
+.tag-availability { font-size: 12.5px; margin-top: -8px; min-height: 0; }
+.tag-availability--ok { color: oklch(55% 0.13 145); }
+.tag-availability--taken { color: oklch(55% 0.18 25); }
+.tag-availability .action { color: var(--accent); cursor: pointer; font-weight: 600; }
+
 .btn-primary {
   width: 100%; padding: 12px; border-radius: 12px; border: none;
   background: var(--accent); color: var(--accent-text);
@@ -158,6 +163,13 @@ a:hover { color: var(--accent); }
   color: var(--text-muted-3); font-size: 12px; font-weight: 500; cursor: pointer;
 }
 .logout-btn:hover { color: var(--text); border-color: var(--border); }
+.settings-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--border-soft); background: transparent;
+  color: var(--text-muted-3); font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-btn:hover { color: var(--text); border-color: var(--border); }
 .search-wrap { position: relative; }
 .search-icon-circle {
   position: absolute; left: 12px; top: 11px; width: 13px; height: 13px;
@@ -347,3 +359,22 @@ a:hover { color: var(--accent); }
 .toast-name { font-size: 13px; font-weight: 600; }
 .toast-dismiss { font-size: 16px; color: var(--text-muted-2); cursor: pointer; line-height: 1; }
 .toast-text { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ---------- Settings modal ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0; background: oklch(0% 0 0 / 0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 60;
+}
+.modal {
+  width: 380px; max-width: calc(100vw - 48px);
+  background: var(--bg-white); border: 1px solid var(--border); border-radius: 20px;
+  box-shadow: 0 16px 40px var(--shadow); padding: 24px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 17px; font-weight: 600; }
+.modal-close {
+  width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent;
+  color: var(--text-muted-3); font-size: 18px; cursor: pointer; line-height: 1;
+}
+.modal-close:hover { color: var(--text); }

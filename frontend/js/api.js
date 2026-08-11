@@ -80,6 +80,11 @@ export const authApi = {
   getUserByTag: (tag) => request(`/v1/users/by-tag/${encodeURIComponent(tag)}`),
 
   getUserByID: (userId) => request(`/v1/users/${encodeURIComponent(userId)}`),
+
+  checkTagAvailable: (tag) =>
+    request(`/v1/users/tag-available/${encodeURIComponent(tag)}`, { auth: false }),
+
+  updateTag: (tag) => request('/v1/users/me/tag', { method: 'PATCH', body: { tag } }),
 };
 
 export const chatApi = {
