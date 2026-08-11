@@ -7,7 +7,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-var tagPattern = regexp.MustCompile(`^[a-z0-9_]{3,20}$`)
+var tagPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
 
 func ValidateEmail(email string) error {
 	if _, err := mail.ParseAddress(email); err != nil {

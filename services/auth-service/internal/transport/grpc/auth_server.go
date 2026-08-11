@@ -170,6 +170,28 @@ func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithG
 	}, nil
 }
 
+func (s *AuthServer) UpdateTag(ctx context.Context, req *authv1.UpdateTagRequest) (*authv1.UpdateTagResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.auth.UpdateTag(ctx, userID, req.GetTag()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.UpdateTagResponse{Tag: req.GetTag()}, nil
+}
+
+func (s *AuthServer) CheckTagAvailable(ctx context.Context, req *authv1.CheckTagAvailableRequest) (*authv1.CheckTagAvailableResponse, error) {
+	available, suggested, err := s.auth.CheckTagAvailable(ctx, req.GetTag())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.CheckTagAvailableResponse{Available: available, SuggestedTag: suggested}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),

@@ -10,6 +10,20 @@ export function renderAuth(root, handlers) {
   const isRegister = state.authMode === 'register';
   const isDark = getTheme() === 'dark';
 
+  const prevTagInput = root.querySelector('[data-input="tag"]');
+  const tagHadFocus = document.activeElement === prevTagInput;
+  const tagSelectionStart = prevTagInput?.selectionStart;
+  const tagSelectionEnd = prevTagInput?.selectionEnd;
+  const tagValue = prevTagInput?.value ?? '';
+
+  const prevEmailInput = root.querySelector('[name="email"]');
+  const prevPasswordInput = root.querySelector('[name="password"]');
+  const emailValue = prevEmailInput?.value ?? '';
+  const passwordValue = prevPasswordInput?.value ?? '';
+  const focusedField = document.activeElement?.getAttribute?.('name');
+  const focusedSelectionStart = document.activeElement?.selectionStart;
+  const focusedSelectionEnd = document.activeElement?.selectionEnd;
+
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
@@ -31,21 +45,22 @@ export function renderAuth(root, handlers) {
         <form class="field-list" data-form="auth">
           <div class="field">
             <label>Email</label>
-            <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+            <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" value="${escapeHtml(emailValue)}" />
           </div>
           <div class="field">
             <label>Пароль</label>
             <input type="password" name="password" placeholder="••••••••" required autocomplete="${
               isRegister ? 'new-password' : 'current-password'
-            }" />
+            }" value="${escapeHtml(passwordValue)}" />
           </div>
           ${
             isRegister
               ? `<div class="field field--tag">
                    <label>Тег</label>
                    <span class="at-prefix">@</span>
-                   <input type="text" name="tag" placeholder="username" required />
-                 </div>`
+                   <input type="text" name="tag" placeholder="username" required data-input="tag" value="${escapeHtml(tagValue)}" />
+                 </div>
+                 <div class="tag-availability" data-tag-availability>${renderTagAvailability()}</div>`
               : ''
           }
           <div class="form-error">${state.authError || ''}</div>
@@ -90,6 +105,51 @@ export function renderAuth(root, handlers) {
     const tag = formData.get('tag');
     handlers.onSubmit({ email, password, tag, isRegister });
   });
+
+  if (isRegister) {
+    const tagInput = root.querySelector('[data-input="tag"]');
+    tagInput.addEventListener('input', (event) => {
+      handlers.onTagInput(event.target.value);
+    });
+
+    root.querySelector('[data-tag-availability]')?.addEventListener('click', (event) => {
+      const suggestion = event.target.closest('[data-action="use-suggested-tag"]');
+      if (!suggestion) return;
+      tagInput.value = state.tagCheck.suggestedTag;
+      handlers.onTagInput(state.tagCheck.suggestedTag);
+    });
+
+    if (tagHadFocus) {
+      tagInput.focus();
+      tagInput.setSelectionRange(tagSelectionStart, tagSelectionEnd);
+    }
+  }
+
+  if (focusedField === 'email' || focusedField === 'password') {
+    const fieldInput = root.querySelector(`[name="${focusedField}"]`);
+    fieldInput.focus();
+    fieldInput.setSelectionRange(focusedSelectionStart, focusedSelectionEnd);
+  }
+}
+
+function renderTagAvailability() {
+  const check = state.tagCheck;
+  if (!check) return '';
+
+  if (check.available) {
+    return '<span class="tag-availability--ok">Тег свободен</span>';
+  }
+
+  const suggestion = check.suggestedTag
+    ? ` Попробуйте <span class="action" data-action="use-suggested-tag">@${escapeHtml(check.suggestedTag)}</span>`
+    : '';
+  return `<span class="tag-availability--taken">Тег уже занят.</span>${suggestion}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
 }
 
 function renderVerify(root, handlers) {

@@ -183,6 +183,8 @@ func (r *fakeUserRepository) Create(_ context.Context, user *domain.User) error 
 	r.created = user
 	r.users[user.Email] = user
 	r.usersByTag[user.Tag] = user
+	r.byEmail[user.Email] = true
+	r.byTag[user.Tag] = true
 	return nil
 }
 
@@ -246,6 +248,19 @@ func (r *fakeUserRepository) UpdatePasswordHash(_ context.Context, userID, passw
 	for _, user := range r.users {
 		if user.ID == userID {
 			user.PasswordHash = passwordHash
+		}
+	}
+	return nil
+}
+
+func (r *fakeUserRepository) UpdateTag(_ context.Context, userID, tag string) error {
+	for _, user := range r.users {
+		if user.ID == userID {
+			delete(r.usersByTag, user.Tag)
+			delete(r.byTag, user.Tag)
+			user.Tag = tag
+			r.usersByTag[tag] = user
+			r.byTag[tag] = true
 		}
 	}
 	return nil

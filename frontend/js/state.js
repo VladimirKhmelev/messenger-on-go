@@ -4,6 +4,7 @@ export const state = {
   authError: '',
   authBusy: false,
   pendingVerifyEmail: '', // email awaiting a confirmation code, set when authMode === 'verify'
+  tagCheck: null, // { tag, available, suggestedTag } — result of the last debounced tag-availability check
 
   currentUser: null, // { id, email, tag }
 
@@ -15,6 +16,10 @@ export const state = {
   editingMessageId: null, // set while a message's inline edit field is open
 
   toast: null, // { chatId, name, text }
+
+  settingsOpen: false,
+  settingsError: '',
+  settingsBusy: false,
 };
 
 const listeners = {
@@ -22,6 +27,7 @@ const listeners = {
   sidebar: [],
   conversation: [],
   toast: [],
+  settings: [],
 };
 
 export function onZone(zone, fn) {

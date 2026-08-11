@@ -41,6 +41,8 @@ func TestValidateTag(t *testing.T) {
 		{"uppercase", "JohnDoe", domain.ErrInvalidTag},
 		{"invalid char", "john-doe", domain.ErrInvalidTag},
 		{"empty", "", domain.ErrInvalidTag},
+		{"starts with digit", "1john", domain.ErrInvalidTag},
+		{"starts with underscore", "_john", domain.ErrInvalidTag},
 	}
 
 	for _, tc := range cases {

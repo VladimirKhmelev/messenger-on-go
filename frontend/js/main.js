@@ -14,6 +14,7 @@ import { renderAuth } from './screens/auth.js';
 import { renderSidebar } from './screens/sidebar.js';
 import { renderConversation } from './screens/conversation.js';
 import { renderToast } from './screens/toast.js';
+import { renderSettings } from './screens/settings.js';
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
 
@@ -32,6 +33,7 @@ function renderRoot() {
         <div class="conversation-pane" data-zone="conversation"></div>
       </div>
       <div data-zone="toast"></div>
+      <div data-zone="settings"></div>
     `;
   }
   wireZones();
@@ -47,6 +49,7 @@ function wireZones() {
         onSubmit: handleAuthSubmit,
         onVerify: handleVerifyEmail,
         onGitHubLogin: handleGitHubLogin,
+        onTagInput: handleAuthTagInput,
       })
     );
   }
@@ -60,6 +63,18 @@ function wireZones() {
         onSelectChat: handleSelectChat,
         onCreateChat: handleCreateChat,
         onLogout: handleLogout,
+        onOpenSettings: handleOpenSettings,
+      })
+    );
+  }
+
+  const settingsRoot = app.querySelector('[data-zone="settings"]');
+  if (settingsRoot) {
+    onZoneOnce('settings', () =>
+      renderSettings(settingsRoot, {
+        onClose: handleCloseSettings,
+        onTagInput: handleSettingsTagInput,
+        onSaveTag: handleSaveTag,
       })
     );
   }
@@ -150,6 +165,40 @@ function handleGitHubLogin() {
     clientId
   )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`;
 }
+
+const TAG_CHECK_DEBOUNCE_MS = 350;
+const TAG_MIN_LENGTH = 3;
+let tagCheckDebounceTimer = null;
+let tagCheckSeq = 0;
+
+function makeTagInputHandler(zone) {
+  return (tag) => {
+    clearTimeout(tagCheckDebounceTimer);
+
+    if (tag.length < TAG_MIN_LENGTH) {
+      state.tagCheck = null;
+      notify(zone);
+      return;
+    }
+
+    const seq = ++tagCheckSeq;
+    tagCheckDebounceTimer = setTimeout(async () => {
+      try {
+        const data = await authApi.checkTagAvailable(tag);
+        if (seq !== tagCheckSeq) return;
+        state.tagCheck = { tag, available: data.available, suggestedTag: data.suggestedTag || '' };
+        notify(zone);
+      } catch {
+        if (seq !== tagCheckSeq) return;
+        state.tagCheck = null;
+        notify(zone);
+      }
+    }, TAG_CHECK_DEBOUNCE_MS);
+  };
+}
+
+const handleAuthTagInput = makeTagInputHandler('auth');
+const handleSettingsTagInput = makeTagInputHandler('settings');
 
 async function enterApp() {
   const me = await resolveCurrentUser();
@@ -322,7 +371,42 @@ async function handleLogout() {
   registered.sidebar = false;
   registered.conversation = false;
   registered.toast = false;
+  registered.settings = false;
   renderRoot();
+}
+
+function handleOpenSettings() {
+  state.settingsOpen = true;
+  state.settingsError = '';
+  state.tagCheck = null;
+  notify('settings');
+}
+
+function handleCloseSettings() {
+  state.settingsOpen = false;
+  state.settingsError = '';
+  state.tagCheck = null;
+  notify('settings');
+}
+
+async function handleSaveTag(tag) {
+  state.settingsError = '';
+  state.settingsBusy = true;
+  notify('settings');
+
+  try {
+    const data = await authApi.updateTag(tag);
+    if (state.currentUser) state.currentUser.tag = data.tag;
+    state.settingsOpen = false;
+    state.tagCheck = null;
+    state.settingsBusy = false;
+    notify('settings');
+    notify('sidebar');
+  } catch (err) {
+    state.settingsError = err instanceof ApiError ? err.message : 'Не удалось изменить тег';
+    state.settingsBusy = false;
+    notify('settings');
+  }
 }
 
 function handleToastDismiss() {
@@ -401,9 +485,18 @@ function connectWs() {
 }
 
 function appendMessage(chatId, message) {
-  let chat = state.chats.find((c) => c.id === chatId);
-  if (!chat) return;
+  const index = state.chats.findIndex((c) => c.id === chatId);
+  if (index === -1) return;
+
+  const chat = state.chats[index];
   chat.messages.push({ ...message, mine: message.senderUserId === state.currentUser?.id });
+
+  // Bump the chat to the top of the list, same as every other messenger —
+  // sidebar renders state.chats in array order with no separate sort.
+  if (index > 0) {
+    state.chats.splice(index, 1);
+    state.chats.unshift(chat);
+  }
 }
 
 let toastTimer = null;

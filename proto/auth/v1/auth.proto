@@ -89,6 +89,20 @@ service AuthService {
       body: "*"
     };
   }
+
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse) {
+    option (google.api.http) = {
+      patch: "/v1/users/me/tag"
+      body: "*"
+    };
+  }
+
+  rpc CheckTagAvailable(CheckTagAvailableRequest)
+      returns (CheckTagAvailableResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/tag-available/{tag}"
+    };
+  }
 }
 
 message HealthRequest {
@@ -198,4 +212,24 @@ message LoginWithGitHubRequest {
 message LoginWithGitHubResponse {
   string access_token = 1;
   string refresh_token = 2;
+}
+
+message UpdateTagRequest {
+  string tag = 1;
+}
+
+message UpdateTagResponse {
+  string tag = 1;
+}
+
+message CheckTagAvailableRequest {
+  string tag = 1;
+}
+
+message CheckTagAvailableResponse {
+  bool available = 1;
+  // Populated only when available is false: an unused suggestion derived
+  // from the requested tag (same base + random digits), so the client can
+  // offer a one-click alternative instead of a dead end.
+  string suggested_tag = 2;
 }
