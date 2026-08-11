@@ -83,7 +83,7 @@
 				
 				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
 				
-				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.5%)</option>
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
 				
 				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
 				
@@ -93,13 +93,15 @@
 				
 				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (80.0%)</option>
 				
-				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (0.0%)</option>
 				
-				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
 				
-				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
 				
 				</select>
 			</div>
@@ -1055,6 +1057,11 @@ func (r *PostgresUserRepository) UpdatePasswordHash(ctx context.Context, userID,
         return err
 }</span>
 
+func (r *PostgresUserRepository) UpdateTag(ctx context.Context, userID, tag string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `UPDATE users SET tag = $1 WHERE id = $2`, tag, userID)
+        return err
+}</span>
+
 func escapeLikePattern(s string) string <span class="cov0" title="0">{
         replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
         return replacer.Replace(s)
@@ -1211,7 +1218,7 @@ func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenP
 }
 
 func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile) (*domain.User, error) <span class="cov8" title="1">{
-        tag, err := s.generateUniqueTag(ctx)
+        tag, err := s.generateUniqueTag(ctx, "id")
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -1241,9 +1248,9 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
         <span class="cov8" title="1">return user, nil</span>
 }
 
-func (s *AuthService) generateUniqueTag(ctx context.Context) (string, error) <span class="cov8" title="1">{
+func (s *AuthService) generateUniqueTag(ctx context.Context, base string) (string, error) <span class="cov8" title="1">{
         for i := 0; i &lt; maxTagGenerationAttempts; i++ </span><span class="cov8" title="1">{
-                tag, err := randomTag()
+                tag, err := randomTag(base)
                 if err != nil </span><span class="cov0" title="0">{
                         return "", err
                 }</span>
@@ -1260,12 +1267,19 @@ func (s *AuthService) generateUniqueTag(ctx context.Context) (string, error) <sp
         <span class="cov0" title="0">return "", errors.New("failed to generate a unique tag")</span>
 }
 
-func randomTag() (string, error) <span class="cov8" title="1">{
+func randomTag(base string) (string, error) <span class="cov8" title="1">{
         n, err := rand.Int(rand.Reader, big.NewInt(100000000))
         if err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
-        <span class="cov8" title="1">return fmt.Sprintf("id%08d", n.Int64()), nil</span>
+        <span class="cov8" title="1">suffix := fmt.Sprintf("%08d", n.Int64())
+
+        const maxTagLength = 20
+        if len(base)+len(suffix) &gt; maxTagLength </span><span class="cov0" title="0">{
+                base = base[:maxTagLength-len(suffix)]
+        }</span>
+
+        <span class="cov8" title="1">return base + suffix, nil</span>
 }
 </pre>
 		
@@ -1591,13 +1605,59 @@ func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.
 		<pre class="file" id="file19" style="display: none">package service
 
 import (
+        "context"
+        "errors"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+func (s *AuthService) UpdateTag(ctx context.Context, userID, tag string) error <span class="cov0" title="0">{
+        if err := ValidateTag(tag); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">existing, err := s.users.GetByTag(ctx, tag)
+        if err != nil &amp;&amp; !errors.Is(err, domain.ErrUserNotFound) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if existing != nil &amp;&amp; existing.ID != userID </span><span class="cov0" title="0">{
+                return domain.ErrTagTaken
+        }</span>
+
+        <span class="cov0" title="0">return s.users.UpdateTag(ctx, userID, tag)</span>
+}
+
+func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (available bool, suggested string, err error) <span class="cov0" title="0">{
+        if err := ValidateTag(tag); err != nil </span><span class="cov0" title="0">{
+                return false, "", err
+        }</span>
+
+        <span class="cov0" title="0">taken, err := s.users.ExistsByTag(ctx, tag)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, "", err
+        }</span>
+        <span class="cov0" title="0">if !taken </span><span class="cov0" title="0">{
+                return true, "", nil
+        }</span>
+
+        <span class="cov0" title="0">suggested, err = s.generateUniqueTag(ctx, tag)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, "", err
+        }</span>
+        <span class="cov0" title="0">return false, suggested, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package service
+
+import (
         "net/mail"
         "regexp"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-var tagPattern = regexp.MustCompile(`^[a-z0-9_]{3,20}$`)
+var tagPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
 
 func ValidateEmail(email string) error <span class="cov8" title="1">{
         if _, err := mail.ParseAddress(email); err != nil </span><span class="cov8" title="1">{
@@ -1614,7 +1674,7 @@ func ValidateTag(tag string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file20" style="display: none">package grpc
+		<pre class="file" id="file21" style="display: none">package grpc
 
 import (
         "context"
@@ -1786,6 +1846,28 @@ func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithG
         }, nil</span>
 }
 
+func (s *AuthServer) UpdateTag(ctx context.Context, req *authv1.UpdateTagRequest) (*authv1.UpdateTagResponse, error) <span class="cov0" title="0">{
+        userID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.auth.UpdateTag(ctx, userID, req.GetTag()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.UpdateTagResponse{Tag: req.GetTag()}, nil</span>
+}
+
+func (s *AuthServer) CheckTagAvailable(ctx context.Context, req *authv1.CheckTagAvailableRequest) (*authv1.CheckTagAvailableResponse, error) <span class="cov0" title="0">{
+        available, suggested, err := s.auth.CheckTagAvailable(ctx, req.GetTag())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.CheckTagAvailableResponse{Available: available, SuggestedTag: suggested}, nil</span>
+}
+
 func toGRPCError(err error) error <span class="cov0" title="0">{
         switch </span>{
         case errors.Is(err, domain.ErrInvalidEmail),
@@ -1812,7 +1894,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file21" style="display: none">package grpc
+		<pre class="file" id="file22" style="display: none">package grpc
 
 import (
         "context"
@@ -1874,7 +1956,7 @@ func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="co
 }
 </pre>
 		
-		<pre class="file" id="file22" style="display: none">package grpc
+		<pre class="file" id="file23" style="display: none">package grpc
 
 import (
         "context"
@@ -1903,6 +1985,7 @@ var publicMethods = map[string]bool{
         "/auth.v1.AuthService/RequestPasswordReset": true,
         "/auth.v1.AuthService/ResetPassword":        true,
         "/auth.v1.AuthService/LoginWithGitHub":      true,
+        "/auth.v1.AuthService/CheckTagAvailable":    true,
         "/grpc.health.v1.Health/Check":              true,
         "/grpc.health.v1.Health/Watch":              true,
 }

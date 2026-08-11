@@ -568,8 +568,11 @@ func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID st
         err := r.conn.SelectContext(ctx, &amp;chats, `
                 SELECT c.id, c.created_at FROM chats c
                 JOIN chat_members m ON m.chat_id = c.id
+                LEFT JOIN LATERAL (
+                        SELECT created_at FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1
+                ) last_message ON true
                 WHERE m.user_id = $1
-                ORDER BY c.created_at DESC`,
+                ORDER BY COALESCE(last_message.created_at, c.created_at) DESC`,
                 userID,
         )
         if err != nil </span><span class="cov0" title="0">{
