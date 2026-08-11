@@ -121,14 +121,42 @@ func (r *PostgresChatRepository) CreateMessage(ctx context.Context, message *dom
 	return err
 }
 
-func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error) {
+const messageProjectionColumns = `
+	m.id, m.chat_id, m.sender_id,
+	COALESCE(latest_edit.new_body, m.body) AS body,
+	m.created_at,
+	latest_edit.created_at AS edited_at,
+	latest_delete.created_at AS deleted_at`
+
+const messageProjectionLateralJoins = `
+	LEFT JOIN LATERAL (
+		SELECT new_body, created_at FROM message_events
+		WHERE message_id = m.id AND event_type = 'edited'
+		ORDER BY created_at DESC LIMIT 1
+	) latest_edit ON true
+	LEFT JOIN LATERAL (
+		SELECT created_at FROM message_events
+		WHERE message_id = m.id AND event_type = 'deleted_for_all'
+		ORDER BY created_at DESC LIMIT 1
+	) latest_delete ON true`
+
+const messageProjectionJoins = `FROM messages m` + messageProjectionLateralJoins
+
+func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) {
 	var messages []*domain.Message
 	err := r.conn.SelectContext(ctx, &messages, `
-		SELECT id, chat_id, sender_id, body, created_at FROM (
-			SELECT id, chat_id, sender_id, body, created_at FROM messages
-			WHERE chat_id = $1 ORDER BY created_at DESC LIMIT $2
-		) recent ORDER BY created_at ASC`,
-		chatID, limit,
+		SELECT `+messageProjectionColumns+` FROM (
+			SELECT m.id `+messageProjectionJoins+`
+			WHERE m.chat_id = $1
+			  AND NOT EXISTS (
+				SELECT 1 FROM message_hidden_for_user h WHERE h.message_id = m.id AND h.user_id = $3
+			  )
+			ORDER BY m.created_at DESC LIMIT $2
+		) recent
+		JOIN messages m ON m.id = recent.id
+		`+messageProjectionLateralJoins+`
+		ORDER BY m.created_at ASC`,
+		chatID, limit, requesterID,
 	)
 	if err != nil {
 		return nil, err
@@ -136,12 +164,17 @@ func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID string
 	return messages, nil
 }
 
-func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID string) (*domain.Message, error) {
+func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID, requesterID string) (*domain.Message, error) {
 	var message domain.Message
 	err := r.conn.GetContext(ctx, &message, `
-		SELECT id, chat_id, sender_id, body, created_at FROM messages
-		WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1`,
-		chatID,
+		SELECT `+messageProjectionColumns+`
+		`+messageProjectionJoins+`
+		WHERE m.chat_id = $1
+		  AND NOT EXISTS (
+			SELECT 1 FROM message_hidden_for_user h WHERE h.message_id = m.id AND h.user_id = $2
+		  )
+		ORDER BY m.created_at DESC LIMIT 1`,
+		chatID, requesterID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -155,7 +188,9 @@ func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID stri
 func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) {
 	var message domain.Message
 	err := r.conn.GetContext(ctx, &message, `
-		SELECT id, chat_id, sender_id, body, created_at FROM messages WHERE id = $1`,
+		SELECT `+messageProjectionColumns+`
+		`+messageProjectionJoins+`
+		WHERE m.id = $1`,
 		messageID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -165,4 +200,23 @@ func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID strin
 		return nil, err
 	}
 	return &message, nil
+}
+
+func (r *PostgresChatRepository) AppendMessageEvent(ctx context.Context, event *domain.MessageEvent) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO message_events (id, message_id, chat_id, actor_id, event_type, new_body, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		event.ID, event.MessageID, event.ChatID, event.ActorID, event.Type, event.NewBody, event.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, messageID, userID string) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO message_hidden_for_user (message_id, user_id, hidden_at)
+		VALUES ($1, $2, now())
+		ON CONFLICT (message_id, user_id) DO NOTHING`,
+		messageID, userID,
+	)
+	return err
 }

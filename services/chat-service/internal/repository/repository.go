@@ -15,7 +15,10 @@ type ChatRepository interface {
 	ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error)
 
 	CreateMessage(ctx context.Context, message *domain.Message) error
-	ListMessages(ctx context.Context, chatID string, limit int) ([]*domain.Message, error)
+	ListMessages(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error)
 	GetMessage(ctx context.Context, messageID string) (*domain.Message, error)
-	GetLastMessage(ctx context.Context, chatID string) (*domain.Message, error)
+	GetLastMessage(ctx context.Context, chatID, requesterID string) (*domain.Message, error)
+
+	AppendMessageEvent(ctx context.Context, event *domain.MessageEvent) error
+	HideMessageForUser(ctx context.Context, messageID, userID string) error
 }

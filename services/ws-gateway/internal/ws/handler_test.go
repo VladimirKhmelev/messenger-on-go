@@ -31,6 +31,13 @@ type fakeChatClient struct {
 	presenceLastSeenUnix int64
 	presenceErr          error
 	setOfflineErr        error
+
+	editMessageErr         error
+	deleteForAllErr        error
+	deleteForMeErr         error
+	editedText             string
+	deletedForAllMessageID string
+	deletedForMeMessageID  string
 }
 
 func (c *fakeChatClient) SendMessage(_ context.Context, _, chatID, text string) (string, error) {
@@ -58,6 +65,30 @@ func (c *fakeChatClient) GetPresence(_ context.Context, _ string) (bool, int64, 
 
 func (c *fakeChatClient) SetOffline(_ context.Context, _ string) error {
 	return c.setOfflineErr
+}
+
+func (c *fakeChatClient) EditMessage(_ context.Context, _, _, _, text string) error {
+	if c.editMessageErr != nil {
+		return c.editMessageErr
+	}
+	c.editedText = text
+	return nil
+}
+
+func (c *fakeChatClient) DeleteMessageForAll(_ context.Context, _, _, messageID string) error {
+	if c.deleteForAllErr != nil {
+		return c.deleteForAllErr
+	}
+	c.deletedForAllMessageID = messageID
+	return nil
+}
+
+func (c *fakeChatClient) DeleteMessageForMe(_ context.Context, _, _, messageID string) error {
+	if c.deleteForMeErr != nil {
+		return c.deleteForMeErr
+	}
+	c.deletedForMeMessageID = messageID
+	return nil
 }
 
 type fakePresencePublisher struct{}
@@ -207,5 +238,31 @@ func TestHandler_GetHistory_ForwardsToChatClient(t *testing.T) {
 
 	if resp.Type != "history" || len(resp.Messages) != 1 || resp.Messages[0].MessageID != "m1" {
 		t.Errorf("response = %+v, want type=history with 1 message m1", resp)
+	}
+}
+
+func TestHandler_EditMessage_ForwardsToChatClient(t *testing.T) {
+	chat := &fakeChatClient{}
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}))
+	defer server.Close()
+
+	token := issueTestAccessToken(t, "user-1")
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?token=" + url.QueryEscape(token)
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("Dial() unexpected error: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	req, _ := json.Marshal(clientMessage{Type: "edit_message", ChatID: "chat-1", MessageID: "m1", Text: "edited"})
+	if err := conn.WriteMessage(websocket.TextMessage, req); err != nil {
+		t.Fatalf("WriteMessage() unexpected error: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	if chat.editedText != "edited" {
+		t.Errorf("chatclient received editedText=%q, want %q", chat.editedText, "edited")
 	}
 }

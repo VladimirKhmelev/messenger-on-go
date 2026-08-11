@@ -444,6 +444,120 @@
         ]
       }
     },
+    "/v1/chats/{chatId}/messages/{messageId}": {
+      "delete": {
+        "operationId": "ChatService_DeleteMessageForAll",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeleteMessageForAllResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      },
+      "patch": {
+        "operationId": "ChatService_EditMessage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1EditMessageResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceEditMessageBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/messages/{messageId}/for-me": {
+      "delete": {
+        "operationId": "ChatService_DeleteMessageForMe",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeleteMessageForMeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/v1/users": {
       "get": {
         "operationId": "AuthService_SearchUsers",
@@ -536,6 +650,14 @@
     }
   },
   "definitions": {
+    "ChatServiceEditMessageBody": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
     "ChatServiceSendMessageBody": {
       "type": "object",
       "properties": {
@@ -618,6 +740,20 @@
       "properties": {
         "chatId": {
           "type": "string"
+        }
+      }
+    },
+    "v1DeleteMessageForAllResponse": {
+      "type": "object"
+    },
+    "v1DeleteMessageForMeResponse": {
+      "type": "object"
+    },
+    "v1EditMessageResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "$ref": "#/definitions/v1Message"
         }
       }
     },
@@ -740,6 +876,13 @@
         "createdAtUnix": {
           "type": "string",
           "format": "int64"
+        },
+        "editedAtUnix": {
+          "type": "string",
+          "format": "int64"
+        },
+        "deleted": {
+          "type": "boolean"
         }
       }
     },

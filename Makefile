@@ -1,6 +1,6 @@
 SERVICES := auth-service chat-service ws-gateway notification-worker
 
-.PHONY: proto up down build-images logs unit tidy ci integration
+.PHONY: proto up down build-images logs unit tidy ci integration lint protolint golangci-lint
 
 proto:
 	mkdir -p proto/gen/openapi
@@ -37,6 +37,17 @@ unit:
 
 integration:
 	cd services/auth-service && go test -tags=integration ./... -v
+
+lint: protolint golangci-lint
+
+protolint:
+	protolint lint proto/auth/v1/auth.proto proto/chat/v1/chat.proto
+
+golangci-lint:
+	@for s in $(SERVICES); do \
+		echo "== $$s: golangci-lint =="; \
+		(cd services/$$s && golangci-lint run ./...) || exit 1; \
+	done
 
 tidy:
 	cd proto/gen && go mod tidy

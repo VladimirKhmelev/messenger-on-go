@@ -71,6 +71,7 @@ func main() {
 	go func() {
 		handlers := events.Handlers{
 			OnMessageCreated:  fanout.HandleMessageCreated,
+			OnMessageUpdated:  fanout.HandleMessageUpdated,
 			OnNotifyPush:      fanout.HandleNotifyPush,
 			OnPresenceChanged: fanout.HandlePresenceChanged,
 		}

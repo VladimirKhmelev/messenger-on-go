@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	chatStreamName = "CHAT_EVENTS"
-	subjectMsg     = "msg.created"
+	chatStreamName   = "CHAT_EVENTS"
+	subjectMsg       = "msg.created"
+	subjectMsgEdit   = "msg.updated"
+	subjectMsgDelete = "msg.deleted"
 
 	notifyStreamName = "NOTIFY_EVENTS"
 	subjectNotify    = "notify.push"
@@ -30,6 +32,14 @@ type MessageCreated struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type MessageUpdated struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	NewBody   *string   `json:"new_body,omitempty"`
+	Deleted   bool      `json:"deleted"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type NotifyPush struct {
 	UserID    string    `json:"user_id"`
 	ChatID    string    `json:"chat_id"`
@@ -45,6 +55,7 @@ type PresenceChanged struct {
 
 type Handlers struct {
 	OnMessageCreated  func(ctx context.Context, event MessageCreated)
+	OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
 	OnNotifyPush      func(ctx context.Context, event NotifyPush)
 	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
 }
@@ -85,7 +96,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		return err
 	}
 
-	errCh := make(chan error, 3)
+	errCh := make(chan error, 4)
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
@@ -95,6 +106,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 				return
 			}
 			handlers.OnMessageCreated(ctx, event)
+		})
+	}()
+
+	go func() {
+		errCh <- consumeMulti(ctx, js, chatStreamName, []string{subjectMsgEdit, subjectMsgDelete}, func(ctx context.Context, data []byte) {
+			var event MessageUpdated
+			if err := json.Unmarshal(data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal msg.updated/deleted event: %v", err)
+				return
+			}
+			handlers.OnMessageUpdated(ctx, event)
 		})
 	}()
 
@@ -128,7 +150,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		errCh <- nil
 	}()
 
-	for range 3 {
+	for range 4 {
 		if err := <-errCh; err != nil {
 			return err
 		}
@@ -137,14 +159,18 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 }
 
 func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterSubject string, handle func(ctx context.Context, data []byte)) error {
+	return consumeMulti(ctx, js, streamName, []string{filterSubject}, handle)
+}
+
+func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, handle func(ctx context.Context, data []byte)) error {
 	stream, err := js.Stream(ctx, streamName)
 	if err != nil {
 		return err
 	}
 
 	consumer, err := stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
-		FilterSubject: filterSubject,
-		AckPolicy:     jetstream.AckNonePolicy,
+		FilterSubjects: filterSubjects,
+		AckPolicy:      jetstream.AckNonePolicy,
 	})
 	if err != nil {
 		return err
@@ -159,7 +185,7 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterS
 
 		msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
 		if err != nil {
-			log.Printf("ws-gateway: failed to fetch %s batch: %v", filterSubject, err)
+			log.Printf("ws-gateway: failed to fetch %v batch: %v", filterSubjects, err)
 			continue
 		}
 

@@ -54,3 +54,7 @@ type failingEventPublisher struct{}
 func (failingEventPublisher) PublishMessageCreated(context.Context, events.MessageCreated) error {
 	return errPublishFailed
 }
+
+func (failingEventPublisher) PublishMessageUpdated(context.Context, events.MessageUpdated) error {
+	return errPublishFailed
+}

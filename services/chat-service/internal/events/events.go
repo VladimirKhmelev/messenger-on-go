@@ -13,6 +13,8 @@ const (
 	StreamName = "CHAT_EVENTS"
 
 	SubjectMessageCreated = "msg.created"
+	SubjectMessageUpdated = "msg.updated"
+	SubjectMessageDeleted = "msg.deleted"
 )
 
 type MessageCreated struct {
@@ -20,6 +22,14 @@ type MessageCreated struct {
 	ChatID    string    `json:"chat_id"`
 	SenderID  string    `json:"sender_id"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type MessageUpdated struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	NewBody   *string   `json:"new_body,omitempty"`
+	Deleted   bool      `json:"deleted"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Publisher struct {
@@ -55,5 +65,20 @@ func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCrea
 	}
 
 	_, err = p.js.Publish(ctx, SubjectMessageCreated, payload)
+	return err
+}
+
+func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpdated) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	subject := SubjectMessageUpdated
+	if event.Deleted {
+		subject = SubjectMessageDeleted
+	}
+
+	_, err = p.js.Publish(ctx, subject, payload)
 	return err
 }

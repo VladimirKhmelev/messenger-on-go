@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"log"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -72,12 +73,7 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
 
 	result := make([]*chatv1.Message, 0, len(messages))
 	for _, m := range messages {
-		result = append(result, &chatv1.Message{
-			MessageId:     m.ID,
-			SenderUserId:  m.SenderID,
-			Text:          m.Body,
-			CreatedAtUnix: m.CreatedAt.Unix(),
-		})
+		result = append(result, toProtoMessage(m))
 	}
 
 	return &chatv1.GetHistoryResponse{Messages: result}, nil
@@ -98,12 +94,7 @@ func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest
 	for _, summary := range summaries {
 		var lastMessage *chatv1.Message
 		if summary.LastMessage != nil {
-			lastMessage = &chatv1.Message{
-				MessageId:     summary.LastMessage.ID,
-				SenderUserId:  summary.LastMessage.SenderID,
-				Text:          summary.LastMessage.Body,
-				CreatedAtUnix: summary.LastMessage.CreatedAt.Unix(),
-			}
+			lastMessage = toProtoMessage(summary.LastMessage)
 		}
 
 		result = append(result, &chatv1.ChatSummary{
@@ -131,14 +122,61 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
 		return nil, toGRPCError(err)
 	}
 
-	return &chatv1.GetMessageResponse{
-		Message: &chatv1.Message{
-			MessageId:     message.ID,
-			SenderUserId:  message.SenderID,
-			Text:          message.Body,
-			CreatedAtUnix: message.CreatedAt.Unix(),
-		},
-	}, nil
+	return &chatv1.GetMessageResponse{Message: toProtoMessage(message)}, nil
+}
+
+func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageRequest) (*chatv1.EditMessageResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	message, err := s.chat.EditMessage(ctx, req.GetMessageId(), requesterID, req.GetText())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.EditMessageResponse{Message: toProtoMessage(message)}, nil
+}
+
+func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.DeleteMessageForAllRequest) (*chatv1.DeleteMessageForAllResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.DeleteMessageForAll(ctx, req.GetMessageId(), requesterID); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.DeleteMessageForAllResponse{}, nil
+}
+
+func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteMessageForMeRequest) (*chatv1.DeleteMessageForMeResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.DeleteMessageForMe(ctx, req.GetMessageId(), requesterID); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.DeleteMessageForMeResponse{}, nil
+}
+
+func toProtoMessage(m *domain.Message) *chatv1.Message {
+	result := &chatv1.Message{
+		MessageId:     m.ID,
+		SenderUserId:  m.SenderID,
+		Text:          m.Body,
+		CreatedAtUnix: m.CreatedAt.Unix(),
+		Deleted:       m.DeletedAt != nil,
+	}
+	if m.EditedAt != nil {
+		result.EditedAtUnix = m.EditedAt.Unix()
+	}
+	return result
 }
 
 func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceRequest) (*chatv1.GetPresenceResponse, error) {
@@ -176,9 +214,13 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrChatNotFound),
 		errors.Is(err, domain.ErrMessageNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, domain.ErrNotChatMember):
+	case errors.Is(err, domain.ErrNotChatMember),
+		errors.Is(err, domain.ErrNotMessageSender):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, domain.ErrMessageDeleted):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		log.Printf("chat-service: internal error: %v", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

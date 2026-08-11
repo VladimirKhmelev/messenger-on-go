@@ -15,6 +15,7 @@ import (
 type clientMessage struct {
 	Type       string `json:"type"`
 	ChatID     string `json:"chat_id"`
+	MessageID  string `json:"message_id,omitempty"`
 	Text       string `json:"text,omitempty"`
 	Limit      int32  `json:"limit,omitempty"`
 	PeerUserID string `json:"peer_user_id,omitempty"`
@@ -30,6 +31,8 @@ type serverMessage struct {
 	PeerUserID   string               `json:"peer_user_id,omitempty"`
 	Online       bool                 `json:"online,omitempty"`
 	LastSeenUnix int64                `json:"last_seen_unix,omitempty"`
+	NewText      *string              `json:"new_text,omitempty"`
+	Deleted      bool                 `json:"deleted,omitempty"`
 }
 
 type session struct {
@@ -130,6 +133,25 @@ func (s *session) handle(data []byte) {
 			Online:       online,
 			LastSeenUnix: lastSeenUnix,
 		})
+
+	case "edit_message":
+		if err := s.chat.EditMessage(ctx, s.token, msg.ChatID, msg.MessageID, msg.Text); err != nil {
+			s.writeError(err.Error())
+			return
+		}
+
+	case "delete_message_for_all":
+		if err := s.chat.DeleteMessageForAll(ctx, s.token, msg.ChatID, msg.MessageID); err != nil {
+			s.writeError(err.Error())
+			return
+		}
+
+	case "delete_message_for_me":
+		if err := s.chat.DeleteMessageForMe(ctx, s.token, msg.ChatID, msg.MessageID); err != nil {
+			s.writeError(err.Error())
+			return
+		}
+		s.write(serverMessage{Type: "message_updated", ChatID: msg.ChatID, MessageID: msg.MessageID, Deleted: true})
 
 	default:
 		s.writeError("unknown message type: " + msg.Type)
