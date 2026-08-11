@@ -119,7 +119,7 @@ func (s *session) handle(data []byte) {
 			s.writeError(err.Error())
 			return
 		}
-		s.write(serverMessage{Type: "history", Messages: messages})
+		s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages})
 
 	case "get_presence":
 		online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)

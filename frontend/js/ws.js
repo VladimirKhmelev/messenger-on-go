@@ -52,7 +52,7 @@ export class WsClient {
         this.onNotifyPush?.({ chatId: msg.chat_id, messageId: msg.message_id });
         break;
       case 'history':
-        this.onHistory?.({ messages: (msg.messages || []).map(normalizeMessage) });
+        this.onHistory?.({ chatId: msg.chat_id, messages: (msg.messages || []).map(normalizeMessage) });
         break;
       case 'message_sent':
         this.onMessageSent?.({ messageId: msg.message_id });

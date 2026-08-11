@@ -158,6 +158,7 @@ async function enterApp() {
   state.view = 'app';
   renderRoot();
   connectWs();
+  requestNotificationPermission();
 }
 
 async function loadChats(myUserId) {
@@ -334,24 +335,30 @@ function connectWs() {
     onMessageReceived: ({ chatId, message }) => {
       appendMessage(chatId, message);
 
-      if (chatId !== state.selectedChatId) {
+      if (chatId !== state.selectedChatId || document.hidden) {
         showToast(chatId, message.text);
       }
       notify('sidebar');
       if (chatId === state.selectedChatId) notify('conversation');
     },
     onNotifyPush: ({ chatId }) => {
-      if (chatId === state.selectedChatId) return;
+      if (chatId === state.selectedChatId && !document.hidden) return;
       const chat = state.chats.find((c) => c.id === chatId);
       showToast(chatId, chat?.messages.at(-1)?.text ?? 'Новое сообщение');
     },
-    onHistory: ({ messages }) => {
-      const chat = state.chats.find((c) => c.id === state.selectedChatId);
+    onHistory: ({ chatId, messages }) => {
+      const chat = state.chats.find((c) => c.id === chatId);
       if (!chat) return;
-      chat.messages = messages.map((m) => ({ ...m, mine: m.senderUserId === state.currentUser?.id }));
+
+      const history = messages.map((m) => ({ ...m, mine: m.senderUserId === state.currentUser?.id }));
+
+      const historyIds = new Set(history.map((m) => m.messageId));
+      const alreadyLive = chat.messages.filter((m) => !historyIds.has(m.messageId));
+      chat.messages = [...history, ...alreadyLive];
       chat.historyLoaded = true;
-      notify('conversation');
+
       notify('sidebar');
+      if (chatId === state.selectedChatId) notify('conversation');
     },
     onMessageSent: () => {
       /* ack only; the actual message is appended via onMessageReceived fanout */
@@ -404,15 +411,39 @@ function showToast(chatId, text) {
   const chat = state.chats.find((c) => c.id === chatId);
   if (!chat) return;
 
+  playNotificationSound();
+
+  if (document.hidden) {
+    showBrowserNotification(chatId, chat.peer.tag, text);
+    return;
+  }
+
   state.toast = { chatId, name: chat.peer.tag, text };
   notify('toast');
-  playNotificationSound();
 
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     state.toast = null;
     notify('toast');
   }, TOAST_AUTO_DISMISS_MS);
+}
+
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function showBrowserNotification(chatId, name, text) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const notification = new Notification(name, { body: text, tag: chatId });
+  notification.addEventListener('click', () => {
+    window.focus();
+    handleSelectChat(chatId);
+    notification.close();
+  });
 }
 
 let audioCtx = null;
