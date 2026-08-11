@@ -50,7 +50,7 @@ func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenP
 }
 
 func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile) (*domain.User, error) {
-	tag, err := s.generateUniqueTag(ctx)
+	tag, err := s.generateUniqueTag(ctx, "id")
 	if err != nil {
 		return nil, err
 	}
@@ -80,9 +80,9 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
 	return user, nil
 }
 
-func (s *AuthService) generateUniqueTag(ctx context.Context) (string, error) {
+func (s *AuthService) generateUniqueTag(ctx context.Context, base string) (string, error) {
 	for i := 0; i < maxTagGenerationAttempts; i++ {
-		tag, err := randomTag()
+		tag, err := randomTag(base)
 		if err != nil {
 			return "", err
 		}
@@ -99,10 +99,17 @@ func (s *AuthService) generateUniqueTag(ctx context.Context) (string, error) {
 	return "", errors.New("failed to generate a unique tag")
 }
 
-func randomTag() (string, error) {
+func randomTag(base string) (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(100000000))
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("id%08d", n.Int64()), nil
+	suffix := fmt.Sprintf("%08d", n.Int64())
+
+	const maxTagLength = 20
+	if len(base)+len(suffix) > maxTagLength {
+		base = base[:maxTagLength-len(suffix)]
+	}
+
+	return base + suffix, nil
 }

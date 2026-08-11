@@ -106,6 +106,11 @@ func (r *PostgresUserRepository) UpdatePasswordHash(ctx context.Context, userID,
 	return err
 }
 
+func (r *PostgresUserRepository) UpdateTag(ctx context.Context, userID, tag string) error {
+	_, err := r.conn.ExecContext(ctx, `UPDATE users SET tag = $1 WHERE id = $2`, tag, userID)
+	return err
+}
+
 func escapeLikePattern(s string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return replacer.Replace(s)

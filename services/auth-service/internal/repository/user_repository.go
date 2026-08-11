@@ -16,4 +16,5 @@ type UserRepository interface {
 	SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error)
 	MarkEmailVerified(ctx context.Context, userID string) error
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
+	UpdateTag(ctx context.Context, userID, tag string) error
 }
