@@ -21,6 +21,9 @@ type ChatClient interface {
 	GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
 	GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
 	SetOffline(ctx context.Context, userID string) error
+	EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
+	DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
+	DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
 }
 
 type PresencePublisher interface {

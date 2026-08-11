@@ -15,6 +15,8 @@ type Message struct {
 	SenderUserID  string
 	Text          string
 	CreatedAtUnix int64
+	EditedAtUnix  int64
+	Deleted       bool
 }
 
 type Client struct {
@@ -55,12 +57,7 @@ func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, lim
 
 	messages := make([]Message, 0, len(resp.GetMessages()))
 	for _, m := range resp.GetMessages() {
-		messages = append(messages, Message{
-			MessageID:     m.GetMessageId(),
-			SenderUserID:  m.GetSenderUserId(),
-			Text:          m.GetText(),
-			CreatedAtUnix: m.GetCreatedAtUnix(),
-		})
+		messages = append(messages, toClientMessage(m))
 	}
 	return messages, nil
 }
@@ -109,14 +106,39 @@ func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, err
 	if err != nil {
 		return Message{}, err
 	}
+	return toClientMessage(resp.GetMessage()), nil
+}
 
-	m := resp.GetMessage()
+func (c *Client) EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error {
+	ctx = withBearerToken(ctx, bearerToken)
+
+	_, err := c.chat.EditMessage(ctx, &chatv1.EditMessageRequest{ChatId: chatID, MessageId: messageID, Text: text})
+	return err
+}
+
+func (c *Client) DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error {
+	ctx = withBearerToken(ctx, bearerToken)
+
+	_, err := c.chat.DeleteMessageForAll(ctx, &chatv1.DeleteMessageForAllRequest{ChatId: chatID, MessageId: messageID})
+	return err
+}
+
+func (c *Client) DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error {
+	ctx = withBearerToken(ctx, bearerToken)
+
+	_, err := c.chat.DeleteMessageForMe(ctx, &chatv1.DeleteMessageForMeRequest{ChatId: chatID, MessageId: messageID})
+	return err
+}
+
+func toClientMessage(m *chatv1.Message) Message {
 	return Message{
 		MessageID:     m.GetMessageId(),
 		SenderUserID:  m.GetSenderUserId(),
 		Text:          m.GetText(),
 		CreatedAtUnix: m.GetCreatedAtUnix(),
-	}, nil
+		EditedAtUnix:  m.GetEditedAtUnix(),
+		Deleted:       m.GetDeleted(),
+	}
 }
 
 func (c *Client) withInternalSecret(ctx context.Context) context.Context {
