@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +48,7 @@ type EventPublisher interface {
 	PublishUserRegistered(ctx context.Context, event events.UserRegistered) error
 	PublishUserPasswordReset(ctx context.Context, event events.UserPasswordReset) error
 	PublishUserOAuthLinked(ctx context.Context, event events.UserOAuthLinked) error
+	PublishUserProfileUpdated(ctx context.Context, event events.UserProfileUpdated) error
 }
 
 const oauthPasswordPlaceholder = "oauth-account-no-password"
@@ -90,11 +92,14 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) {
+func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password string) (*domain.User, error) {
 	if err := ValidateEmail(email); err != nil {
 		return nil, err
 	}
 	if err := ValidateTag(tag); err != nil {
+		return nil, err
+	}
+	if err := ValidateDisplayName(displayName); err != nil {
 		return nil, err
 	}
 	if err := ValidatePassword(password); err != nil {
@@ -126,6 +131,7 @@ func (s *AuthService) Register(ctx context.Context, email, tag, password string)
 		ID:            uuid.NewString(),
 		Email:         email,
 		Tag:           tag,
+		DisplayName:   strings.TrimSpace(displayName),
 		PasswordHash:  string(passwordHash),
 		EmailVerified: false,
 		CreatedAt:     time.Now(),

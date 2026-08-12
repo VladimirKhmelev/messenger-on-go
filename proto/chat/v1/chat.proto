@@ -95,6 +95,7 @@ message SendMessageResponse {
 message GetHistoryRequest {
   string chat_id = 1;
   int32 limit = 2;
+  int32 offset = 3;
 }
 
 message GetHistoryResponse {

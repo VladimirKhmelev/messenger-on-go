@@ -59,6 +59,7 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
 		ID:            uuid.NewString(),
 		Email:         profile.Email,
 		Tag:           tag,
+		DisplayName:   profile.Login,
 		PasswordHash:  oauthPasswordPlaceholder,
 		EmailVerified: true,
 		CreatedAt:     time.Now(),

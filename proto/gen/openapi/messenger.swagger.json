@@ -401,6 +401,13 @@
             "required": false,
             "type": "integer",
             "format": "int32"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
           }
         ],
         "tags": [
@@ -611,6 +618,38 @@
             "in": "path",
             "required": true,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/users/me/display-name": {
+      "patch": {
+        "operationId": "AuthService_UpdateDisplayName",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateDisplayNameResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1UpdateDisplayNameRequest"
+            }
           }
         ],
         "tags": [
@@ -854,6 +893,9 @@
         },
         "tag": {
           "type": "string"
+        },
+        "displayName": {
+          "type": "string"
         }
       }
     },
@@ -867,6 +909,9 @@
           "type": "string"
         },
         "tag": {
+          "type": "string"
+        },
+        "displayName": {
           "type": "string"
         }
       }
@@ -990,6 +1035,9 @@
         },
         "tag": {
           "type": "string"
+        },
+        "displayName": {
+          "type": "string"
         }
       }
     },
@@ -1046,6 +1094,22 @@
         }
       }
     },
+    "v1UpdateDisplayNameRequest": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        }
+      }
+    },
+    "v1UpdateDisplayNameResponse": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        }
+      }
+    },
     "v1UpdateTagRequest": {
       "type": "object",
       "properties": {
@@ -1072,6 +1136,9 @@
           "type": "string"
         },
         "tag": {
+          "type": "string"
+        },
+        "displayName": {
           "type": "string"
         }
       }

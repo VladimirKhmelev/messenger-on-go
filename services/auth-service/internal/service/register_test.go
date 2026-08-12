@@ -21,9 +21,10 @@ func newTestAuthService(repo *fakeUserRepository) *AuthService {
 }
 
 type fakeEventPublisher struct {
-	registeredEvents    []events.UserRegistered
-	passwordResetEvents []events.UserPasswordReset
-	oauthLinkedEvents   []events.UserOAuthLinked
+	registeredEvents     []events.UserRegistered
+	passwordResetEvents  []events.UserPasswordReset
+	oauthLinkedEvents    []events.UserOAuthLinked
+	profileUpdatedEvents []events.UserProfileUpdated
 }
 
 func newFakeEventPublisher() *fakeEventPublisher {
@@ -42,6 +43,11 @@ func (p *fakeEventPublisher) PublishUserPasswordReset(_ context.Context, event e
 
 func (p *fakeEventPublisher) PublishUserOAuthLinked(_ context.Context, event events.UserOAuthLinked) error {
 	p.oauthLinkedEvents = append(p.oauthLinkedEvents, event)
+	return nil
+}
+
+func (p *fakeEventPublisher) PublishUserProfileUpdated(_ context.Context, event events.UserProfileUpdated) error {
+	p.profileUpdatedEvents = append(p.profileUpdatedEvents, event)
 	return nil
 }
 
@@ -266,11 +272,20 @@ func (r *fakeUserRepository) UpdateTag(_ context.Context, userID, tag string) er
 	return nil
 }
 
+func (r *fakeUserRepository) UpdateDisplayName(_ context.Context, userID, displayName string) error {
+	for _, user := range r.users {
+		if user.ID == userID {
+			user.DisplayName = displayName
+		}
+	}
+	return nil
+}
+
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -297,7 +312,7 @@ func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 	mailer := newFakeMailer()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
 
-	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
+	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -315,7 +330,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	emailCodes := newFakeEmailVerificationStore()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -335,7 +350,7 @@ func TestAuthService_VerifyEmail_WrongCode(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	if _, err := svc.Register(context.Background(), "user@example.com", "balbes", "abcd1234"); err != nil {
+	if _, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234"); err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 
@@ -362,7 +377,7 @@ func TestAuthService_Register_EmailTaken(t *testing.T) {
 	repo.byEmail["user@example.com"] = true
 	svc := newTestAuthService(repo)
 
-	_, err := svc.Register(context.Background(), "user@example.com", "john", "abcd1234")
+	_, err := svc.Register(context.Background(), "user@example.com", "john", "Test User", "abcd1234")
 	if !errors.Is(err, domain.ErrEmailTaken) {
 		t.Errorf("Register() error = %v, want %v", err, domain.ErrEmailTaken)
 	}
@@ -373,7 +388,7 @@ func TestAuthService_Register_TagTaken(t *testing.T) {
 	repo.byTag["null_pointer"] = true
 	svc := newTestAuthService(repo)
 
-	_, err := svc.Register(context.Background(), "user@example.com", "null_pointer", "abcd1234")
+	_, err := svc.Register(context.Background(), "user@example.com", "null_pointer", "Test User", "abcd1234")
 	if !errors.Is(err, domain.ErrTagTaken) {
 		t.Errorf("Register() error = %v, want %v", err, domain.ErrTagTaken)
 	}
@@ -397,7 +412,7 @@ func TestAuthService_Register_InvalidInput(t *testing.T) {
 			repo := newFakeUserRepository()
 			svc := newTestAuthService(repo)
 
-			_, err := svc.Register(context.Background(), tc.email, tc.tag, tc.password)
+			_, err := svc.Register(context.Background(), tc.email, tc.tag, "Test User", tc.password)
 			if !errors.Is(err, tc.wantErr) {
 				t.Errorf("Register() error = %v, want %v", err, tc.wantErr)
 			}

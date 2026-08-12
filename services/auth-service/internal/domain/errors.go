@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrInvalidEmail            = errors.New("invalid email")
 	ErrInvalidTag              = errors.New("invalid tag")
+	ErrInvalidDisplayName      = errors.New("invalid display name")
 	ErrWeakPassword            = errors.New("password does not meet complexity requirements")
 	ErrEmailTaken              = errors.New("email already registered")
 	ErrTagTaken                = errors.New("tag already taken")

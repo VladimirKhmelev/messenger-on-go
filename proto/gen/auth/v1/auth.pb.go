@@ -107,6 +107,7 @@ type RegisterRequest struct {
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
 	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -158,6 +159,13 @@ func (x *RegisterRequest) GetPassword() string {
 func (x *RegisterRequest) GetTag() string {
 	if x != nil {
 		return x.Tag
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
 	}
 	return ""
 }
@@ -359,6 +367,7 @@ type GetUserByTagResponse struct {
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -414,6 +423,13 @@ func (x *GetUserByTagResponse) GetTag() string {
 	return ""
 }
 
+func (x *GetUserByTagResponse) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
 type GetUserByIDRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -463,6 +479,7 @@ type GetUserByIDResponse struct {
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -514,6 +531,13 @@ func (x *GetUserByIDResponse) GetEmail() string {
 func (x *GetUserByIDResponse) GetTag() string {
 	if x != nil {
 		return x.Tag
+	}
+	return ""
+}
+
+func (x *GetUserByIDResponse) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
 	}
 	return ""
 }
@@ -611,6 +635,7 @@ type UserSummary struct {
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -662,6 +687,13 @@ func (x *UserSummary) GetEmail() string {
 func (x *UserSummary) GetTag() string {
 	if x != nil {
 		return x.Tag
+	}
+	return ""
+}
+
+func (x *UserSummary) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
 	}
 	return ""
 }
@@ -1381,6 +1413,94 @@ func (x *CheckTagAvailableResponse) GetSuggestedTag() string {
 	return ""
 }
 
+type UpdateDisplayNameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDisplayNameRequest) Reset() {
+	*x = UpdateDisplayNameRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDisplayNameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDisplayNameRequest) ProtoMessage() {}
+
+func (x *UpdateDisplayNameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDisplayNameRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDisplayNameRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *UpdateDisplayNameRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type UpdateDisplayNameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDisplayNameResponse) Reset() {
+	*x = UpdateDisplayNameResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDisplayNameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDisplayNameResponse) ProtoMessage() {}
+
+func (x *UpdateDisplayNameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDisplayNameResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDisplayNameResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *UpdateDisplayNameResponse) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
 var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
@@ -1388,11 +1508,12 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1cgoogle/api/annotations.proto\"\x0f\n" +
 	"\rHealthRequest\" \n" +
 	"\x0eHealthResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"U\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"x\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x10\n" +
-	"\x03tag\x18\x03 \x01(\tR\x03tag\"+\n" +
+	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\"+\n" +
 	"\x10RegisterResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
@@ -1402,25 +1523,28 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
 	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"'\n" +
 	"\x13GetUserByTagRequest\x12\x10\n" +
-	"\x03tag\x18\x01 \x01(\tR\x03tag\"W\n" +
+	"\x03tag\x18\x01 \x01(\tR\x03tag\"z\n" +
 	"\x14GetUserByTagResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x10\n" +
-	"\x03tag\x18\x03 \x01(\tR\x03tag\"-\n" +
+	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\"-\n" +
 	"\x12GetUserByIDRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"V\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"y\n" +
 	"\x13GetUserByIDResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x10\n" +
-	"\x03tag\x18\x03 \x01(\tR\x03tag\"*\n" +
+	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\"*\n" +
 	"\x12SearchUsersRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\"A\n" +
 	"\x13SearchUsersResponse\x12*\n" +
-	"\x05users\x18\x01 \x03(\v2\x14.auth.v1.UserSummaryR\x05users\"N\n" +
+	"\x05users\x18\x01 \x03(\v2\x14.auth.v1.UserSummaryR\x05users\"q\n" +
 	"\vUserSummary\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x10\n" +
-	"\x03tag\x18\x03 \x01(\tR\x03tag\":\n" +
+	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\":\n" +
 	"\x13RefreshTokenRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"^\n" +
 	"\x14RefreshTokenResponse\x12!\n" +
@@ -1453,7 +1577,11 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x03tag\x18\x01 \x01(\tR\x03tag\"^\n" +
 	"\x19CheckTagAvailableResponse\x12\x1c\n" +
 	"\tavailable\x18\x01 \x01(\bR\tavailable\x12#\n" +
-	"\rsuggested_tag\x18\x02 \x01(\tR\fsuggestedTag2\xd6\v\n" +
+	"\rsuggested_tag\x18\x02 \x01(\tR\fsuggestedTag\"=\n" +
+	"\x18UpdateDisplayNameRequest\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\">\n" +
+	"\x19UpdateDisplayNameResponse\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName2\xd9\f\n" +
 	"\vAuthService\x12R\n" +
 	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/auth/health\x12]\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12Q\n" +
@@ -1468,7 +1596,8 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\rResetPassword\x12\x1d.auth.v1.ResetPasswordRequest\x1a\x1e.auth.v1.ResetPasswordResponse\"*\x82\xd3\xe4\x93\x02$:\x01*\"\x1f/v1/auth/password-reset/confirm\x12p\n" +
 	"\x0fLoginWithGitHub\x12\x1f.auth.v1.LoginWithGitHubRequest\x1a .auth.v1.LoginWithGitHubResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/github\x12_\n" +
 	"\tUpdateTag\x12\x19.auth.v1.UpdateTagRequest\x1a\x1a.auth.v1.UpdateTagResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*2\x10/v1/users/me/tag\x12\x81\x01\n" +
-	"\x11CheckTagAvailable\x12!.auth.v1.CheckTagAvailableRequest\x1a\".auth.v1.CheckTagAvailableResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/users/tag-available/{tag}BEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
+	"\x11CheckTagAvailable\x12!.auth.v1.CheckTagAvailableRequest\x1a\".auth.v1.CheckTagAvailableResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/users/tag-available/{tag}\x12\x80\x01\n" +
+	"\x11UpdateDisplayName\x12!.auth.v1.UpdateDisplayNameRequest\x1a\".auth.v1.UpdateDisplayNameResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*2\x19/v1/users/me/display-nameBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -1482,7 +1611,7 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_auth_v1_auth_proto_goTypes = []any{
 	(*HealthRequest)(nil),                // 0: auth.v1.HealthRequest
 	(*HealthResponse)(nil),               // 1: auth.v1.HealthResponse
@@ -1513,6 +1642,8 @@ var file_auth_v1_auth_proto_goTypes = []any{
 	(*UpdateTagResponse)(nil),            // 26: auth.v1.UpdateTagResponse
 	(*CheckTagAvailableRequest)(nil),     // 27: auth.v1.CheckTagAvailableRequest
 	(*CheckTagAvailableResponse)(nil),    // 28: auth.v1.CheckTagAvailableResponse
+	(*UpdateDisplayNameRequest)(nil),     // 29: auth.v1.UpdateDisplayNameRequest
+	(*UpdateDisplayNameResponse)(nil),    // 30: auth.v1.UpdateDisplayNameResponse
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	12, // 0: auth.v1.SearchUsersResponse.users:type_name -> auth.v1.UserSummary
@@ -1530,22 +1661,24 @@ var file_auth_v1_auth_proto_depIdxs = []int32{
 	23, // 12: auth.v1.AuthService.LoginWithGitHub:input_type -> auth.v1.LoginWithGitHubRequest
 	25, // 13: auth.v1.AuthService.UpdateTag:input_type -> auth.v1.UpdateTagRequest
 	27, // 14: auth.v1.AuthService.CheckTagAvailable:input_type -> auth.v1.CheckTagAvailableRequest
-	1,  // 15: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
-	3,  // 16: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	5,  // 17: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	7,  // 18: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
-	9,  // 19: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
-	11, // 20: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
-	14, // 21: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	16, // 22: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	18, // 23: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	20, // 24: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	22, // 25: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
-	24, // 26: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
-	26, // 27: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
-	28, // 28: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
-	15, // [15:29] is the sub-list for method output_type
-	1,  // [1:15] is the sub-list for method input_type
+	29, // 15: auth.v1.AuthService.UpdateDisplayName:input_type -> auth.v1.UpdateDisplayNameRequest
+	1,  // 16: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
+	3,  // 17: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	5,  // 18: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	7,  // 19: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
+	9,  // 20: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
+	11, // 21: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
+	14, // 22: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	16, // 23: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	18, // 24: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	20, // 25: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	22, // 26: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	24, // 27: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
+	26, // 28: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
+	28, // 29: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
+	30, // 30: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
+	16, // [16:31] is the sub-list for method output_type
+	1,  // [1:16] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -1562,7 +1695,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   29,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

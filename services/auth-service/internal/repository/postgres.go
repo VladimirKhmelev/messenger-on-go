@@ -26,9 +26,9 @@ func NewPostgresUserRepository(dsn string) (*PostgresUserRepository, error) {
 
 func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) error {
 	_, err := r.conn.ExecContext(ctx, `
-		INSERT INTO users (id, email, tag, password_hash, email_verified, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		user.ID, user.Email, user.Tag, user.PasswordHash, user.EmailVerified, user.CreatedAt,
+		INSERT INTO users (id, email, tag, display_name, password_hash, email_verified, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		user.ID, user.Email, user.Tag, user.DisplayName, user.PasswordHash, user.EmailVerified, user.CreatedAt,
 	)
 	return err
 }
@@ -47,7 +47,7 @@ func (r *PostgresUserRepository) ExistsByTag(ctx context.Context, tag string) (b
 
 func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
-	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE email = $1`, email)
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE email = $1`, email)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}
@@ -59,7 +59,7 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 
 func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*domain.User, error) {
 	var user domain.User
-	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE tag = $1`, tag)
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE tag = $1`, tag)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}
@@ -71,7 +71,7 @@ func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*dom
 
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	var user domain.User
-	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}
@@ -86,7 +86,7 @@ func (r *PostgresUserRepository) SearchByTagPrefix(ctx context.Context, prefix s
 
 	var users []*domain.User
 	err := r.conn.SelectContext(ctx, &users, `
-		SELECT id, email, tag, password_hash, email_verified, created_at FROM users
+		SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users
 		WHERE tag LIKE $1 ESCAPE '\' ORDER BY tag LIMIT $2`,
 		pattern, limit,
 	)
@@ -108,6 +108,11 @@ func (r *PostgresUserRepository) UpdatePasswordHash(ctx context.Context, userID,
 
 func (r *PostgresUserRepository) UpdateTag(ctx context.Context, userID, tag string) error {
 	_, err := r.conn.ExecContext(ctx, `UPDATE users SET tag = $1 WHERE id = $2`, tag, userID)
+	return err
+}
+
+func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, displayName string) error {
+	_, err := r.conn.ExecContext(ctx, `UPDATE users SET display_name = $1 WHERE id = $2`, displayName, userID)
 	return err
 }
 

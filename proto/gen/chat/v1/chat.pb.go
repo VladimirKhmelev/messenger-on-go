@@ -290,6 +290,7 @@ type GetHistoryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ChatId        string                 `protobuf:"bytes,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
 	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -334,6 +335,13 @@ func (x *GetHistoryRequest) GetChatId() string {
 func (x *GetHistoryRequest) GetLimit() int32 {
 	if x != nil {
 		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetHistoryRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
@@ -1343,10 +1351,11 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\x04text\x18\x02 \x01(\tR\x04text\"4\n" +
 	"\x13SendMessageResponse\x12\x1d\n" +
 	"\n" +
-	"message_id\x18\x01 \x01(\tR\tmessageId\"B\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\"Z\n" +
 	"\x11GetHistoryRequest\x12\x17\n" +
 	"\achat_id\x18\x01 \x01(\tR\x06chatId\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"B\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\"B\n" +
 	"\x12GetHistoryResponse\x12,\n" +
 	"\bmessages\x18\x01 \x03(\v2\x10.chat.v1.MessageR\bmessages\"\xca\x01\n" +
 	"\aMessage\x12\x1d\n" +

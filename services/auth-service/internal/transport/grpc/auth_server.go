@@ -24,7 +24,7 @@ func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer {
 }
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
-	user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetPassword())
+	user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -55,9 +55,10 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
 	}
 
 	return &authv1.GetUserByTagResponse{
-		UserId: user.ID,
-		Email:  user.Email,
-		Tag:    user.Tag,
+		UserId:      user.ID,
+		Email:       user.Email,
+		Tag:         user.Tag,
+		DisplayName: user.DisplayName,
 	}, nil
 }
 
@@ -68,9 +69,10 @@ func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDReq
 	}
 
 	return &authv1.GetUserByIDResponse{
-		UserId: user.ID,
-		Email:  user.Email,
-		Tag:    user.Tag,
+		UserId:      user.ID,
+		Email:       user.Email,
+		Tag:         user.Tag,
+		DisplayName: user.DisplayName,
 	}, nil
 }
 
@@ -83,9 +85,10 @@ func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersReq
 	summaries := make([]*authv1.UserSummary, 0, len(users))
 	for _, user := range users {
 		summaries = append(summaries, &authv1.UserSummary{
-			UserId: user.ID,
-			Email:  user.Email,
-			Tag:    user.Tag,
+			UserId:      user.ID,
+			Email:       user.Email,
+			Tag:         user.Tag,
+			DisplayName: user.DisplayName,
 		})
 	}
 
@@ -192,10 +195,24 @@ func (s *AuthServer) CheckTagAvailable(ctx context.Context, req *authv1.CheckTag
 	return &authv1.CheckTagAvailableResponse{Available: available, SuggestedTag: suggested}, nil
 }
 
+func (s *AuthServer) UpdateDisplayName(ctx context.Context, req *authv1.UpdateDisplayNameRequest) (*authv1.UpdateDisplayNameResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.auth.UpdateDisplayName(ctx, userID, req.GetDisplayName()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.UpdateDisplayNameResponse{DisplayName: req.GetDisplayName()}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidTag),
+		errors.Is(err, domain.ErrInvalidDisplayName),
 		errors.Is(err, domain.ErrWeakPassword),
 		errors.Is(err, domain.ErrSearchQueryTooShort):
 		return status.Error(codes.InvalidArgument, err.Error())

@@ -12,9 +12,10 @@ import (
 const (
 	StreamName = "USER_EVENTS"
 
-	SubjectUserRegistered    = "user.registered"
-	SubjectUserPasswordReset = "user.password_reset"
-	SubjectUserOAuthLinked   = "user.oauth_linked"
+	SubjectUserRegistered     = "user.registered"
+	SubjectUserPasswordReset  = "user.password_reset"
+	SubjectUserOAuthLinked    = "user.oauth_linked"
+	SubjectUserProfileUpdated = "user.profile_updated"
 )
 
 type UserRegistered struct {
@@ -35,6 +36,12 @@ type UserOAuthLinked struct {
 	Email    string    `json:"email"`
 	Provider string    `json:"provider"`
 	At       time.Time `json:"at"`
+}
+
+type UserProfileUpdated struct {
+	UserID      string `json:"user_id"`
+	Tag         string `json:"tag"`
+	DisplayName string `json:"display_name"`
 }
 
 type Publisher struct {
@@ -73,6 +80,10 @@ func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event UserPass
 
 func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event UserOAuthLinked) error {
 	return p.publish(ctx, SubjectUserOAuthLinked, event)
+}
+
+func (p *Publisher) PublishUserProfileUpdated(ctx context.Context, event UserProfileUpdated) error {
+	return p.publish(ctx, SubjectUserProfileUpdated, event)
 }
 
 func (p *Publisher) publish(ctx context.Context, subject string, event any) error {
