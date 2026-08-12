@@ -66,7 +66,7 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
 		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
 	}
 
-	messages, err := s.chat.GetHistory(ctx, req.GetChatId(), requesterID, int(req.GetLimit()))
+	messages, err := s.chat.GetHistory(ctx, req.GetChatId(), requesterID, int(req.GetLimit()), int(req.GetOffset()))
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
