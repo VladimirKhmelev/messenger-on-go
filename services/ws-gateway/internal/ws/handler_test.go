@@ -49,7 +49,7 @@ func (c *fakeChatClient) SendMessage(_ context.Context, _, chatID, text string) 
 	return "message-1", nil
 }
 
-func (c *fakeChatClient) GetHistory(_ context.Context, _, _ string, _ int32) ([]chatclient.Message, error) {
+func (c *fakeChatClient) GetHistory(_ context.Context, _, _ string, _, _ int32) ([]chatclient.Message, error) {
 	if c.getHistoryErr != nil {
 		return nil, c.getHistoryErr
 	}
