@@ -18,7 +18,7 @@ var upgrader = websocket.Upgrader{
 
 type ChatClient interface {
 	SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
-	GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
+	GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
 	GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
 	SetOffline(ctx context.Context, userID string) error
 	EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
@@ -48,7 +48,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := jwtutil.ValidateAccessToken(token, h.jwtSecret)
+	userID, expiresAt, err := jwtutil.ValidateAccessTokenWithExpiry(token, h.jwtSecret)
 	if err != nil {
 		http.Error(w, "invalid or expired token", http.StatusUnauthorized)
 		return
@@ -61,5 +61,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session := newSession(userID, token, conn, h.chat, h.presence)
+	session.tokenExpiresAt = expiresAt
 	session.run(h.registry)
 }

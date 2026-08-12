@@ -47,10 +47,10 @@ func (c *Client) SendMessage(ctx context.Context, bearerToken, chatID, text stri
 	return resp.GetMessageId(), nil
 }
 
-func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]Message, error) {
+func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]Message, error) {
 	ctx = withBearerToken(ctx, bearerToken)
 
-	resp, err := c.chat.GetHistory(ctx, &chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit})
+	resp, err := c.chat.GetHistory(ctx, &chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit, Offset: offset})
 	if err != nil {
 		return nil, err
 	}
