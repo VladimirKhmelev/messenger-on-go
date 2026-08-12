@@ -114,6 +114,16 @@ a:hover { color: var(--accent); }
 }
 .field--tag input { padding-left: 28px; }
 
+.field--password { position: relative; }
+.field--password input { padding-right: 40px; }
+.password-toggle {
+  position: absolute; right: 6px; bottom: 6px;
+  width: 28px; height: 28px; border: none; background: transparent;
+  color: var(--text-muted-2); cursor: pointer; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.password-toggle:hover { color: var(--text); background: rgba(0, 0, 0, 0.06); }
+
 .tag-availability { font-size: 12.5px; margin-top: -8px; min-height: 0; }
 .tag-availability--ok { color: oklch(55% 0.13 145); }
 .tag-availability--taken { color: oklch(55% 0.18 25); }
