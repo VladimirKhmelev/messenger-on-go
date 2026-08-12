@@ -81,27 +81,29 @@
 				
 				<option value="file12">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
+				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
 				
-				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
 				
-				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
 				
-				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (74.1%)</option>
+				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
 				
-				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (80.0%)</option>
+				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (74.1%)</option>
 				
-				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (80.0%)</option>
+				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (78.7%)</option>
 				
-				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (0.0%)</option>
+				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
 				
-				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
 				
-				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
 				
-				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
 				
 				</select>
 			</div>
@@ -560,9 +562,10 @@ import (
 const (
         StreamName = "USER_EVENTS"
 
-        SubjectUserRegistered    = "user.registered"
-        SubjectUserPasswordReset = "user.password_reset"
-        SubjectUserOAuthLinked   = "user.oauth_linked"
+        SubjectUserRegistered     = "user.registered"
+        SubjectUserPasswordReset  = "user.password_reset"
+        SubjectUserOAuthLinked    = "user.oauth_linked"
+        SubjectUserProfileUpdated = "user.profile_updated"
 )
 
 type UserRegistered struct {
@@ -583,6 +586,12 @@ type UserOAuthLinked struct {
         Email    string    `json:"email"`
         Provider string    `json:"provider"`
         At       time.Time `json:"at"`
+}
+
+type UserProfileUpdated struct {
+        UserID      string `json:"user_id"`
+        Tag         string `json:"tag"`
+        DisplayName string `json:"display_name"`
 }
 
 type Publisher struct {
@@ -621,6 +630,10 @@ func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event UserPass
 
 func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event UserOAuthLinked) error <span class="cov0" title="0">{
         return p.publish(ctx, SubjectUserOAuthLinked, event)
+}</span>
+
+func (p *Publisher) PublishUserProfileUpdated(ctx context.Context, event UserProfileUpdated) error <span class="cov0" title="0">{
+        return p.publish(ctx, SubjectUserProfileUpdated, event)
 }</span>
 
 func (p *Publisher) publish(ctx context.Context, subject string, event any) error <span class="cov0" title="0">{
@@ -977,9 +990,9 @@ func NewPostgresUserRepository(dsn string) (*PostgresUserRepository, error) <spa
 
 func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) error <span class="cov0" title="0">{
         _, err := r.conn.ExecContext(ctx, `
-                INSERT INTO users (id, email, tag, password_hash, email_verified, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6)`,
-                user.ID, user.Email, user.Tag, user.PasswordHash, user.EmailVerified, user.CreatedAt,
+                INSERT INTO users (id, email, tag, display_name, password_hash, email_verified, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                user.ID, user.Email, user.Tag, user.DisplayName, user.PasswordHash, user.EmailVerified, user.CreatedAt,
         )
         return err
 }</span>
@@ -998,7 +1011,7 @@ func (r *PostgresUserRepository) ExistsByTag(ctx context.Context, tag string) (b
 
 func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) <span class="cov0" title="0">{
         var user domain.User
-        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE email = $1`, email)
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE email = $1`, email)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrUserNotFound
         }</span>
@@ -1010,7 +1023,7 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 
 func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*domain.User, error) <span class="cov0" title="0">{
         var user domain.User
-        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE tag = $1`, tag)
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE tag = $1`, tag)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrUserNotFound
         }</span>
@@ -1022,7 +1035,7 @@ func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*dom
 
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) <span class="cov0" title="0">{
         var user domain.User
-        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrUserNotFound
         }</span>
@@ -1037,7 +1050,7 @@ func (r *PostgresUserRepository) SearchByTagPrefix(ctx context.Context, prefix s
 
         var users []*domain.User
         err := r.conn.SelectContext(ctx, &amp;users, `
-                SELECT id, email, tag, password_hash, email_verified, created_at FROM users
+                SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users
                 WHERE tag LIKE $1 ESCAPE '\' ORDER BY tag LIMIT $2`,
                 pattern, limit,
         )
@@ -1062,6 +1075,11 @@ func (r *PostgresUserRepository) UpdateTag(ctx context.Context, userID, tag stri
         return err
 }</span>
 
+func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, displayName string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `UPDATE users SET display_name = $1 WHERE id = $2`, displayName, userID)
+        return err
+}</span>
+
 func escapeLikePattern(s string) string <span class="cov0" title="0">{
         replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
         return replacer.Replace(s)
@@ -1069,6 +1087,28 @@ func escapeLikePattern(s string) string <span class="cov0" title="0">{
 </pre>
 		
 		<pre class="file" id="file13" style="display: none">package service
+
+import (
+        "context"
+        "strings"
+)
+
+func (s *AuthService) UpdateDisplayName(ctx context.Context, userID, displayName string) error <span class="cov8" title="1">{
+        trimmed := strings.TrimSpace(displayName)
+        if err := ValidateDisplayName(trimmed); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpdateDisplayName(ctx, userID, trimmed); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package service
 
 import (
         "context"
@@ -1166,7 +1206,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <sp
 }
 </pre>
 		
-		<pre class="file" id="file14" style="display: none">package service
+		<pre class="file" id="file15" style="display: none">package service
 
 import (
         "context"
@@ -1227,6 +1267,7 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
                 ID:            uuid.NewString(),
                 Email:         profile.Email,
                 Tag:           tag,
+                DisplayName:   profile.Login,
                 PasswordHash:  oauthPasswordPlaceholder,
                 EmailVerified: true,
                 CreatedAt:     time.Now(),
@@ -1283,7 +1324,7 @@ func randomTag(base string) (string, error) <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file15" style="display: none">package service
+		<pre class="file" id="file16" style="display: none">package service
 
 import (
         "unicode"
@@ -1317,7 +1358,7 @@ func ValidatePassword(password string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file16" style="display: none">package service
+		<pre class="file" id="file17" style="display: none">package service
 
 import (
         "context"
@@ -1387,11 +1428,12 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 }
 </pre>
 		
-		<pre class="file" id="file17" style="display: none">package service
+		<pre class="file" id="file18" style="display: none">package service
 
 import (
         "context"
         "log"
+        "strings"
         "time"
 
         "github.com/google/uuid"
@@ -1436,6 +1478,7 @@ type EventPublisher interface {
         PublishUserRegistered(ctx context.Context, event events.UserRegistered) error
         PublishUserPasswordReset(ctx context.Context, event events.UserPasswordReset) error
         PublishUserOAuthLinked(ctx context.Context, event events.UserOAuthLinked) error
+        PublishUserProfileUpdated(ctx context.Context, event events.UserProfileUpdated) error
 }
 
 const oauthPasswordPlaceholder = "oauth-account-no-password"
@@ -1479,11 +1522,14 @@ func NewAuthService(
         }
 }</span>
 
-func (s *AuthService) Register(ctx context.Context, email, tag, password string) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password string) (*domain.User, error) <span class="cov8" title="1">{
         if err := ValidateEmail(email); err != nil </span><span class="cov8" title="1">{
                 return nil, err
         }</span>
         <span class="cov8" title="1">if err := ValidateTag(tag); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if err := ValidateDisplayName(displayName); err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
         <span class="cov8" title="1">if err := ValidatePassword(password); err != nil </span><span class="cov8" title="1">{
@@ -1515,6 +1561,7 @@ func (s *AuthService) Register(ctx context.Context, email, tag, password string)
                 ID:            uuid.NewString(),
                 Email:         email,
                 Tag:           tag,
+                DisplayName:   strings.TrimSpace(displayName),
                 PasswordHash:  string(passwordHash),
                 EmailVerified: false,
                 CreatedAt:     time.Now(),
@@ -1571,7 +1618,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error
 }
 </pre>
 		
-		<pre class="file" id="file18" style="display: none">package service
+		<pre class="file" id="file19" style="display: none">package service
 
 import (
         "context"
@@ -1589,7 +1636,7 @@ func (s *AuthService) GetUserByTag(ctx context.Context, tag string) (*domain.Use
         return s.users.GetByTag(ctx, tag)
 }</span>
 
-func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) <span class="cov0" title="0">{
+func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) <span class="cov8" title="1">{
         return s.users.GetByID(ctx, id)
 }</span>
 
@@ -1602,13 +1649,15 @@ func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.
 }
 </pre>
 		
-		<pre class="file" id="file19" style="display: none">package service
+		<pre class="file" id="file20" style="display: none">package service
 
 import (
         "context"
         "errors"
+        "log"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 )
 
 func (s *AuthService) UpdateTag(ctx context.Context, userID, tag string) error <span class="cov0" title="0">{
@@ -1624,7 +1673,28 @@ func (s *AuthService) UpdateTag(ctx context.Context, userID, tag string) error <
                 return domain.ErrTagTaken
         }</span>
 
-        <span class="cov0" title="0">return s.users.UpdateTag(ctx, userID, tag)</span>
+        <span class="cov0" title="0">if err := s.users.UpdateTag(ctx, userID, tag); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">s.publishProfileUpdated(ctx, userID)
+        return nil</span>
+}
+
+func (s *AuthService) publishProfileUpdated(ctx context.Context, userID string) <span class="cov8" title="1">{
+        user, err := s.users.GetByID(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("auth-service: failed to load user %s for profile_updated event: %v", userID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishUserProfileUpdated(ctx, events.UserProfileUpdated{
+                UserID:      user.ID,
+                Tag:         user.Tag,
+                DisplayName: user.DisplayName,
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("auth-service: failed to publish user.profile_updated event for %s: %v", userID, err)
+        }</span>
 }
 
 func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (available bool, suggested string, err error) <span class="cov0" title="0">{
@@ -1648,16 +1718,23 @@ func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (availa
 }
 </pre>
 		
-		<pre class="file" id="file20" style="display: none">package service
+		<pre class="file" id="file21" style="display: none">package service
 
 import (
         "net/mail"
         "regexp"
+        "strings"
+        "unicode/utf8"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
 var tagPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
+
+const (
+        minDisplayNameLength = 1
+        maxDisplayNameLength = 40
+)
 
 func ValidateEmail(email string) error <span class="cov8" title="1">{
         if _, err := mail.ParseAddress(email); err != nil </span><span class="cov8" title="1">{
@@ -1672,9 +1749,18 @@ func ValidateTag(tag string) error <span class="cov8" title="1">{
         }</span>
         <span class="cov8" title="1">return nil</span>
 }
+
+func ValidateDisplayName(name string) error <span class="cov8" title="1">{
+        trimmed := strings.TrimSpace(name)
+        length := utf8.RuneCountInString(trimmed)
+        if length &lt; minDisplayNameLength || length &gt; maxDisplayNameLength </span><span class="cov8" title="1">{
+                return domain.ErrInvalidDisplayName
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
 </pre>
 		
-		<pre class="file" id="file21" style="display: none">package grpc
+		<pre class="file" id="file22" style="display: none">package grpc
 
 import (
         "context"
@@ -1700,7 +1786,7 @@ func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer <sp
 }</span>
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) <span class="cov0" title="0">{
-        user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetPassword())
+        user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword())
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
@@ -1731,9 +1817,10 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.GetUserByTagResponse{
-                UserId: user.ID,
-                Email:  user.Email,
-                Tag:    user.Tag,
+                UserId:      user.ID,
+                Email:       user.Email,
+                Tag:         user.Tag,
+                DisplayName: user.DisplayName,
         }, nil</span>
 }
 
@@ -1744,9 +1831,10 @@ func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDReq
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.GetUserByIDResponse{
-                UserId: user.ID,
-                Email:  user.Email,
-                Tag:    user.Tag,
+                UserId:      user.ID,
+                Email:       user.Email,
+                Tag:         user.Tag,
+                DisplayName: user.DisplayName,
         }, nil</span>
 }
 
@@ -1759,9 +1847,10 @@ func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersReq
         <span class="cov0" title="0">summaries := make([]*authv1.UserSummary, 0, len(users))
         for _, user := range users </span><span class="cov0" title="0">{
                 summaries = append(summaries, &amp;authv1.UserSummary{
-                        UserId: user.ID,
-                        Email:  user.Email,
-                        Tag:    user.Tag,
+                        UserId:      user.ID,
+                        Email:       user.Email,
+                        Tag:         user.Tag,
+                        DisplayName: user.DisplayName,
                 })
         }</span>
 
@@ -1868,10 +1957,24 @@ func (s *AuthServer) CheckTagAvailable(ctx context.Context, req *authv1.CheckTag
         <span class="cov0" title="0">return &amp;authv1.CheckTagAvailableResponse{Available: available, SuggestedTag: suggested}, nil</span>
 }
 
+func (s *AuthServer) UpdateDisplayName(ctx context.Context, req *authv1.UpdateDisplayNameRequest) (*authv1.UpdateDisplayNameResponse, error) <span class="cov0" title="0">{
+        userID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.auth.UpdateDisplayName(ctx, userID, req.GetDisplayName()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.UpdateDisplayNameResponse{DisplayName: req.GetDisplayName()}, nil</span>
+}
+
 func toGRPCError(err error) error <span class="cov0" title="0">{
         switch </span>{
         case errors.Is(err, domain.ErrInvalidEmail),
                 errors.Is(err, domain.ErrInvalidTag),
+                errors.Is(err, domain.ErrInvalidDisplayName),
                 errors.Is(err, domain.ErrWeakPassword),
                 errors.Is(err, domain.ErrSearchQueryTooShort):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
@@ -1894,7 +1997,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file22" style="display: none">package grpc
+		<pre class="file" id="file23" style="display: none">package grpc
 
 import (
         "context"
@@ -1956,7 +2059,7 @@ func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="co
 }
 </pre>
 		
-		<pre class="file" id="file23" style="display: none">package grpc
+		<pre class="file" id="file24" style="display: none">package grpc
 
 import (
         "context"
