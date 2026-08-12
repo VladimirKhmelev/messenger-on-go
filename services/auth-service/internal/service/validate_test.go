@@ -54,3 +54,36 @@ func TestValidateTag(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDisplayName(t *testing.T) {
+	cases := []struct {
+		name    string
+		display string
+		wantErr error
+	}{
+		{"valid ascii", "John", nil},
+		{"valid cyrillic", "Степаныч", nil},
+		{"valid emoji", "🔥 Stepok 🔥", nil},
+		{"single char", "J", nil},
+		{"empty", "", domain.ErrInvalidDisplayName},
+		{"whitespace only", "   ", domain.ErrInvalidDisplayName},
+		{"too long", strings40plus1(), domain.ErrInvalidDisplayName},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateDisplayName(tc.display)
+			if !errors.Is(err, tc.wantErr) {
+				t.Errorf("ValidateDisplayName(%q) = %v, want %v", tc.display, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func strings40plus1() string {
+	name := ""
+	for i := 0; i < 41; i++ {
+		name += "a"
+	}
+	return name
+}
