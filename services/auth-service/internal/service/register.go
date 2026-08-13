@@ -33,6 +33,7 @@ type EmailVerificationStore interface {
 type Mailer interface {
 	SendVerificationCode(to, code string) error
 	SendPasswordResetToken(to, token string) error
+	SendPasswordChanged(to string) error
 }
 
 type PasswordResetStore interface {
