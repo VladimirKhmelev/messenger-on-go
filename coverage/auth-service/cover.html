@@ -81,29 +81,31 @@
 				
 				<option value="file12">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
+				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/change_password.go (77.3%)</option>
 				
-				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
 				
-				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
 				
-				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
+				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
 				
-				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (74.1%)</option>
+				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
 				
-				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (78.7%)</option>
+				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (74.1%)</option>
 				
-				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
+				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (78.7%)</option>
 				
-				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
+				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
 				
-				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
 				
-				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
 				
-				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (95.7%)</option>
 				
 				</select>
 			</div>
@@ -757,6 +759,13 @@ func (s *Sender) SendPasswordResetToken(to, token string) error <span class="cov
         return s.send(to, subject, body)
 }</span>
 
+func (s *Sender) SendPasswordChanged(to string) error <span class="cov0" title="0">{
+        subject := "Your password was changed"
+        body := "Your account password was just changed. If this wasn't you, reset your password immediately and contact support."
+
+        return s.send(to, subject, body)
+}</span>
+
 func (s *Sender) send(to, subject, body string) error <span class="cov0" title="0">{
         msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n", s.from, to, subject, body)
 
@@ -1090,6 +1099,60 @@ func escapeLikePattern(s string) string <span class="cov0" title="0">{
 
 import (
         "context"
+        "log"
+
+        "golang.org/x/crypto/bcrypt"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error <span class="cov8" title="1">{
+        allowed, err := s.loginLimiter.Allow(ctx, "change-password:"+userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+                return domain.ErrTooManyAttempts
+        }</span>
+
+        <span class="cov8" title="1">user, err := s.users.GetByID(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil </span><span class="cov8" title="1">{
+                return domain.ErrInvalidCredentials
+        }</span>
+
+        <span class="cov8" title="1">if err := ValidatePassword(newPassword); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if oldPassword == newPassword </span><span class="cov8" title="1">{
+                return domain.ErrSamePassword
+        }</span>
+
+        <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.mailer.SendPasswordChanged(user.Email); err != nil </span><span class="cov0" title="0">{
+                log.Printf("auth-service: failed to send password-changed notification for %s: %v", user.ID, err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package service
+
+import (
+        "context"
         "strings"
 )
 
@@ -1108,7 +1171,7 @@ func (s *AuthService) UpdateDisplayName(ctx context.Context, userID, displayName
 }
 </pre>
 		
-		<pre class="file" id="file14" style="display: none">package service
+		<pre class="file" id="file15" style="display: none">package service
 
 import (
         "context"
@@ -1206,7 +1269,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <sp
 }
 </pre>
 		
-		<pre class="file" id="file15" style="display: none">package service
+		<pre class="file" id="file16" style="display: none">package service
 
 import (
         "context"
@@ -1324,7 +1387,7 @@ func randomTag(base string) (string, error) <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file16" style="display: none">package service
+		<pre class="file" id="file17" style="display: none">package service
 
 import (
         "unicode"
@@ -1358,7 +1421,7 @@ func ValidatePassword(password string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file17" style="display: none">package service
+		<pre class="file" id="file18" style="display: none">package service
 
 import (
         "context"
@@ -1428,7 +1491,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 }
 </pre>
 		
-		<pre class="file" id="file18" style="display: none">package service
+		<pre class="file" id="file19" style="display: none">package service
 
 import (
         "context"
@@ -1463,6 +1526,7 @@ type EmailVerificationStore interface {
 type Mailer interface {
         SendVerificationCode(to, code string) error
         SendPasswordResetToken(to, token string) error
+        SendPasswordChanged(to string) error
 }
 
 type PasswordResetStore interface {
@@ -1618,7 +1682,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error
 }
 </pre>
 		
-		<pre class="file" id="file19" style="display: none">package service
+		<pre class="file" id="file20" style="display: none">package service
 
 import (
         "context"
@@ -1649,7 +1713,7 @@ func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.
 }
 </pre>
 		
-		<pre class="file" id="file20" style="display: none">package service
+		<pre class="file" id="file21" style="display: none">package service
 
 import (
         "context"
@@ -1718,7 +1782,7 @@ func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (availa
 }
 </pre>
 		
-		<pre class="file" id="file21" style="display: none">package service
+		<pre class="file" id="file22" style="display: none">package service
 
 import (
         "net/mail"
@@ -1760,7 +1824,7 @@ func ValidateDisplayName(name string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file22" style="display: none">package grpc
+		<pre class="file" id="file23" style="display: none">package grpc
 
 import (
         "context"
@@ -1970,12 +2034,26 @@ func (s *AuthServer) UpdateDisplayName(ctx context.Context, req *authv1.UpdateDi
         <span class="cov0" title="0">return &amp;authv1.UpdateDisplayNameResponse{DisplayName: req.GetDisplayName()}, nil</span>
 }
 
+func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) <span class="cov0" title="0">{
+        userID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.ChangePasswordResponse{}, nil</span>
+}
+
 func toGRPCError(err error) error <span class="cov0" title="0">{
         switch </span>{
         case errors.Is(err, domain.ErrInvalidEmail),
                 errors.Is(err, domain.ErrInvalidTag),
                 errors.Is(err, domain.ErrInvalidDisplayName),
                 errors.Is(err, domain.ErrWeakPassword),
+                errors.Is(err, domain.ErrSamePassword),
                 errors.Is(err, domain.ErrSearchQueryTooShort):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrEmailTaken),
@@ -1997,7 +2075,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file23" style="display: none">package grpc
+		<pre class="file" id="file24" style="display: none">package grpc
 
 import (
         "context"
@@ -2059,7 +2137,7 @@ func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="co
 }
 </pre>
 		
-		<pre class="file" id="file24" style="display: none">package grpc
+		<pre class="file" id="file25" style="display: none">package grpc
 
 import (
         "context"
