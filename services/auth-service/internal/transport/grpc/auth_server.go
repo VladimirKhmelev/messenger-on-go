@@ -208,12 +208,26 @@ func (s *AuthServer) UpdateDisplayName(ctx context.Context, req *authv1.UpdateDi
 	return &authv1.UpdateDisplayNameResponse{DisplayName: req.GetDisplayName()}, nil
 }
 
+func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.ChangePasswordResponse{}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidTag),
 		errors.Is(err, domain.ErrInvalidDisplayName),
 		errors.Is(err, domain.ErrWeakPassword),
+		errors.Is(err, domain.ErrSamePassword),
 		errors.Is(err, domain.ErrSearchQueryTooShort):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailTaken),
