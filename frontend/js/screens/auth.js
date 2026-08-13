@@ -18,8 +18,10 @@ export function renderAuth(root, handlers) {
 
   const prevEmailInput = root.querySelector('[name="email"]');
   const prevPasswordInput = root.querySelector('[name="password"]');
+  const prevDisplayNameInput = root.querySelector('[name="displayName"]');
   const emailValue = prevEmailInput?.value ?? '';
   const passwordValue = prevPasswordInput?.value ?? '';
+  const displayNameValue = prevDisplayNameInput?.value ?? '';
   const focusedField = document.activeElement?.getAttribute?.('name');
   const focusedSelectionStart = document.activeElement?.selectionStart;
   const focusedSelectionEnd = document.activeElement?.selectionEnd;
@@ -43,6 +45,16 @@ export function renderAuth(root, handlers) {
         }</div>
 
         <form class="field-list" data-form="auth">
+          ${
+            isRegister
+              ? `<div class="field">
+                   <label>Имя</label>
+                   <input type="text" name="displayName" placeholder="Как вас называть" required autocomplete="name" value="${escapeHtml(
+                     displayNameValue
+                   )}" />
+                 </div>`
+              : ''
+          }
           <div class="field">
             <label>Email</label>
             <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" value="${escapeHtml(emailValue)}" />
@@ -106,7 +118,8 @@ export function renderAuth(root, handlers) {
     const email = formData.get('email');
     const password = formData.get('password');
     const tag = formData.get('tag');
-    handlers.onSubmit({ email, password, tag, isRegister });
+    const displayName = formData.get('displayName');
+    handlers.onSubmit({ email, password, tag, displayName, isRegister });
   });
 
   if (isRegister) {
@@ -128,7 +141,7 @@ export function renderAuth(root, handlers) {
     }
   }
 
-  if (focusedField === 'email' || focusedField === 'password') {
+  if (focusedField === 'email' || focusedField === 'password' || focusedField === 'displayName') {
     const fieldInput = root.querySelector(`[name="${focusedField}"]`);
     fieldInput.focus();
     fieldInput.setSelectionRange(focusedSelectionStart, focusedSelectionEnd);

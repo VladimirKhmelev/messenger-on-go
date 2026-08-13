@@ -49,8 +49,12 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
 
 
 export const authApi = {
-  register: (email, password, tag) =>
-    request('/v1/auth/register', { method: 'POST', body: { email, password, tag }, auth: false }),
+  register: (email, password, tag, displayName) =>
+    request('/v1/auth/register', {
+      method: 'POST',
+      body: { email, password, tag, displayName },
+      auth: false,
+    }),
 
   login: (email, password) =>
     request('/v1/auth/login', { method: 'POST', body: { email, password }, auth: false }),
@@ -85,6 +89,9 @@ export const authApi = {
     request(`/v1/users/tag-available/${encodeURIComponent(tag)}`, { auth: false }),
 
   updateTag: (tag) => request('/v1/users/me/tag', { method: 'PATCH', body: { tag } }),
+
+  updateDisplayName: (displayName) =>
+    request('/v1/users/me/display-name', { method: 'PATCH', body: { displayName } }),
 };
 
 export const chatApi = {

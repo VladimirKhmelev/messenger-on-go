@@ -8,7 +8,8 @@ export function renderToast(root, handlers) {
     return;
   }
 
-  const palette = avatarPalette(state.toast.name);
+  const avatarSeed = state.toast.avatarSeed || state.toast.name;
+  const palette = avatarPalette(avatarSeed);
 
   root.innerHTML = `
     <div class="toast" data-action="open">
