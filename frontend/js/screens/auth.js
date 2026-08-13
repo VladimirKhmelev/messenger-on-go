@@ -6,6 +6,14 @@ export function renderAuth(root, handlers) {
     renderVerify(root, handlers);
     return;
   }
+  if (state.authMode === 'forgot-password') {
+    renderForgotPassword(root, handlers);
+    return;
+  }
+  if (state.authMode === 'reset-password') {
+    renderResetPassword(root, handlers);
+    return;
+  }
 
   const isRegister = state.authMode === 'register';
   const isDark = getTheme() === 'dark';
@@ -69,6 +77,13 @@ export function renderAuth(root, handlers) {
             )}</button>
           </div>
           ${
+            !isRegister
+              ? `<div class="auth-forgot-password">
+                   <span class="action" data-action="forgot-password">Забыли пароль?</span>
+                 </div>`
+              : ''
+          }
+          ${
             isRegister
               ? `<div class="field field--tag">
                    <label>Тег</label>
@@ -105,6 +120,13 @@ export function renderAuth(root, handlers) {
   root.querySelector('[data-action="toggle-auth-mode"]').addEventListener('click', () => {
     state.authMode = isRegister ? 'login' : 'register';
     state.authError = '';
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-action="forgot-password"]')?.addEventListener('click', () => {
+    state.authMode = 'forgot-password';
+    state.authError = '';
+    state.authSuccess = '';
     handlers.onRerender();
   });
 
@@ -242,5 +264,121 @@ function renderVerify(root, handlers) {
     const formData = new FormData(event.target);
     const code = formData.get('code');
     handlers.onVerify({ email: state.pendingVerifyEmail, code });
+  });
+}
+
+function renderForgotPassword(root, handlers) {
+  const isDark = getTheme() === 'dark';
+
+  root.innerHTML = `
+    <div class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="brand">
+            <div class="brand-mark"></div>
+            <div class="brand-name">Wisp</div>
+          </div>
+          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
+            <span class="knob"></span>
+          </button>
+        </div>
+
+        <div class="auth-title">Восстановление пароля</div>
+        <div class="auth-subtitle">Введите email — мы отправим токен для сброса пароля</div>
+
+        <form class="field-list" data-form="forgot-password">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-error">${state.authError || ''}</div>
+          <div class="form-success">${state.authSuccess || ''}</div>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Отправить токен</button>
+        </form>
+
+        <div class="auth-toggle">
+          <span class="action" data-action="back-to-login">Назад ко входу</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
+    toggleTheme();
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-action="back-to-login"]').addEventListener('click', () => {
+    state.authMode = 'login';
+    state.authError = '';
+    state.authSuccess = '';
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-form="forgot-password"]').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const email = formData.get('email');
+    handlers.onRequestPasswordReset(email);
+  });
+}
+
+function renderResetPassword(root, handlers) {
+  const isDark = getTheme() === 'dark';
+
+  root.innerHTML = `
+    <div class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="brand">
+            <div class="brand-mark"></div>
+            <div class="brand-name">Wisp</div>
+          </div>
+          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
+            <span class="knob"></span>
+          </button>
+        </div>
+
+        <div class="auth-title">Новый пароль</div>
+        <div class="auth-subtitle">Введите токен из письма и новый пароль</div>
+
+        <form class="field-list" data-form="reset-password">
+          <div class="field">
+            <label>Токен из письма</label>
+            <input type="text" name="token" placeholder="Токен сброса пароля" required />
+          </div>
+          <div class="field">
+            <label>Новый пароль</label>
+            <input type="password" name="newPassword" placeholder="••••••••" required autocomplete="new-password" />
+          </div>
+          <div class="form-error">${state.authError || ''}</div>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Сохранить пароль</button>
+        </form>
+
+        <div class="auth-toggle">
+          <span class="action" data-action="back-to-login">Назад ко входу</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
+    toggleTheme();
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-action="back-to-login"]').addEventListener('click', () => {
+    state.authMode = 'login';
+    state.authError = '';
+    state.authSuccess = '';
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-form="reset-password"]').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const token = formData.get('token');
+    const newPassword = formData.get('newPassword');
+    handlers.onResetPassword({ token, newPassword });
   });
 }

@@ -45,6 +45,24 @@ export function renderSettings(root, handlers) {
         <button class="btn-primary" data-action="save-tag" ${state.settingsBusy ? 'disabled' : ''}>
           Сохранить тег
         </button>
+
+        <div class="field">
+          <label>Текущий пароль</label>
+          <input type="password" data-input="settings-old-password" autocomplete="current-password" />
+        </div>
+        <div class="field">
+          <label>Новый пароль</label>
+          <input type="password" data-input="settings-new-password" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <label>Подтвердите новый пароль</label>
+          <input type="password" data-input="settings-new-password-confirm" autocomplete="new-password" />
+        </div>
+        <div class="form-error">${state.settingsPasswordError || ''}</div>
+        <div class="form-success">${state.settingsPasswordSuccess || ''}</div>
+        <button class="btn-primary" data-action="save-password" ${state.settingsPasswordBusy ? 'disabled' : ''}>
+          Сменить пароль
+        </button>
       </div>
     </div>
   `;
@@ -89,6 +107,13 @@ export function renderSettings(root, handlers) {
     nameInput.focus();
     nameInput.setSelectionRange(nameSelectionStart, nameSelectionEnd);
   }
+
+  root.querySelector('[data-action="save-password"]').addEventListener('click', () => {
+    const oldPassword = root.querySelector('[data-input="settings-old-password"]').value;
+    const newPassword = root.querySelector('[data-input="settings-new-password"]').value;
+    const confirmPassword = root.querySelector('[data-input="settings-new-password-confirm"]').value;
+    handlers.onChangePassword(oldPassword, newPassword, confirmPassword);
+  });
 }
 
 function renderTagAvailability() {

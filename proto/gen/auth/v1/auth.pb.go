@@ -1501,6 +1501,94 @@ func (x *UpdateDisplayNameResponse) GetDisplayName() string {
 	return ""
 }
 
+type ChangePasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OldPassword   string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
+	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordRequest) Reset() {
+	*x = ChangePasswordRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordRequest) ProtoMessage() {}
+
+func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ChangePasswordRequest) GetOldPassword() string {
+	if x != nil {
+		return x.OldPassword
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type ChangePasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordResponse) Reset() {
+	*x = ChangePasswordResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordResponse) ProtoMessage() {}
+
+func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
+func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{32}
+}
+
 var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
@@ -1581,7 +1669,11 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x18UpdateDisplayNameRequest\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\">\n" +
 	"\x19UpdateDisplayNameResponse\x12!\n" +
-	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName2\xd9\f\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"]\n" +
+	"\x15ChangePasswordRequest\x12!\n" +
+	"\fold_password\x18\x01 \x01(\tR\voldPassword\x12!\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x18\n" +
+	"\x16ChangePasswordResponse2\xce\r\n" +
 	"\vAuthService\x12R\n" +
 	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/auth/health\x12]\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12Q\n" +
@@ -1597,7 +1689,8 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x0fLoginWithGitHub\x12\x1f.auth.v1.LoginWithGitHubRequest\x1a .auth.v1.LoginWithGitHubResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/github\x12_\n" +
 	"\tUpdateTag\x12\x19.auth.v1.UpdateTagRequest\x1a\x1a.auth.v1.UpdateTagResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*2\x10/v1/users/me/tag\x12\x81\x01\n" +
 	"\x11CheckTagAvailable\x12!.auth.v1.CheckTagAvailableRequest\x1a\".auth.v1.CheckTagAvailableResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/users/tag-available/{tag}\x12\x80\x01\n" +
-	"\x11UpdateDisplayName\x12!.auth.v1.UpdateDisplayNameRequest\x1a\".auth.v1.UpdateDisplayNameResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*2\x19/v1/users/me/display-nameBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
+	"\x11UpdateDisplayName\x12!.auth.v1.UpdateDisplayNameRequest\x1a\".auth.v1.UpdateDisplayNameResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*2\x19/v1/users/me/display-name\x12s\n" +
+	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/v1/users/me/passwordBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -1611,7 +1704,7 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_auth_v1_auth_proto_goTypes = []any{
 	(*HealthRequest)(nil),                // 0: auth.v1.HealthRequest
 	(*HealthResponse)(nil),               // 1: auth.v1.HealthResponse
@@ -1644,6 +1737,8 @@ var file_auth_v1_auth_proto_goTypes = []any{
 	(*CheckTagAvailableResponse)(nil),    // 28: auth.v1.CheckTagAvailableResponse
 	(*UpdateDisplayNameRequest)(nil),     // 29: auth.v1.UpdateDisplayNameRequest
 	(*UpdateDisplayNameResponse)(nil),    // 30: auth.v1.UpdateDisplayNameResponse
+	(*ChangePasswordRequest)(nil),        // 31: auth.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),       // 32: auth.v1.ChangePasswordResponse
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	12, // 0: auth.v1.SearchUsersResponse.users:type_name -> auth.v1.UserSummary
@@ -1662,23 +1757,25 @@ var file_auth_v1_auth_proto_depIdxs = []int32{
 	25, // 13: auth.v1.AuthService.UpdateTag:input_type -> auth.v1.UpdateTagRequest
 	27, // 14: auth.v1.AuthService.CheckTagAvailable:input_type -> auth.v1.CheckTagAvailableRequest
 	29, // 15: auth.v1.AuthService.UpdateDisplayName:input_type -> auth.v1.UpdateDisplayNameRequest
-	1,  // 16: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
-	3,  // 17: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	5,  // 18: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	7,  // 19: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
-	9,  // 20: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
-	11, // 21: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
-	14, // 22: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	16, // 23: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	18, // 24: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	20, // 25: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	22, // 26: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
-	24, // 27: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
-	26, // 28: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
-	28, // 29: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
-	30, // 30: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
-	16, // [16:31] is the sub-list for method output_type
-	1,  // [1:16] is the sub-list for method input_type
+	31, // 16: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
+	1,  // 17: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
+	3,  // 18: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	5,  // 19: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	7,  // 20: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
+	9,  // 21: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
+	11, // 22: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
+	14, // 23: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	16, // 24: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	18, // 25: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	20, // 26: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	22, // 27: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	24, // 28: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
+	26, // 29: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
+	28, // 30: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
+	30, // 31: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
+	32, // 32: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	17, // [17:33] is the sub-list for method output_type
+	1,  // [1:17] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -1695,7 +1792,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   31,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

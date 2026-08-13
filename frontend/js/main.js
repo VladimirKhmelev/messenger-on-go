@@ -53,6 +53,8 @@ function wireZones() {
         onVerify: handleVerifyEmail,
         onGitHubLogin: handleGitHubLogin,
         onTagInput: handleAuthTagInput,
+        onRequestPasswordReset: handleRequestPasswordReset,
+        onResetPassword: handleResetPassword,
       })
     );
   }
@@ -79,6 +81,7 @@ function wireZones() {
         onTagInput: handleSettingsTagInput,
         onSaveTag: handleSaveTag,
         onSaveDisplayName: handleSaveDisplayName,
+        onChangePassword: handleChangePassword,
       })
     );
   }
@@ -158,6 +161,42 @@ async function handleVerifyEmail({ email, code }) {
     notify('auth');
   } catch (err) {
     state.authError = err instanceof ApiError ? err.message : 'Не удалось подтвердить код';
+    state.authBusy = false;
+    notify('auth');
+  }
+}
+
+async function handleRequestPasswordReset(email) {
+  state.authError = '';
+  state.authSuccess = '';
+  state.authBusy = true;
+  notify('auth');
+
+  try {
+    await authApi.requestPasswordReset(email);
+    state.authMode = 'reset-password';
+    state.authBusy = false;
+    notify('auth');
+  } catch (err) {
+    state.authError = err instanceof ApiError ? err.message : 'Не удалось отправить код';
+    state.authBusy = false;
+    notify('auth');
+  }
+}
+
+async function handleResetPassword({ token, newPassword }) {
+  state.authError = '';
+  state.authBusy = true;
+  notify('auth');
+
+  try {
+    await authApi.resetPassword(token, newPassword);
+    state.authMode = 'login';
+    state.authError = 'Пароль изменён. Теперь войдите.';
+    state.authBusy = false;
+    notify('auth');
+  } catch (err) {
+    state.authError = err instanceof ApiError ? err.message : 'Не удалось изменить пароль';
     state.authBusy = false;
     notify('auth');
   }
@@ -412,6 +451,8 @@ async function handleLogout() {
 function handleOpenSettings() {
   state.settingsOpen = true;
   state.settingsError = '';
+  state.settingsPasswordError = '';
+  state.settingsPasswordSuccess = '';
   state.tagCheck = null;
   notify('settings');
 }
@@ -419,6 +460,8 @@ function handleOpenSettings() {
 function handleCloseSettings() {
   state.settingsOpen = false;
   state.settingsError = '';
+  state.settingsPasswordError = '';
+  state.settingsPasswordSuccess = '';
   state.tagCheck = null;
   notify('settings');
 }
@@ -458,6 +501,36 @@ async function handleSaveDisplayName(displayName) {
   } catch (err) {
     state.settingsNameError = err instanceof ApiError ? err.message : 'Не удалось изменить имя';
     state.settingsNameBusy = false;
+    notify('settings');
+  }
+}
+
+async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
+  state.settingsPasswordError = '';
+  state.settingsPasswordSuccess = '';
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    state.settingsPasswordError = 'Заполните все поля';
+    notify('settings');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    state.settingsPasswordError = 'Пароли не совпадают';
+    notify('settings');
+    return;
+  }
+
+  state.settingsPasswordBusy = true;
+  notify('settings');
+
+  try {
+    await authApi.changePassword(oldPassword, newPassword);
+    state.settingsPasswordBusy = false;
+    state.settingsPasswordSuccess = 'Пароль изменён';
+    notify('settings');
+  } catch (err) {
+    state.settingsPasswordError = err instanceof ApiError ? err.message : 'Не удалось изменить пароль';
+    state.settingsPasswordBusy = false;
     notify('settings');
   }
 }

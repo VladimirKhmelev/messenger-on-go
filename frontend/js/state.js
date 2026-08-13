@@ -1,7 +1,8 @@
 export const state = {
   view: 'login', // 'login' | 'app'
-  authMode: 'login', // 'login' | 'register' | 'verify'
+  authMode: 'login', // 'login' | 'register' | 'verify' | 'forgot-password' | 'reset-password'
   authError: '',
+  authSuccess: '',
   authBusy: false,
   pendingVerifyEmail: '', // email awaiting a confirmation code, set when authMode === 'verify'
   tagCheck: null, // { tag, available, suggestedTag } — result of the last debounced tag-availability check
@@ -24,6 +25,9 @@ export const state = {
   settingsBusy: false,
   settingsNameError: '',
   settingsNameBusy: false,
+  settingsPasswordError: '',
+  settingsPasswordSuccess: '',
+  settingsPasswordBusy: false,
 };
 
 const listeners = {

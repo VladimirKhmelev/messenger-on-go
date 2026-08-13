@@ -17,4 +17,5 @@ var (
 	ErrInvalidVerificationCode = errors.New("invalid or expired verification code")
 	ErrEmailNotVerified        = errors.New("email not verified")
 	ErrOAuthNoVerifiedEmail    = errors.New("oauth provider account has no verified email")
+	ErrSamePassword            = errors.New("new password must be different from the current password")
 )
