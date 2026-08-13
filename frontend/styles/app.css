@@ -148,8 +148,15 @@ a:hover { color: var(--accent); }
 .auth-toggle { margin-top: 24px; text-align: center; font-size: 14px; color: var(--text-muted-3); }
 .auth-toggle .action { color: var(--accent); cursor: pointer; font-weight: 600; }
 
+.auth-forgot-password { text-align: right; margin-top: -8px; }
+.auth-forgot-password .action { color: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600; }
+
 .form-error {
   font-size: 13px; color: oklch(55% 0.18 25); margin-top: -4px;
+  min-height: 0;
+}
+.form-success {
+  font-size: 13px; color: oklch(55% 0.15 145); margin-top: -4px;
   min-height: 0;
 }
 

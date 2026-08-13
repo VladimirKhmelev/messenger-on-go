@@ -92,6 +92,9 @@ export const authApi = {
 
   updateDisplayName: (displayName) =>
     request('/v1/users/me/display-name', { method: 'PATCH', body: { displayName } }),
+
+  changePassword: (oldPassword, newPassword) =>
+    request('/v1/users/me/password', { method: 'POST', body: { oldPassword, newPassword } }),
 };
 
 export const chatApi = {
