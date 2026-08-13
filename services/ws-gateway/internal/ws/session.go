@@ -5,11 +5,17 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
+)
+
+const (
+	pongWait   = 60 * time.Second
+	pingPeriod = (pongWait * 9) / 10
 )
 
 type clientMessage struct {
@@ -18,29 +24,34 @@ type clientMessage struct {
 	MessageID  string `json:"message_id,omitempty"`
 	Text       string `json:"text,omitempty"`
 	Limit      int32  `json:"limit,omitempty"`
+	Offset     int32  `json:"offset,omitempty"`
 	PeerUserID string `json:"peer_user_id,omitempty"`
 }
 
 type serverMessage struct {
-	Type         string               `json:"type"`
-	Error        string               `json:"error,omitempty"`
-	MessageID    string               `json:"message_id,omitempty"`
-	Messages     []chatclient.Message `json:"messages,omitempty"`
-	ChatID       string               `json:"chat_id,omitempty"`
-	Message      *chatclient.Message  `json:"message,omitempty"`
-	PeerUserID   string               `json:"peer_user_id,omitempty"`
-	Online       bool                 `json:"online,omitempty"`
-	LastSeenUnix int64                `json:"last_seen_unix,omitempty"`
-	NewText      *string              `json:"new_text,omitempty"`
-	Deleted      bool                 `json:"deleted,omitempty"`
+	Type            string               `json:"type"`
+	Error           string               `json:"error,omitempty"`
+	MessageID       string               `json:"message_id,omitempty"`
+	Messages        []chatclient.Message `json:"messages,omitempty"`
+	ChatID          string               `json:"chat_id,omitempty"`
+	Message         *chatclient.Message  `json:"message,omitempty"`
+	PeerUserID      string               `json:"peer_user_id,omitempty"`
+	PeerTag         string               `json:"peer_tag,omitempty"`
+	PeerDisplayName string               `json:"peer_display_name,omitempty"`
+	Online          bool                 `json:"online,omitempty"`
+	LastSeenUnix    int64                `json:"last_seen_unix,omitempty"`
+	NewText         *string              `json:"new_text,omitempty"`
+	Deleted         bool                 `json:"deleted,omitempty"`
+	Offset          int32                `json:"offset,omitempty"`
 }
 
 type session struct {
-	userID   string
-	token    string
-	conn     *websocket.Conn
-	chat     ChatClient
-	presence PresencePublisher
+	userID         string
+	token          string
+	tokenExpiresAt time.Time
+	conn           *websocket.Conn
+	chat           ChatClient
+	presence       PresencePublisher
 
 	writeMu sync.Mutex
 }
@@ -51,12 +62,28 @@ func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, pre
 
 func (s *session) run(registry *Registry) {
 	registry.add(s)
-	defer registry.remove(s)
+	defer func() {
+		if hasOtherSessions := registry.remove(s); !hasOtherSessions {
+			s.markOffline()
+		}
+	}()
 
 	defer func() { _ = s.conn.Close() }()
 
 	s.announcePresence(true, 0)
-	defer s.markOffline()
+
+	_ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
+	s.conn.SetPongHandler(func(string) error {
+		return s.conn.SetReadDeadline(time.Now().Add(pongWait))
+	})
+
+	stopPing := make(chan struct{})
+	defer close(stopPing)
+	go s.pingLoop(stopPing)
+
+	stopExpiry := make(chan struct{})
+	defer close(stopExpiry)
+	go s.expiryWatcher(stopExpiry)
 
 	for {
 		_, data, err := s.conn.ReadMessage()
@@ -66,6 +93,47 @@ func (s *session) run(registry *Registry) {
 		}
 
 		s.handle(data)
+	}
+}
+
+func (s *session) expiryWatcher(stop <-chan struct{}) {
+	if s.tokenExpiresAt.IsZero() {
+		return
+	}
+
+	wait := time.Until(s.tokenExpiresAt)
+	if wait < 0 {
+		wait = 0
+	}
+
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-stop:
+		return
+	case <-timer.C:
+		s.write(serverMessage{Type: "token_expired"})
+		_ = s.conn.Close()
+	}
+}
+
+func (s *session) pingLoop(stop <-chan struct{}) {
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			s.writeMu.Lock()
+			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second))
+			s.writeMu.Unlock()
+			if err != nil {
+				return
+			}
+		}
 	}
 }
 
@@ -114,12 +182,12 @@ func (s *session) handle(data []byte) {
 		s.write(serverMessage{Type: "message_sent", MessageID: messageID})
 
 	case "get_history":
-		messages, err := s.chat.GetHistory(ctx, s.token, msg.ChatID, msg.Limit)
+		messages, err := s.chat.GetHistory(ctx, s.token, msg.ChatID, msg.Limit, msg.Offset)
 		if err != nil {
 			s.writeError(err.Error())
 			return
 		}
-		s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages})
+		s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages, Offset: msg.Offset})
 
 	case "get_presence":
 		online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)

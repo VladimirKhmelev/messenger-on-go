@@ -245,6 +245,7 @@ a:hover { color: var(--accent); }
   display: flex; align-items: center; gap: 12px;
 }
 .conversation-header-name { font-size: 15px; font-weight: 600; }
+.conversation-header-tag { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--text-muted-2); }
 .conversation-header-status { font-size: 12px; color: var(--text-muted); }
 
 .message-list {
@@ -254,6 +255,30 @@ a:hover { color: var(--accent); }
 .message-list-inner {
   width: 100%; max-width: 1040px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 14px;
+}
+.history-loading {
+  text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0;
+}
+.date-divider {
+  display: flex; justify-content: center; align-items: center;
+  margin: 6px 0;
+}
+.date-divider span {
+  font-size: 12px; color: var(--text-muted);
+  background: var(--bg-card); padding: 4px 12px; border-radius: 12px;
+}
+.date-sticky {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; justify-content: center;
+  pointer-events: none;
+  margin-bottom: -34px;
+}
+.date-sticky span {
+  font-size: 12px; color: var(--text-muted);
+  background: color-mix(in oklch, var(--bg-card) 85%, transparent);
+  backdrop-filter: blur(4px);
+  padding: 4px 12px; border-radius: 12px;
+  margin-top: 8px;
 }
 .message-row {
   display: flex; flex-direction: column; width: 100%; padding: 2px 0;

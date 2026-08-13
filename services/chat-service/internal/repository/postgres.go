@@ -145,7 +145,7 @@ const messageProjectionLateralJoins = `
 
 const messageProjectionJoins = `FROM messages m` + messageProjectionLateralJoins
 
-func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) {
+func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) {
 	var messages []*domain.Message
 	err := r.conn.SelectContext(ctx, &messages, `
 		SELECT `+messageProjectionColumns+` FROM (
@@ -154,12 +154,12 @@ func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, reque
 			  AND NOT EXISTS (
 				SELECT 1 FROM message_hidden_for_user h WHERE h.message_id = m.id AND h.user_id = $3
 			  )
-			ORDER BY m.created_at DESC LIMIT $2
+			ORDER BY m.created_at DESC LIMIT $2 OFFSET $4
 		) recent
 		JOIN messages m ON m.id = recent.id
 		`+messageProjectionLateralJoins+`
 		ORDER BY m.created_at ASC`,
-		chatID, limit, requesterID,
+		chatID, limit, requesterID, offset,
 	)
 	if err != nil {
 		return nil, err

@@ -21,14 +21,16 @@ func (r *Registry) add(s *session) {
 	r.sessions[s.userID][s] = struct{}{}
 }
 
-func (r *Registry) remove(s *session) {
+func (r *Registry) remove(s *session) (hasOtherSessions bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	delete(r.sessions[s.userID], s)
 	if len(r.sessions[s.userID]) == 0 {
 		delete(r.sessions, s.userID)
+		return false
 	}
+	return true
 }
 
 func (r *Registry) Broadcast(userID string, payload serverMessage) {

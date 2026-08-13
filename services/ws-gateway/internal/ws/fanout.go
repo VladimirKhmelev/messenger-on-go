@@ -103,3 +103,22 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.Presenc
 		f.registry.Broadcast(contactID, payload)
 	}
 }
+
+func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) {
+	contacts, err := f.contacts.ListContacts(ctx, event.UserID)
+	if err != nil {
+		log.Printf("ws-gateway: failed to list contacts for profile fanout of %s: %v", event.UserID, err)
+		return
+	}
+
+	payload := serverMessage{
+		Type:            "profile_updated",
+		PeerUserID:      event.UserID,
+		PeerTag:         event.Tag,
+		PeerDisplayName: event.DisplayName,
+	}
+
+	for _, contactID := range contacts {
+		f.registry.Broadcast(contactID, payload)
+	}
+}

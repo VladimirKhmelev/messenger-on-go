@@ -19,6 +19,9 @@ const (
 	notifyStreamName = "NOTIFY_EVENTS"
 	subjectNotify    = "notify.push"
 
+	userStreamName        = "USER_EVENTS"
+	subjectProfileUpdated = "user.profile_updated"
+
 	subjectPresence = "user.presence"
 
 	pullMaxWait = 5 * time.Second
@@ -53,11 +56,18 @@ type PresenceChanged struct {
 	LastSeenUnix int64  `json:"last_seen_unix"`
 }
 
+type ProfileUpdated struct {
+	UserID      string `json:"user_id"`
+	Tag         string `json:"tag"`
+	DisplayName string `json:"display_name"`
+}
+
 type Handlers struct {
 	OnMessageCreated  func(ctx context.Context, event MessageCreated)
 	OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
 	OnNotifyPush      func(ctx context.Context, event NotifyPush)
 	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
+	OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
 }
 
 type PresencePublisher struct {
@@ -96,7 +106,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		return err
 	}
 
-	errCh := make(chan error, 4)
+	errCh := make(chan error, 5)
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
@@ -132,6 +142,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 	}()
 
 	go func() {
+		errCh <- consumeOne(ctx, js, userStreamName, subjectProfileUpdated, func(ctx context.Context, data []byte) {
+			var event ProfileUpdated
+			if err := json.Unmarshal(data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal user.profile_updated event: %v", err)
+				return
+			}
+			handlers.OnProfileUpdated(ctx, event)
+		})
+	}()
+
+	go func() {
 		sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) {
 			var event PresenceChanged
 			if err := json.Unmarshal(msg.Data, &event); err != nil {
@@ -150,7 +171,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		errCh <- nil
 	}()
 
-	for range 4 {
+	for range 5 {
 		if err := <-errCh; err != nil {
 			return err
 		}

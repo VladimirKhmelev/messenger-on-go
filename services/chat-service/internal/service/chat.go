@@ -111,7 +111,7 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 	return message, nil
 }
 
-func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) {
+func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) {
 	isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
 	if err != nil {
 		return nil, err
@@ -123,8 +123,11 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 	if limit <= 0 {
 		limit = HistoryDefaultLimit
 	}
+	if offset < 0 {
+		offset = 0
+	}
 
-	return s.chats.ListMessages(ctx, chatID, requesterID, limit)
+	return s.chats.ListMessages(ctx, chatID, requesterID, limit, offset)
 }
 
 func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) {

@@ -17,9 +17,12 @@ import { renderToast } from './screens/toast.js';
 import { renderSettings } from './screens/settings.js';
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
+const HISTORY_PAGE_SIZE = 50;
+const PRESENCE_REFRESH_INTERVAL_MS = 15_000;
 
 const app = document.getElementById('app');
 let ws = null;
+let presenceRefreshTimer = null;
 
 initTheme();
 
@@ -75,6 +78,7 @@ function wireZones() {
         onClose: handleCloseSettings,
         onTagInput: handleSettingsTagInput,
         onSaveTag: handleSaveTag,
+        onSaveDisplayName: handleSaveDisplayName,
       })
     );
   }
@@ -88,6 +92,7 @@ function wireZones() {
         onEditMessage: handleEditMessage,
         onDeleteMessageForAll: handleDeleteMessageForAll,
         onDeleteMessageForMe: handleDeleteMessageForMe,
+        onLoadMoreHistory: handleLoadMoreHistory,
       })
     );
   }
@@ -114,14 +119,14 @@ function onZoneOnce(zone, fn) {
   fn();
 }
 
-async function handleAuthSubmit({ email, password, tag, isRegister }) {
+async function handleAuthSubmit({ email, password, tag, displayName, isRegister }) {
   state.authError = '';
   state.authBusy = true;
   notify('auth');
 
   try {
     if (isRegister) {
-      await authApi.register(email, password, tag);
+      await authApi.register(email, password, tag, displayName);
       state.pendingVerifyEmail = email;
       state.authMode = 'verify';
       state.authBusy = false;
@@ -210,6 +215,20 @@ async function enterApp() {
   requestNotificationPermission();
 }
 
+async function resolvePeer(userId) {
+  try {
+    const user = await authApi.getUserByID(userId);
+    return {
+      id: userId,
+      email: user?.email ?? null,
+      tag: user?.tag ?? userId,
+      displayName: user?.displayName || user?.tag || userId,
+    };
+  } catch {
+    return { id: userId, email: null, tag: userId, displayName: userId };
+  }
+}
+
 async function loadChats(myUserId) {
   try {
     const data = await chatApi.listChats();
@@ -218,13 +237,7 @@ async function loadChats(myUserId) {
     const chats = await Promise.all(
       summaries.map(async (summary) => {
         const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId);
-        let peer = { id: peerId, email: null, tag: peerId };
-        try {
-          const user = await authApi.getUserByID(peerId);
-          peer = { id: peerId, email: user?.email ?? null, tag: user?.tag ?? peerId };
-        } catch {
-          // keep the fallback peer shape if the lookup fails
-        }
+        const peer = await resolvePeer(peerId);
 
         const lastMessage = summary.lastMessage
           ? { ...summary.lastMessage, mine: summary.lastMessage.senderUserId === myUserId }
@@ -235,6 +248,8 @@ async function loadChats(myUserId) {
           peer,
           messages: lastMessage ? [lastMessage] : [],
           historyLoaded: false,
+          hasMoreHistory: true,
+          loadingMoreHistory: false,
           online: false,
           lastSeenUnix: 0,
         };
@@ -254,9 +269,14 @@ async function resolveCurrentUser() {
 
   try {
     const data = await authApi.getUserByID(id);
-    return { id, email: data?.email ?? null, tag: data?.tag ?? null };
+    return {
+      id,
+      email: data?.email ?? null,
+      tag: data?.tag ?? null,
+      displayName: data?.displayName || data?.tag || null,
+    };
   } catch {
-    return { id, email: null, tag: null };
+    return { id, email: null, tag: null, displayName: null };
   }
 }
 
@@ -276,7 +296,7 @@ function handleSearchChange() {
     try {
       const user = await authApi.getUserByTag(query);
       if (user?.userId && user.userId !== state.currentUser?.id) {
-        state.foundUser = { id: user.userId, tag: user.tag };
+        state.foundUser = { id: user.userId, tag: user.tag, displayName: user.displayName || user.tag };
         notify('sidebar');
       }
     } catch {
@@ -291,9 +311,11 @@ async function handleCreateChat(user) {
     const data = await chatApi.createChat(user.id);
     const chat = {
       id: data.chatId,
-      peer: { id: user.id, email: null, tag: user.tag },
+      peer: { id: user.id, email: null, tag: user.tag, displayName: user.displayName || user.tag },
       messages: [],
       historyLoaded: true, // brand new chat, nothing to fetch
+      hasMoreHistory: false,
+      loadingMoreHistory: false,
       online: false,
       lastSeenUnix: 0,
     };
@@ -310,6 +332,7 @@ async function handleCreateChat(user) {
 
 function handleSelectChat(chatId) {
   state.selectedChatId = chatId;
+  state.focusDraftOnRender = true;
   if (state.toast?.chatId === chatId) {
     state.toast = null;
     notify('toast');
@@ -323,12 +346,22 @@ function handleSelectChat(chatId) {
   }
 }
 
+function handleLoadMoreHistory(chatId) {
+  const chat = state.chats.find((c) => c.id === chatId);
+  if (!chat || !chat.hasMoreHistory || chat.loadingMoreHistory) return;
+
+  chat.loadingMoreHistory = true;
+  ws?.getHistory(chatId, HISTORY_PAGE_SIZE, chat.messages.length);
+  notify('conversation');
+}
+
 function handleSend() {
   const text = state.draft.trim();
   if (!text || !state.selectedChatId) return;
 
   ws?.sendMessage(state.selectedChatId, text);
   state.draft = '';
+  state.scrollToBottomOnRender = true;
   notify('conversation');
 }
 
@@ -351,6 +384,7 @@ function handleDeleteMessageForMe(messageId) {
 async function handleLogout() {
   ws?.close();
   ws = null;
+  clearInterval(presenceRefreshTimer);
   try {
     await authApi.logout();
   } catch {
@@ -409,6 +443,25 @@ async function handleSaveTag(tag) {
   }
 }
 
+async function handleSaveDisplayName(displayName) {
+  state.settingsNameError = '';
+  state.settingsNameBusy = true;
+  notify('settings');
+
+  try {
+    const data = await authApi.updateDisplayName(displayName);
+    if (state.currentUser) state.currentUser.displayName = data.displayName;
+    state.settingsNameBusy = false;
+    notify('settings');
+    notify('sidebar');
+    if (state.selectedChatId) notify('conversation');
+  } catch (err) {
+    state.settingsNameError = err instanceof ApiError ? err.message : 'Не удалось изменить имя';
+    state.settingsNameBusy = false;
+    notify('settings');
+  }
+}
+
 function handleToastDismiss() {
   state.toast = null;
   notify('toast');
@@ -416,8 +469,12 @@ function handleToastDismiss() {
 
 function connectWs() {
   ws = new WsClient({
-    onMessageReceived: ({ chatId, message }) => {
-      appendMessage(chatId, message);
+    refreshAccessToken: async () => {
+      const ok = await refreshAccessToken();
+      return ok ? getAccessToken() : null;
+    },
+    onMessageReceived: async ({ chatId, message }) => {
+      await appendMessage(chatId, message);
 
       if (chatId !== state.selectedChatId || document.hidden) {
         showToast(chatId, message.text);
@@ -430,16 +487,26 @@ function connectWs() {
       const chat = state.chats.find((c) => c.id === chatId);
       showToast(chatId, chat?.messages.at(-1)?.text ?? 'Новое сообщение');
     },
-    onHistory: ({ chatId, messages }) => {
+    onHistory: ({ chatId, messages, offset }) => {
       const chat = state.chats.find((c) => c.id === chatId);
       if (!chat) return;
 
       const history = messages.map((m) => ({ ...m, mine: m.senderUserId === state.currentUser?.id }));
 
-      const historyIds = new Set(history.map((m) => m.messageId));
-      const alreadyLive = chat.messages.filter((m) => !historyIds.has(m.messageId));
-      chat.messages = [...history, ...alreadyLive];
-      chat.historyLoaded = true;
+      if (offset > 0) {
+        // Older page loaded while scrolling up — prepend, keep everything else untouched.
+        const existingIds = new Set(chat.messages.map((m) => m.messageId));
+        const older = history.filter((m) => !existingIds.has(m.messageId));
+        chat.messages = [...older, ...chat.messages];
+        chat.hasMoreHistory = messages.length >= HISTORY_PAGE_SIZE;
+        chat.loadingMoreHistory = false;
+      } else {
+        const historyIds = new Set(history.map((m) => m.messageId));
+        const alreadyLive = chat.messages.filter((m) => !historyIds.has(m.messageId));
+        chat.messages = [...history, ...alreadyLive];
+        chat.historyLoaded = true;
+        chat.hasMoreHistory = messages.length >= HISTORY_PAGE_SIZE;
+      }
 
       notify('sidebar');
       if (chatId === state.selectedChatId) notify('conversation');
@@ -452,6 +519,14 @@ function connectWs() {
       if (!chat) return;
       chat.online = online;
       chat.lastSeenUnix = lastSeenUnix;
+      notify('sidebar');
+      if (chat.id === state.selectedChatId) notify('conversation');
+    },
+    onProfileUpdated: ({ peerUserId, tag, displayName }) => {
+      const chat = state.chats.find((c) => c.peer.id === peerUserId);
+      if (!chat) return;
+      chat.peer.tag = tag;
+      chat.peer.displayName = displayName;
       notify('sidebar');
       if (chat.id === state.selectedChatId) notify('conversation');
     },
@@ -475,21 +550,65 @@ function connectWs() {
     onError: ({ error }) => {
       console.error('ws-gateway error:', error);
     },
+    onReconnected: () => {
+      refreshAfterReconnect();
+    },
   });
   ws.connect(getAccessToken());
-  ws.socket.addEventListener('open', () => {
-    for (const chat of state.chats) {
-      ws.getPresence(chat.peer.id);
-    }
-  });
+  refreshAfterReconnect();
+  startPresenceRefresh();
 }
 
-function appendMessage(chatId, message) {
-  const index = state.chats.findIndex((c) => c.id === chatId);
-  if (index === -1) return;
+function refreshAfterReconnect() {
+  for (const chat of state.chats) {
+    ws.getPresence(chat.peer.id);
+    if (chat.historyLoaded) {
+      ws.getHistory(chat.id);
+    }
+  }
+}
+
+// Presence is pushed over core NATS (no delivery guarantee) only when a peer
+// connects/disconnects — if that single event is lost (e.g. during our own
+// reconnect window), the peer's online status goes stale until someone
+// re-asks. Poll periodically and on tab-focus so it self-heals either way.
+function refreshAllPresence() {
+  for (const chat of state.chats) {
+    ws?.getPresence(chat.peer.id);
+  }
+}
+
+function startPresenceRefresh() {
+  clearInterval(presenceRefreshTimer);
+  presenceRefreshTimer = setInterval(refreshAllPresence, PRESENCE_REFRESH_INTERVAL_MS);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshAllPresence();
+});
+
+async function appendMessage(chatId, message) {
+  const mine = message.senderUserId === state.currentUser?.id;
+  let index = state.chats.findIndex((c) => c.id === chatId);
+
+  if (index === -1) {
+    if (mine) return; // nothing sensible to backfill from our own fanout copy
+    const peer = await resolvePeer(message.senderUserId);
+    state.chats.unshift({
+      id: chatId,
+      peer,
+      messages: [],
+      historyLoaded: true,
+      hasMoreHistory: false,
+      loadingMoreHistory: false,
+      online: false,
+      lastSeenUnix: 0,
+    });
+    index = 0;
+  }
 
   const chat = state.chats[index];
-  chat.messages.push({ ...message, mine: message.senderUserId === state.currentUser?.id });
+  chat.messages.push({ ...message, mine });
 
   // Bump the chat to the top of the list, same as every other messenger —
   // sidebar renders state.chats in array order with no separate sort.
@@ -504,14 +623,15 @@ function showToast(chatId, text) {
   const chat = state.chats.find((c) => c.id === chatId);
   if (!chat) return;
 
+  const name = chat.peer.displayName || chat.peer.tag;
   playNotificationSound();
 
   if (document.hidden) {
-    showBrowserNotification(chatId, chat.peer.tag, text);
+    showBrowserNotification(chatId, name, text);
     return;
   }
 
-  state.toast = { chatId, name: chat.peer.tag, text };
+  state.toast = { chatId, name, avatarSeed: chat.peer.tag, text };
   notify('toast');
 
   clearTimeout(toastTimer);

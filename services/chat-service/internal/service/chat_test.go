@@ -116,13 +116,19 @@ func (r *fakeChatRepository) CreateMessage(_ context.Context, message *domain.Me
 	return nil
 }
 
-func (r *fakeChatRepository) ListMessages(_ context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) {
+func (r *fakeChatRepository) ListMessages(_ context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) {
 	var visible []*domain.Message
 	for _, m := range r.messages[chatID] {
 		if r.hidden[m.ID][requesterID] {
 			continue
 		}
 		visible = append(visible, r.project(m))
+	}
+	if offset > 0 {
+		if offset >= len(visible) {
+			return nil, nil
+		}
+		visible = visible[:len(visible)-offset]
 	}
 	if len(visible) > limit {
 		visible = visible[len(visible)-limit:]
@@ -336,7 +342,7 @@ func TestChatService_GetHistory_Success(t *testing.T) {
 		t.Fatalf("SendMessage() unexpected error: %v", err)
 	}
 
-	messages, err := svc.GetHistory(context.Background(), chat.ID, "user-b", 0)
+	messages, err := svc.GetHistory(context.Background(), chat.ID, "user-b", 0, 0)
 	if err != nil {
 		t.Fatalf("GetHistory() unexpected error: %v", err)
 	}
@@ -352,7 +358,7 @@ func TestChatService_GetHistory_NotMember(t *testing.T) {
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
-	_, err := svc.GetHistory(context.Background(), chat.ID, "user-stranger", 0)
+	_, err := svc.GetHistory(context.Background(), chat.ID, "user-stranger", 0, 0)
 	if !errors.Is(err, domain.ErrNotChatMember) {
 		t.Errorf("GetHistory() error = %v, want %v", err, domain.ErrNotChatMember)
 	}
@@ -511,7 +517,7 @@ func TestChatService_DeleteMessageForAll_Success(t *testing.T) {
 		t.Error("GetMessage() after delete DeletedAt = nil, want set")
 	}
 
-	messages, err := repo.ListMessages(context.Background(), chat.ID, "user-b", 10)
+	messages, err := repo.ListMessages(context.Background(), chat.ID, "user-b", 10, 0)
 	if err != nil {
 		t.Fatalf("ListMessages() unexpected error: %v", err)
 	}

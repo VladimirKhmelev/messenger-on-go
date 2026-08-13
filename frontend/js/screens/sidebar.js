@@ -9,6 +9,7 @@ export function renderSidebar(root, handlers) {
     if (!query) return true;
     return (
       chat.peer.tag.toLowerCase().includes(query) ||
+      (chat.peer.displayName || '').toLowerCase().includes(query) ||
       (chat.peer.email || '').toLowerCase().includes(query)
     );
   });
@@ -90,13 +91,14 @@ export function renderSidebar(root, handlers) {
 
 function renderCreateChatRow(user) {
   const palette = avatarPalette(user.tag);
+  const name = user.displayName || user.tag;
   return `
     <button class="chat-row" data-action="create-chat">
       <div class="avatar" style="background:${palette.bg};color:${palette.text}">
-        ${initialsFrom(user.tag)}
+        ${initialsFrom(name)}
       </div>
       <div class="chat-row-body">
-        <div class="chat-row-name">Создать чат с @${escapeHtml(user.tag)}</div>
+        <div class="chat-row-name">Создать чат с ${escapeHtml(name)}</div>
         <div class="chat-row-tag">@${escapeHtml(user.tag)}</div>
       </div>
     </button>
@@ -104,6 +106,7 @@ function renderCreateChatRow(user) {
 }
 
 function renderChatRow(chat) {
+  const name = chat.peer.displayName || chat.peer.tag;
   const palette = avatarPalette(chat.peer.tag);
   const lastMessage = chat.messages[chat.messages.length - 1];
   const lastTime = lastMessage ? formatTime(lastMessage.createdAtUnix) : '';
@@ -114,12 +117,12 @@ function renderChatRow(chat) {
   return `
     <button class="chat-row" data-chat-id="${chat.id}" data-selected="${isSelected}">
       <div class="avatar" style="background:${palette.bg};color:${palette.text}">
-        ${initialsFrom(chat.peer.tag)}
+        ${initialsFrom(name)}
         <div class="avatar-dot" style="background:${dotColor}"></div>
       </div>
       <div class="chat-row-body">
         <div class="chat-row-line1">
-          <div class="chat-row-name">${escapeHtml(chat.peer.tag)}</div>
+          <div class="chat-row-name">${escapeHtml(name)}</div>
           <div class="chat-row-time">${lastTime}</div>
         </div>
         <div class="chat-row-preview">${lastPreview}</div>
@@ -136,10 +139,33 @@ function formatTime(unixSeconds) {
   return `${h}:${m < 10 ? '0' : ''}${m}`;
 }
 
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function formatDateLabel(unixSeconds) {
+  if (!unixSeconds) return '';
+  const date = new Date(Number(unixSeconds) * 1000);
+  const now = new Date();
+
+  if (isSameDay(date, now)) return 'Сегодня';
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(date, yesterday)) return 'Вчера';
+
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: sameYear ? undefined : 'numeric',
+  });
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str ?? '';
   return div.innerHTML;
 }
 
-export { escapeHtml, formatTime };
+export { escapeHtml, formatTime, formatDateLabel };

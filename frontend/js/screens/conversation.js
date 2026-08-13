@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { avatarPalette, initialsFrom } from '../avatar.js';
-import { formatTime, escapeHtml } from './sidebar.js';
+import { formatTime, formatDateLabel, escapeHtml } from './sidebar.js';
 
 document.addEventListener('click', () => {
   document.querySelectorAll('[data-menu]:not([hidden])').forEach((m) => (m.hidden = true));
@@ -24,6 +24,7 @@ export function renderConversation(root, handlers) {
     return;
   }
 
+  const name = chat.peer.displayName || chat.peer.tag;
   const palette = avatarPalette(chat.peer.tag);
   const statusText = presenceText(chat);
   const sendDisabled = !state.draft.trim();
@@ -33,26 +34,36 @@ export function renderConversation(root, handlers) {
   const selectionStart = prevInput?.selectionStart;
   const selectionEnd = prevInput?.selectionEnd;
 
+  const prevList = root.querySelector('[data-list="messages"]');
+  const prevScrollHeight = prevList?.scrollHeight ?? 0;
+  const prevScrollTop = prevList?.scrollTop ?? 0;
+  const wasNearBottom = prevList ? prevScrollHeight - prevScrollTop - prevList.clientHeight < 80 : true;
+  const isSameChat = prevList?.getAttribute('data-chat-id') === chat.id;
+
   root.innerHTML = `
     <div class="conversation">
       <div class="conversation-header">
         <div class="conversation-header-inner">
           <div class="avatar avatar--md" style="background:${palette.bg};color:${palette.text}">
-            ${initialsFrom(chat.peer.tag)}
+            ${initialsFrom(name)}
           </div>
           <div>
-            <div class="conversation-header-name">${escapeHtml(chat.peer.tag)}</div>
+            <div class="conversation-header-name">
+              ${escapeHtml(name)}
+              <span class="conversation-header-tag">@${escapeHtml(chat.peer.tag)}</span>
+            </div>
             <div class="conversation-header-status">${statusText}</div>
           </div>
         </div>
       </div>
-      <div class="message-list" data-list="messages">
+      <div class="message-list" data-list="messages" data-chat-id="${chat.id}">
+        <div class="date-sticky" data-sticky-date hidden><span></span></div>
         ${
           chat.historyLoaded && chat.messages.length === 0
             ? renderNoMessagesYet()
-            : `<div class="message-list-inner">${chat.messages
-                .map((msg) => renderMessage(msg, state.editingMessageId === msg.messageId))
-                .join('')}</div>`
+            : `${chat.loadingMoreHistory ? renderLoadingMoreHistory() : ''}<div class="message-list-inner">${renderMessagesWithDateDividers(
+                chat.messages
+              )}</div>`
         }
       </div>
       <div class="composer">
@@ -71,7 +82,26 @@ export function renderConversation(root, handlers) {
   `;
 
   const list = root.querySelector('[data-list="messages"]');
-  list.scrollTop = list.scrollHeight;
+  if (list) {
+    const forceScrollToBottom = state.scrollToBottomOnRender;
+    state.scrollToBottomOnRender = false;
+
+    if (isSameChat && !wasNearBottom && !forceScrollToBottom) {
+      // Prepended older messages (or another background update) while the
+      // user was scrolled up — keep their view anchored instead of jumping.
+      list.scrollTop = list.scrollHeight - prevScrollHeight + prevScrollTop;
+    } else {
+      list.scrollTop = list.scrollHeight;
+    }
+
+    updateStickyDate(list);
+    list.addEventListener('scroll', () => {
+      if (list.scrollTop < 200) {
+        handlers.onLoadMoreHistory(chat.id);
+      }
+      updateStickyDate(list);
+    });
+  }
 
   const draftInput = root.querySelector('[data-input="draft"]');
   draftInput.addEventListener('input', (event) => {
@@ -94,7 +124,51 @@ export function renderConversation(root, handlers) {
   if (hadFocus) {
     draftInput.focus();
     draftInput.setSelectionRange(selectionStart, selectionEnd);
+  } else if (state.focusDraftOnRender) {
+    state.focusDraftOnRender = false;
+    draftInput.focus();
   }
+}
+
+function renderMessagesWithDateDividers(messages) {
+  let lastDateLabel = null;
+  return messages
+    .map((msg) => {
+      const dateLabel = formatDateLabel(msg.createdAtUnix);
+      const divider = dateLabel && dateLabel !== lastDateLabel ? renderDateDivider(dateLabel) : '';
+      lastDateLabel = dateLabel || lastDateLabel;
+      return divider + renderMessage(msg, state.editingMessageId === msg.messageId);
+    })
+    .join('');
+}
+
+function updateStickyDate(list) {
+  const sticky = list.querySelector('[data-sticky-date]');
+  if (!sticky) return;
+
+  const dividers = list.querySelectorAll('[data-date-divider]');
+  const listTop = list.getBoundingClientRect().top;
+
+  let current = null;
+  for (const divider of dividers) {
+    if (divider.getBoundingClientRect().top - listTop <= 0) {
+      current = divider;
+    } else {
+      break;
+    }
+  }
+
+  if (!current) {
+    sticky.hidden = true;
+    return;
+  }
+
+  sticky.hidden = false;
+  sticky.querySelector('span').textContent = current.getAttribute('data-date-divider');
+}
+
+function renderDateDivider(label) {
+  return `<div class="date-divider" data-date-divider="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></div>`;
 }
 
 function presenceText(chat) {
@@ -264,4 +338,8 @@ function renderNoMessagesYet() {
       <div class="empty-subtitle">Напишите первое сообщение, чтобы начать переписку</div>
     </div>
   `;
+}
+
+function renderLoadingMoreHistory() {
+  return `<div class="history-loading">Загрузка...</div>`;
 }

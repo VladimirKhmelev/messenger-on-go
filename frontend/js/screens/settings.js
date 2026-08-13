@@ -12,6 +12,12 @@ export function renderSettings(root, handlers) {
   const tagSelectionEnd = prevTagInput?.selectionEnd;
   const tagValue = prevTagInput ? prevTagInput.value : (state.currentUser?.tag ?? '');
 
+  const prevNameInput = root.querySelector('[data-input="settings-name"]');
+  const nameHadFocus = document.activeElement === prevNameInput;
+  const nameSelectionStart = prevNameInput?.selectionStart;
+  const nameSelectionEnd = prevNameInput?.selectionEnd;
+  const nameValue = prevNameInput ? prevNameInput.value : (state.currentUser?.displayName ?? '');
+
   root.innerHTML = `
     <div class="modal-backdrop" data-action="close-backdrop">
       <div class="modal" data-action="stop-propagation">
@@ -19,6 +25,15 @@ export function renderSettings(root, handlers) {
           <div class="modal-title">Настройки</div>
           <button class="modal-close" data-action="close">×</button>
         </div>
+
+        <div class="field">
+          <label>Имя</label>
+          <input type="text" value="${escapeHtml(nameValue)}" data-input="settings-name" />
+        </div>
+        <div class="form-error">${state.settingsNameError || ''}</div>
+        <button class="btn-primary" data-action="save-name" ${state.settingsNameBusy ? 'disabled' : ''}>
+          Сохранить имя
+        </button>
 
         <div class="field field--tag">
           <label>Тег</label>
@@ -63,6 +78,16 @@ export function renderSettings(root, handlers) {
   if (tagHadFocus) {
     tagInput.focus();
     tagInput.setSelectionRange(tagSelectionStart, tagSelectionEnd);
+  }
+
+  const nameInput = root.querySelector('[data-input="settings-name"]');
+  root.querySelector('[data-action="save-name"]').addEventListener('click', () => {
+    handlers.onSaveDisplayName(nameInput.value);
+  });
+
+  if (nameHadFocus) {
+    nameInput.focus();
+    nameInput.setSelectionRange(nameSelectionStart, nameSelectionEnd);
   }
 }
 
