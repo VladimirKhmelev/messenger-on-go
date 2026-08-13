@@ -280,6 +280,7 @@ a:hover { color: var(--accent); }
   pointer-events: none;
   margin-bottom: -34px;
 }
+.date-sticky[hidden] { display: none; }
 .date-sticky span {
   font-size: 12px; color: var(--text-muted);
   background: color-mix(in oklch, var(--bg-card) 85%, transparent);

@@ -48,7 +48,7 @@ export function renderSidebar(root, handlers) {
         </div>
       </div>
       <div class="chat-list">
-        ${filtered.length === 0 && state.foundUser ? renderCreateChatRow(state.foundUser) : ''}
+        ${state.foundUsers.map((user) => renderCreateChatRow(user)).join('')}
         ${filtered.map((chat) => renderChatRow(chat)).join('')}
       </div>
     </div>
@@ -83,9 +83,12 @@ export function renderSidebar(root, handlers) {
     });
   });
 
-  const createRow = root.querySelector('[data-action="create-chat"]');
-  createRow?.addEventListener('click', () => {
-    handlers.onCreateChat(state.foundUser);
+  root.querySelectorAll('[data-action="create-chat"]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const userId = el.getAttribute('data-user-id');
+      const user = state.foundUsers.find((u) => u.id === userId);
+      handlers.onCreateChat(user);
+    });
   });
 }
 
@@ -93,7 +96,7 @@ function renderCreateChatRow(user) {
   const palette = avatarPalette(user.tag);
   const name = user.displayName || user.tag;
   return `
-    <button class="chat-row" data-action="create-chat">
+    <button class="chat-row" data-action="create-chat" data-user-id="${escapeHtml(user.id)}">
       <div class="avatar" style="background:${palette.bg};color:${palette.text}">
         ${initialsFrom(name)}
       </div>

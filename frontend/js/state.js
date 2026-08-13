@@ -12,7 +12,7 @@ export const state = {
   chats: [], // { id, peer: {id, email, tag, displayName}, messages: [], online, lastSeenUnix }
   selectedChatId: null,
   searchQuery: '',
-  foundUser: null, // { id, tag } — result of an exact-tag lookup when search matches no existing chat
+  foundUsers: [], // [{ id, tag, displayName }] — search results (tag prefix, 3+ chars) with no existing chat
   draft: '',
   editingMessageId: null, // set while a message's inline edit field is open
   focusDraftOnRender: false, // one-shot flag: focus the composer input on the next conversation render

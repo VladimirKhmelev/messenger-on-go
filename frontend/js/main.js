@@ -322,24 +322,28 @@ async function resolveCurrentUser() {
 const SEARCH_DEBOUNCE_MS = 350;
 let searchDebounceTimer = null;
 
+const SEARCH_MIN_QUERY_LEN = 3;
+
 function handleSearchChange() {
-  state.foundUser = null;
+  state.foundUsers = [];
   notify('sidebar');
 
   clearTimeout(searchDebounceTimer);
   const query = state.searchQuery.trim();
-  const hasExistingMatch = state.chats.some((c) => c.peer.tag.toLowerCase().includes(query.toLowerCase()));
-  if (!query || hasExistingMatch) return;
+  if (query.length < SEARCH_MIN_QUERY_LEN) return;
 
   searchDebounceTimer = setTimeout(async () => {
     try {
-      const user = await authApi.getUserByTag(query);
-      if (user?.userId && user.userId !== state.currentUser?.id) {
-        state.foundUser = { id: user.userId, tag: user.tag, displayName: user.displayName || user.tag };
-        notify('sidebar');
-      }
+      const data = await authApi.searchUsers(query);
+      const existingChatUserIds = new Set(state.chats.map((c) => c.peer.id));
+
+      state.foundUsers = (data?.users || [])
+        .filter((u) => u.userId !== state.currentUser?.id && !existingChatUserIds.has(u.userId))
+        .map((u) => ({ id: u.userId, tag: u.tag, displayName: u.displayName || u.tag }));
+
+      notify('sidebar');
     } catch {
-      // no exact match — leave foundUser cleared
+      // search failed or query too short server-side — leave foundUsers cleared
     }
   }, SEARCH_DEBOUNCE_MS);
 }
@@ -359,7 +363,7 @@ async function handleCreateChat(user) {
       lastSeenUnix: 0,
     };
     state.chats.unshift(chat);
-    state.foundUser = null;
+    state.foundUsers = [];
     state.searchQuery = '';
     handleSelectChat(chat.id);
     notify('sidebar');
@@ -437,7 +441,7 @@ async function handleLogout() {
   state.chats = [];
   state.selectedChatId = null;
   state.searchQuery = '';
-  state.foundUser = null;
+  state.foundUsers = [];
   state.draft = '';
   state.toast = null;
   registered.auth = false;
