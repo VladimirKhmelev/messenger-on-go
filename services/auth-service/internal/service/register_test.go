@@ -94,10 +94,11 @@ func (s *fakeEmailVerificationStore) Verify(_ context.Context, email, code strin
 }
 
 type fakeMailer struct {
-	sentTo         string
-	sentCode       string
-	sentResetTo    string
-	sentResetToken string
+	sentTo             string
+	sentCode           string
+	sentResetTo        string
+	sentResetToken     string
+	sentPasswordChange string
 }
 
 func newFakeMailer() *fakeMailer {
@@ -113,6 +114,11 @@ func (m *fakeMailer) SendVerificationCode(to, code string) error {
 func (m *fakeMailer) SendPasswordResetToken(to, token string) error {
 	m.sentResetTo = to
 	m.sentResetToken = token
+	return nil
+}
+
+func (m *fakeMailer) SendPasswordChanged(to string) error {
+	m.sentPasswordChange = to
 	return nil
 }
 
