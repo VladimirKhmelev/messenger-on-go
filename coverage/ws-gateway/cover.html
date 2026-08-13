@@ -61,13 +61,13 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (28.6%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (22.9%)</option>
 				
-				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (87.5%)</option>
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (88.2%)</option>
 				
-				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (100.0%)</option>
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.1%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (53.8%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (58.3%)</option>
 				
 				</select>
 			</div>
@@ -157,6 +157,7 @@ func main() <span class="cov0" title="0">{
                         OnMessageUpdated:  fanout.HandleMessageUpdated,
                         OnNotifyPush:      fanout.HandleNotifyPush,
                         OnPresenceChanged: fanout.HandlePresenceChanged,
+                        OnProfileUpdated:  fanout.HandleProfileUpdated,
                 }
                 if err := events.Consume(consumerCtx, natsURL, handlers); err != nil </span><span class="cov0" title="0">{
                         log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
@@ -255,10 +256,10 @@ func (c *Client) SendMessage(ctx context.Context, bearerToken, chatID, text stri
         <span class="cov0" title="0">return resp.GetMessageId(), nil</span>
 }
 
-func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]Message, error) <span class="cov0" title="0">{
+func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]Message, error) <span class="cov0" title="0">{
         ctx = withBearerToken(ctx, bearerToken)
 
-        resp, err := c.chat.GetHistory(ctx, &amp;chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit})
+        resp, err := c.chat.GetHistory(ctx, &amp;chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit, Offset: offset})
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -379,6 +380,9 @@ const (
         notifyStreamName = "NOTIFY_EVENTS"
         subjectNotify    = "notify.push"
 
+        userStreamName        = "USER_EVENTS"
+        subjectProfileUpdated = "user.profile_updated"
+
         subjectPresence = "user.presence"
 
         pullMaxWait = 5 * time.Second
@@ -413,11 +417,18 @@ type PresenceChanged struct {
         LastSeenUnix int64  `json:"last_seen_unix"`
 }
 
+type ProfileUpdated struct {
+        UserID      string `json:"user_id"`
+        Tag         string `json:"tag"`
+        DisplayName string `json:"display_name"`
+}
+
 type Handlers struct {
         OnMessageCreated  func(ctx context.Context, event MessageCreated)
         OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
         OnNotifyPush      func(ctx context.Context, event NotifyPush)
         OnPresenceChanged func(ctx context.Context, event PresenceChanged)
+        OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
 }
 
 type PresencePublisher struct {
@@ -456,7 +467,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 return err
         }</span>
 
-        <span class="cov0" title="0">errCh := make(chan error, 4)
+        <span class="cov0" title="0">errCh := make(chan error, 5)
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
@@ -492,6 +503,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
         }()
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                errCh &lt;- consumeOne(ctx, js, userStreamName, subjectProfileUpdated, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
+                        var event ProfileUpdated
+                        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal user.profile_updated event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnProfileUpdated(ctx, event)</span>
+                })
+        }()
+
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) </span><span class="cov0" title="0">{
                         var event PresenceChanged
                         if err := json.Unmarshal(msg.Data, &amp;event); err != nil </span><span class="cov0" title="0">{
@@ -510,7 +532,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 errCh &lt;- nil</span>
         }()
 
-        <span class="cov0" title="0">for range 4 </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">for range 5 </span><span class="cov0" title="0">{
                 if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
@@ -661,6 +683,25 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.Presenc
                 f.registry.Broadcast(contactID, payload)
         }</span>
 }
+
+func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) <span class="cov0" title="0">{
+        contacts, err := f.contacts.ListContacts(ctx, event.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to list contacts for profile fanout of %s: %v", event.UserID, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">payload := serverMessage{
+                Type:            "profile_updated",
+                PeerUserID:      event.UserID,
+                PeerTag:         event.Tag,
+                PeerDisplayName: event.DisplayName,
+        }
+
+        for _, contactID := range contacts </span><span class="cov0" title="0">{
+                f.registry.Broadcast(contactID, payload)
+        }</span>
+}
 </pre>
 		
 		<pre class="file" id="file4" style="display: none">package ws
@@ -683,7 +724,7 @@ var upgrader = websocket.Upgrader{
 
 type ChatClient interface {
         SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
-        GetHistory(ctx context.Context, bearerToken, chatID string, limit int32) ([]chatclient.Message, error)
+        GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
         GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
         SetOffline(ctx context.Context, userID string) error
         EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
@@ -713,7 +754,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class=
                 return
         }</span>
 
-        <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, h.jwtSecret)
+        <span class="cov8" title="1">userID, expiresAt, err := jwtutil.ValidateAccessTokenWithExpiry(token, h.jwtSecret)
         if err != nil </span><span class="cov8" title="1">{
                 http.Error(w, "invalid or expired token", http.StatusUnauthorized)
                 return
@@ -726,6 +767,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class=
         }</span>
 
         <span class="cov8" title="1">session := newSession(userID, token, conn, h.chat, h.presence)
+        session.tokenExpiresAt = expiresAt
         session.run(h.registry)</span>
 }
 </pre>
@@ -753,14 +795,16 @@ func (r *Registry) add(s *session) <span class="cov8" title="1">{
         <span class="cov8" title="1">r.sessions[s.userID][s] = struct{}{}</span>
 }
 
-func (r *Registry) remove(s *session) <span class="cov8" title="1">{
+func (r *Registry) remove(s *session) (hasOtherSessions bool) <span class="cov8" title="1">{
         r.mu.Lock()
         defer r.mu.Unlock()
 
         delete(r.sessions[s.userID], s)
         if len(r.sessions[s.userID]) == 0 </span><span class="cov8" title="1">{
                 delete(r.sessions, s.userID)
+                return false
         }</span>
+        <span class="cov0" title="0">return true</span>
 }
 
 func (r *Registry) Broadcast(userID string, payload serverMessage) <span class="cov8" title="1">{
@@ -780,11 +824,17 @@ import (
         "encoding/json"
         "log"
         "sync"
+        "time"
 
         "github.com/gorilla/websocket"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
+)
+
+const (
+        pongWait   = 60 * time.Second
+        pingPeriod = (pongWait * 9) / 10
 )
 
 type clientMessage struct {
@@ -793,29 +843,34 @@ type clientMessage struct {
         MessageID  string `json:"message_id,omitempty"`
         Text       string `json:"text,omitempty"`
         Limit      int32  `json:"limit,omitempty"`
+        Offset     int32  `json:"offset,omitempty"`
         PeerUserID string `json:"peer_user_id,omitempty"`
 }
 
 type serverMessage struct {
-        Type         string               `json:"type"`
-        Error        string               `json:"error,omitempty"`
-        MessageID    string               `json:"message_id,omitempty"`
-        Messages     []chatclient.Message `json:"messages,omitempty"`
-        ChatID       string               `json:"chat_id,omitempty"`
-        Message      *chatclient.Message  `json:"message,omitempty"`
-        PeerUserID   string               `json:"peer_user_id,omitempty"`
-        Online       bool                 `json:"online,omitempty"`
-        LastSeenUnix int64                `json:"last_seen_unix,omitempty"`
-        NewText      *string              `json:"new_text,omitempty"`
-        Deleted      bool                 `json:"deleted,omitempty"`
+        Type            string               `json:"type"`
+        Error           string               `json:"error,omitempty"`
+        MessageID       string               `json:"message_id,omitempty"`
+        Messages        []chatclient.Message `json:"messages,omitempty"`
+        ChatID          string               `json:"chat_id,omitempty"`
+        Message         *chatclient.Message  `json:"message,omitempty"`
+        PeerUserID      string               `json:"peer_user_id,omitempty"`
+        PeerTag         string               `json:"peer_tag,omitempty"`
+        PeerDisplayName string               `json:"peer_display_name,omitempty"`
+        Online          bool                 `json:"online,omitempty"`
+        LastSeenUnix    int64                `json:"last_seen_unix,omitempty"`
+        NewText         *string              `json:"new_text,omitempty"`
+        Deleted         bool                 `json:"deleted,omitempty"`
+        Offset          int32                `json:"offset,omitempty"`
 }
 
 type session struct {
-        userID   string
-        token    string
-        conn     *websocket.Conn
-        chat     ChatClient
-        presence PresencePublisher
+        userID         string
+        token          string
+        tokenExpiresAt time.Time
+        conn           *websocket.Conn
+        chat           ChatClient
+        presence       PresencePublisher
 
         writeMu sync.Mutex
 }
@@ -826,12 +881,28 @@ func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, pre
 
 func (s *session) run(registry *Registry) <span class="cov8" title="1">{
         registry.add(s)
-        defer registry.remove(s)
+        defer func() </span><span class="cov8" title="1">{
+                if hasOtherSessions := registry.remove(s); !hasOtherSessions </span><span class="cov8" title="1">{
+                        s.markOffline()
+                }</span>
+        }()
 
-        defer func() </span><span class="cov8" title="1">{ _ = s.conn.Close() }</span>()
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{ _ = s.conn.Close() }</span>()
 
         <span class="cov8" title="1">s.announcePresence(true, 0)
-        defer s.markOffline()
+
+        _ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
+        s.conn.SetPongHandler(func(string) error </span><span class="cov0" title="0">{
+                return s.conn.SetReadDeadline(time.Now().Add(pongWait))
+        }</span>)
+
+        <span class="cov8" title="1">stopPing := make(chan struct{})
+        defer close(stopPing)
+        go s.pingLoop(stopPing)
+
+        stopExpiry := make(chan struct{})
+        defer close(stopExpiry)
+        go s.expiryWatcher(stopExpiry)
 
         for </span><span class="cov8" title="1">{
                 _, data, err := s.conn.ReadMessage()
@@ -841,6 +912,47 @@ func (s *session) run(registry *Registry) <span class="cov8" title="1">{
                 }</span>
 
                 <span class="cov8" title="1">s.handle(data)</span>
+        }
+}
+
+func (s *session) expiryWatcher(stop &lt;-chan struct{}) <span class="cov8" title="1">{
+        if s.tokenExpiresAt.IsZero() </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov8" title="1">wait := time.Until(s.tokenExpiresAt)
+        if wait &lt; 0 </span><span class="cov0" title="0">{
+                wait = 0
+        }</span>
+
+        <span class="cov8" title="1">timer := time.NewTimer(wait)
+        defer timer.Stop()
+
+        select </span>{
+        case &lt;-stop:<span class="cov8" title="1">
+                return</span>
+        case &lt;-timer.C:<span class="cov0" title="0">
+                s.write(serverMessage{Type: "token_expired"})
+                _ = s.conn.Close()</span>
+        }
+}
+
+func (s *session) pingLoop(stop &lt;-chan struct{}) <span class="cov8" title="1">{
+        ticker := time.NewTicker(pingPeriod)
+        defer ticker.Stop()
+
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-stop:<span class="cov8" title="1">
+                        return</span>
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        s.writeMu.Lock()
+                        err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second))
+                        s.writeMu.Unlock()
+                        if err != nil </span><span class="cov0" title="0">{
+                                return
+                        }</span>
+                }
         }
 }
 
@@ -889,12 +1001,12 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                 <span class="cov8" title="1">s.write(serverMessage{Type: "message_sent", MessageID: messageID})</span>
 
         case "get_history":<span class="cov8" title="1">
-                messages, err := s.chat.GetHistory(ctx, s.token, msg.ChatID, msg.Limit)
+                messages, err := s.chat.GetHistory(ctx, s.token, msg.ChatID, msg.Limit, msg.Offset)
                 if err != nil </span><span class="cov0" title="0">{
                         s.writeError(err.Error())
                         return
                 }</span>
-                <span class="cov8" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages})</span>
+                <span class="cov8" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages, Offset: msg.Offset})</span>
 
         case "get_presence":<span class="cov0" title="0">
                 online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)

@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (57.3%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (57.1%)</option>
 				
 				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -611,7 +611,7 @@ const messageProjectionLateralJoins = `
 
 const messageProjectionJoins = `FROM messages m` + messageProjectionLateralJoins
 
-func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) <span class="cov0" title="0">{
+func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) <span class="cov0" title="0">{
         var messages []*domain.Message
         err := r.conn.SelectContext(ctx, &amp;messages, `
                 SELECT `+messageProjectionColumns+` FROM (
@@ -620,12 +620,12 @@ func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, reque
                           AND NOT EXISTS (
                                 SELECT 1 FROM message_hidden_for_user h WHERE h.message_id = m.id AND h.user_id = $3
                           )
-                        ORDER BY m.created_at DESC LIMIT $2
+                        ORDER BY m.created_at DESC LIMIT $2 OFFSET $4
                 ) recent
                 JOIN messages m ON m.id = recent.id
                 `+messageProjectionLateralJoins+`
                 ORDER BY m.created_at ASC`,
-                chatID, limit, requesterID,
+                chatID, limit, requesterID, offset,
         )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -804,7 +804,7 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
         <span class="cov8" title="1">return message, nil</span>
 }
 
-func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit int) ([]*domain.Message, error) <span class="cov8" title="1">{
+func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) <span class="cov8" title="1">{
         isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -816,8 +816,11 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
         <span class="cov8" title="1">if limit &lt;= 0 </span><span class="cov8" title="1">{
                 limit = HistoryDefaultLimit
         }</span>
+        <span class="cov8" title="1">if offset &lt; 0 </span><span class="cov0" title="0">{
+                offset = 0
+        }</span>
 
-        <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, requesterID, limit)</span>
+        <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, requesterID, limit, offset)</span>
 }
 
 func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov8" title="1">{
@@ -1083,7 +1086,7 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
-        <span class="cov0" title="0">messages, err := s.chat.GetHistory(ctx, req.GetChatId(), requesterID, int(req.GetLimit()))
+        <span class="cov0" title="0">messages, err := s.chat.GetHistory(ctx, req.GetChatId(), requesterID, int(req.GetLimit()), int(req.GetOffset()))
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
