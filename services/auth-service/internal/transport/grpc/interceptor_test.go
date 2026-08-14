@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -16,9 +17,17 @@ func noopHandler(ctx context.Context, req any) (any, error) {
 	return ctx, nil
 }
 
+type fakeStaleTokenChecker struct {
+	stale bool
+}
+
+func (c *fakeStaleTokenChecker) IsAccessTokenStale(_ context.Context, _ string, _ time.Time) (bool, error) {
+	return c.stale, nil
+}
+
 func TestAuthInterceptor_PublicMethod_NoTokenRequired(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer)
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/auth.v1.AuthService/Login"}
 
@@ -30,7 +39,7 @@ func TestAuthInterceptor_PublicMethod_NoTokenRequired(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_MissingToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer)
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/auth.v1.AuthService/SearchUsers"}
 
@@ -42,7 +51,7 @@ func TestAuthInterceptor_ProtectedMethod_MissingToken(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_ValidToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer)
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
 
 	accessToken, err := issuer.IssueAccessToken("user-1")
 	if err != nil {
@@ -72,7 +81,7 @@ func TestAuthInterceptor_ProtectedMethod_ValidToken(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_InvalidToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer)
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
 
 	md := metadata.New(map[string]string{"authorization": "Bearer not-a-real-token"})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -87,7 +96,7 @@ func TestAuthInterceptor_ProtectedMethod_InvalidToken(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_WrongScheme(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer)
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
 
 	md := metadata.New(map[string]string{"authorization": "Basic dXNlcjpwYXNz"})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -102,7 +111,7 @@ func TestAuthInterceptor_ProtectedMethod_WrongScheme(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_AccessTokenRejectsRefreshToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer)
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
 
 	refreshToken, err := issuer.IssueRefreshToken("user-1")
 	if err != nil {
