@@ -17,7 +17,7 @@ func TestAuthService_RequestPasswordReset_ExistingUser(t *testing.T) {
 	repo.users[user.Email] = user
 
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	if err := svc.RequestPasswordReset(context.Background(), "user@example.com"); err != nil {
 		t.Fatalf("RequestPasswordReset() unexpected error: %v", err)
@@ -34,7 +34,7 @@ func TestAuthService_RequestPasswordReset_ExistingUser(t *testing.T) {
 func TestAuthService_RequestPasswordReset_UnknownEmail_StillSucceeds(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	err := svc.RequestPasswordReset(context.Background(), "missing@example.com")
 	if err != nil {
@@ -52,7 +52,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 	repo.users[user.Email] = user
 
 	resets := newFakePasswordResetStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	if err := svc.RequestPasswordReset(context.Background(), "user@example.com"); err != nil {
 		t.Fatalf("RequestPasswordReset() unexpected error: %v", err)
@@ -86,7 +86,7 @@ func TestAuthService_ResetPassword_TokenIsSingleUse(t *testing.T) {
 	repo.users[user.Email] = user
 
 	resets := newFakePasswordResetStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	token, err := resets.GenerateAndStore(context.Background(), "user@example.com")
 	if err != nil {
@@ -119,7 +119,7 @@ func TestAuthService_ResetPassword_WeakPassword(t *testing.T) {
 	repo.users[user.Email] = user
 
 	resets := newFakePasswordResetStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	token, err := resets.GenerateAndStore(context.Background(), "user@example.com")
 	if err != nil {

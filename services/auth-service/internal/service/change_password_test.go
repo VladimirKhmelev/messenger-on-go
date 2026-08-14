@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
@@ -12,7 +13,7 @@ import (
 func TestAuthService_ChangePassword_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
 	if err != nil {
@@ -81,7 +82,7 @@ func TestAuthService_ChangePassword_SameAsOld(t *testing.T) {
 func TestAuthService_ChangePassword_RateLimited(t *testing.T) {
 	repo := newFakeUserRepository()
 	limiter := &fakeRateLimiter{allow: true}
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
 	if err != nil {
@@ -93,5 +94,38 @@ func TestAuthService_ChangePassword_RateLimited(t *testing.T) {
 	err = svc.ChangePassword(context.Background(), user.ID, "wrongpass1", "newpass9")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
 		t.Errorf("ChangePassword() error = %v, want %v", err, domain.ErrTooManyAttempts)
+	}
+}
+
+func TestAuthService_ChangePassword_InvalidatesTokensIssuedBefore(t *testing.T) {
+	repo := newFakeUserRepository()
+	tracker := newFakePasswordChangeTracker()
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), tracker)
+
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	if err != nil {
+		t.Fatalf("Register() unexpected error: %v", err)
+	}
+
+	issuedBeforeChange := time.Now()
+
+	if err := svc.ChangePassword(context.Background(), user.ID, "abcd1234", "newpass9"); err != nil {
+		t.Fatalf("ChangePassword() unexpected error: %v", err)
+	}
+
+	stale, err := svc.IsAccessTokenStale(context.Background(), user.ID, issuedBeforeChange)
+	if err != nil {
+		t.Fatalf("IsAccessTokenStale() unexpected error: %v", err)
+	}
+	if !stale {
+		t.Error("IsAccessTokenStale() = false, want true for a token issued before the password change")
+	}
+
+	stillValid, err := svc.IsAccessTokenStale(context.Background(), user.ID, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("IsAccessTokenStale() unexpected error: %v", err)
+	}
+	if stillValid {
+		t.Error("IsAccessTokenStale() = true, want false for a token issued after the password change")
 	}
 }
