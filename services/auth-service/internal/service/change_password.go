@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"log"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error {
@@ -44,9 +46,21 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
 		return err
 	}
 
+	s.markPasswordChanged(ctx, user.ID)
+
 	if err := s.mailer.SendPasswordChanged(user.Email); err != nil {
 		log.Printf("auth-service: failed to send password-changed notification for %s: %v", user.ID, err)
 	}
 
 	return nil
+}
+
+func (s *AuthService) markPasswordChanged(ctx context.Context, userID string) {
+	if err := s.passwordChanges.MarkChanged(ctx, userID, jwtutil.AccessTokenTTL); err != nil {
+		log.Printf("auth-service: failed to record password change for %s: %v", userID, err)
+	}
+}
+
+func (s *AuthService) IsAccessTokenStale(ctx context.Context, userID string, issuedAt time.Time) (bool, error) {
+	return s.passwordChanges.ChangedAfter(ctx, userID, issuedAt)
 }

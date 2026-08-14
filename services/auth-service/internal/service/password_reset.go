@@ -56,6 +56,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 		return err
 	}
 
+	s.markPasswordChanged(ctx, user.ID)
+
 	if err := s.events.PublishUserPasswordReset(ctx, events.UserPasswordReset{
 		UserID: user.ID,
 		Email:  user.Email,
