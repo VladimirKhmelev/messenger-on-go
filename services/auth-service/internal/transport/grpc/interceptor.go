@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
+
+type StaleTokenChecker interface {
+	IsAccessTokenStale(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
+}
 
 type contextKey string
 
@@ -32,7 +37,7 @@ var publicMethods = map[string]bool{
 	"/grpc.health.v1.Health/Watch":              true,
 }
 
-func AuthInterceptor(issuer *jwtutil.Issuer) grpc.UnaryServerInterceptor {
+func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if publicMethods[info.FullMethod] {
 			return handler(ctx, req)
@@ -46,6 +51,16 @@ func AuthInterceptor(issuer *jwtutil.Issuer) grpc.UnaryServerInterceptor {
 		claims, err := issuer.Parse(token, jwtutil.TokenTypeAccess)
 		if err != nil {
 			return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+		}
+
+		if claims.IssuedAt != nil {
+			stale, err := staleTokens.IsAccessTokenStale(ctx, claims.UserID, claims.IssuedAt.Time)
+			if err != nil {
+				return nil, status.Error(codes.Internal, "failed to validate token")
+			}
+			if stale {
+				return nil, status.Error(codes.Unauthenticated, "token invalidated by a password change")
+			}
 		}
 
 		ctx = context.WithValue(ctx, userIDContextKey, claims.UserID)

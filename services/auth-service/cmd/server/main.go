@@ -95,6 +95,7 @@ func main() {
 	emailCodes := cache.NewEmailVerificationStore(redisClient)
 	emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
 	passwordResets := cache.NewPasswordResetStore(redisClient)
+	passwordChanges := cache.NewPasswordChangeTracker(redisClient)
 	mailer := mail.NewSender(smtpAddr, smtpFrom)
 	githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
 
@@ -104,7 +105,7 @@ func main() {
 	}
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher, passwordChanges)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -112,7 +113,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer)),
+		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer, authService)),
 	)
 
 	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService, cookieSecure))

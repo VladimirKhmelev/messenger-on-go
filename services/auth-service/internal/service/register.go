@@ -25,6 +25,11 @@ type TokenBlacklist interface {
 	IsRevoked(ctx context.Context, token string) (bool, error)
 }
 
+type PasswordChangeTracker interface {
+	MarkChanged(ctx context.Context, userID string, ttl time.Duration) error
+	ChangedAfter(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
+}
+
 type EmailVerificationStore interface {
 	GenerateAndStore(ctx context.Context, email string) (string, error)
 	Verify(ctx context.Context, email, code string) (bool, error)
@@ -65,6 +70,7 @@ type AuthService struct {
 	passwordResets     PasswordResetStore
 	github             GitHubOAuthClient
 	events             EventPublisher
+	passwordChanges    PasswordChangeTracker
 }
 
 func NewAuthService(
@@ -78,6 +84,7 @@ func NewAuthService(
 	passwordResets PasswordResetStore,
 	github GitHubOAuthClient,
 	eventPublisher EventPublisher,
+	passwordChanges PasswordChangeTracker,
 ) *AuthService {
 	return &AuthService{
 		users:              users,
@@ -86,6 +93,7 @@ func NewAuthService(
 		refreshBlocked:     refreshBlocked,
 		emailCodes:         emailCodes,
 		emailVerifyLimiter: emailVerifyLimiter,
+		passwordChanges:    passwordChanges,
 		mailer:             mailer,
 		passwordResets:     passwordResets,
 		github:             github,
