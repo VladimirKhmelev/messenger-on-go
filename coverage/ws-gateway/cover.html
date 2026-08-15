@@ -61,13 +61,13 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (22.9%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (18.2%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (88.2%)</option>
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.1%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (58.3%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (54.8%)</option>
 				
 				</select>
 			</div>
@@ -155,6 +155,7 @@ func main() <span class="cov0" title="0">{
                 handlers := events.Handlers{
                         OnMessageCreated:  fanout.HandleMessageCreated,
                         OnMessageUpdated:  fanout.HandleMessageUpdated,
+                        OnMessageRead:     fanout.HandleMessageRead,
                         OnNotifyPush:      fanout.HandleNotifyPush,
                         OnPresenceChanged: fanout.HandlePresenceChanged,
                         OnProfileUpdated:  fanout.HandleProfileUpdated,
@@ -339,6 +340,23 @@ func (c *Client) DeleteMessageForMe(ctx context.Context, bearerToken, chatID, me
         return err
 }</span>
 
+func (c *Client) MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error <span class="cov0" title="0">{
+        ctx = withBearerToken(ctx, bearerToken)
+
+        _, err := c.chat.MarkRead(ctx, &amp;chatv1.MarkReadRequest{ChatId: chatID, MessageId: messageID})
+        return err
+}</span>
+
+func (c *Client) GetReadStatus(ctx context.Context, chatID, userID string) (string, error) <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.GetReadStatus(ctx, &amp;chatv1.GetReadStatusRequest{ChatId: chatID, UserId: userID})
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">return resp.GetLastReadMessageId(), nil</span>
+}
+
 func toClientMessage(m *chatv1.Message) Message <span class="cov0" title="0">{
         return Message{
                 MessageID:     m.GetMessageId(),
@@ -376,6 +394,7 @@ const (
         subjectMsg       = "msg.created"
         subjectMsgEdit   = "msg.updated"
         subjectMsgDelete = "msg.deleted"
+        subjectMsgRead   = "msg.read"
 
         notifyStreamName = "NOTIFY_EVENTS"
         subjectNotify    = "notify.push"
@@ -404,6 +423,13 @@ type MessageUpdated struct {
         UpdatedAt time.Time `json:"updated_at"`
 }
 
+type MessageRead struct {
+        ChatID    string    `json:"chat_id"`
+        UserID    string    `json:"user_id"`
+        MessageID string    `json:"message_id"`
+        ReadAt    time.Time `json:"read_at"`
+}
+
 type NotifyPush struct {
         UserID    string    `json:"user_id"`
         ChatID    string    `json:"chat_id"`
@@ -426,6 +452,7 @@ type ProfileUpdated struct {
 type Handlers struct {
         OnMessageCreated  func(ctx context.Context, event MessageCreated)
         OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
+        OnMessageRead     func(ctx context.Context, event MessageRead)
         OnNotifyPush      func(ctx context.Context, event NotifyPush)
         OnPresenceChanged func(ctx context.Context, event PresenceChanged)
         OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
@@ -467,7 +494,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 return err
         }</span>
 
-        <span class="cov0" title="0">errCh := make(chan error, 5)
+        <span class="cov0" title="0">errCh := make(chan error, 6)
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
@@ -488,6 +515,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                                 return
                         }</span>
                         <span class="cov0" title="0">handlers.OnMessageUpdated(ctx, event)</span>
+                })
+        }()
+
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsgRead, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
+                        var event MessageRead
+                        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal msg.read event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnMessageRead(ctx, event)</span>
                 })
         }()
 
@@ -532,7 +570,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 errCh &lt;- nil</span>
         }()
 
-        <span class="cov0" title="0">for range 5 </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">for range 6 </span><span class="cov0" title="0">{
                 if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
@@ -655,6 +693,28 @@ func (f *Fanout) HandleMessageUpdated(ctx context.Context, event events.MessageU
         }</span>
 }
 
+func (f *Fanout) HandleMessageRead(ctx context.Context, event events.MessageRead) <span class="cov0" title="0">{
+        userIDs, err := f.members.ListMembers(ctx, event.ChatID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">payload := serverMessage{
+                Type:              "read_status",
+                ChatID:            event.ChatID,
+                PeerUserID:        event.UserID,
+                LastReadMessageID: event.MessageID,
+        }
+
+        for _, userID := range userIDs </span><span class="cov0" title="0">{
+                if userID == event.UserID </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">f.registry.Broadcast(userID, payload)</span>
+        }
+}
+
 func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) <span class="cov0" title="0">{
         payload := serverMessage{
                 Type:      "notify_push",
@@ -730,6 +790,8 @@ type ChatClient interface {
         EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
         DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
         DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
+        MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error
+        GetReadStatus(ctx context.Context, chatID, userID string) (string, error)
 }
 
 type PresencePublisher interface {
@@ -848,20 +910,21 @@ type clientMessage struct {
 }
 
 type serverMessage struct {
-        Type            string               `json:"type"`
-        Error           string               `json:"error,omitempty"`
-        MessageID       string               `json:"message_id,omitempty"`
-        Messages        []chatclient.Message `json:"messages,omitempty"`
-        ChatID          string               `json:"chat_id,omitempty"`
-        Message         *chatclient.Message  `json:"message,omitempty"`
-        PeerUserID      string               `json:"peer_user_id,omitempty"`
-        PeerTag         string               `json:"peer_tag,omitempty"`
-        PeerDisplayName string               `json:"peer_display_name,omitempty"`
-        Online          bool                 `json:"online,omitempty"`
-        LastSeenUnix    int64                `json:"last_seen_unix,omitempty"`
-        NewText         *string              `json:"new_text,omitempty"`
-        Deleted         bool                 `json:"deleted,omitempty"`
-        Offset          int32                `json:"offset,omitempty"`
+        Type              string               `json:"type"`
+        Error             string               `json:"error,omitempty"`
+        MessageID         string               `json:"message_id,omitempty"`
+        Messages          []chatclient.Message `json:"messages,omitempty"`
+        ChatID            string               `json:"chat_id,omitempty"`
+        Message           *chatclient.Message  `json:"message,omitempty"`
+        PeerUserID        string               `json:"peer_user_id,omitempty"`
+        PeerTag           string               `json:"peer_tag,omitempty"`
+        PeerDisplayName   string               `json:"peer_display_name,omitempty"`
+        Online            bool                 `json:"online,omitempty"`
+        LastSeenUnix      int64                `json:"last_seen_unix,omitempty"`
+        NewText           *string              `json:"new_text,omitempty"`
+        Deleted           bool                 `json:"deleted,omitempty"`
+        Offset            int32                `json:"offset,omitempty"`
+        LastReadMessageID string               `json:"last_read_message_id,omitempty"`
 }
 
 type session struct {
@@ -1039,6 +1102,25 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         return
                 }</span>
                 <span class="cov0" title="0">s.write(serverMessage{Type: "message_updated", ChatID: msg.ChatID, MessageID: msg.MessageID, Deleted: true})</span>
+
+        case "mark_read":<span class="cov8" title="1">
+                if err := s.chat.MarkRead(ctx, s.token, msg.ChatID, msg.MessageID); err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+
+        case "get_read_status":<span class="cov0" title="0">
+                lastReadMessageID, err := s.chat.GetReadStatus(ctx, msg.ChatID, msg.PeerUserID)
+                if err != nil </span><span class="cov0" title="0">{
+                        s.writeError(err.Error())
+                        return
+                }</span>
+                <span class="cov0" title="0">s.write(serverMessage{
+                        Type:              "read_status",
+                        ChatID:            msg.ChatID,
+                        PeerUserID:        msg.PeerUserID,
+                        LastReadMessageID: lastReadMessageID,
+                })</span>
 
         default:<span class="cov0" title="0">
                 s.writeError("unknown message type: " + msg.Type)</span>

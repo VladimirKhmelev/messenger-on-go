@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (57.1%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (52.3%)</option>
 				
 				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -357,6 +357,7 @@ const (
         SubjectMessageCreated = "msg.created"
         SubjectMessageUpdated = "msg.updated"
         SubjectMessageDeleted = "msg.deleted"
+        SubjectMessageRead    = "msg.read"
 )
 
 type MessageCreated struct {
@@ -372,6 +373,13 @@ type MessageUpdated struct {
         NewBody   *string   `json:"new_body,omitempty"`
         Deleted   bool      `json:"deleted"`
         UpdatedAt time.Time `json:"updated_at"`
+}
+
+type MessageRead struct {
+        ChatID    string    `json:"chat_id"`
+        UserID    string    `json:"user_id"`
+        MessageID string    `json:"message_id"`
+        ReadAt    time.Time `json:"read_at"`
 }
 
 type Publisher struct {
@@ -424,6 +432,16 @@ func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpda
         <span class="cov0" title="0">_, err = p.js.Publish(ctx, subject, payload)
         return err</span>
 }
+
+func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectMessageRead, payload)
+        return err</span>
+}
 </pre>
 		
 		<pre class="file" id="file5" style="display: none">package repository
@@ -470,6 +488,7 @@ import (
         "context"
         "database/sql"
         "errors"
+        "time"
 
         _ "github.com/jackc/pgx/v5/stdlib"
         "github.com/jmoiron/sqlx"
@@ -554,7 +573,8 @@ func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID st
 func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
         var members []*domain.ChatMember
         err := r.conn.SelectContext(ctx, &amp;members, `
-                SELECT chat_id, user_id, joined_at FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
+                SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at
+                FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
                 chatID,
         )
         if err != nil </span><span class="cov0" title="0">{
@@ -562,6 +582,15 @@ func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string)
         }</span>
         <span class="cov0" title="0">return members, nil</span>
 }
+
+func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                UPDATE chat_members SET last_read_message_id = $1, last_read_at = $2
+                WHERE chat_id = $3 AND user_id = $4`,
+                messageID, readAt, chatID, userID,
+        )
+        return err
+}</span>
 
 func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error) <span class="cov0" title="0">{
         var chats []*domain.Chat
@@ -715,6 +744,7 @@ type AuthClient interface {
 type EventPublisher interface {
         PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
         PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
+        PublishMessageRead(ctx context.Context, event events.MessageRead) error
 }
 
 type PresenceChecker interface {
@@ -900,6 +930,58 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
         }</span>
 
         <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error <span class="cov8" title="1">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov0" title="0">{
+                return domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if message.ChatID != chatID </span><span class="cov8" title="1">{
+                return domain.ErrMessageNotInChat
+        }</span>
+
+        <span class="cov0" title="0">now := time.Now()
+        if err := s.chats.MarkRead(ctx, chatID, requesterID, messageID, now); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := s.events.PublishMessageRead(ctx, events.MessageRead{
+                ChatID:    chatID,
+                UserID:    requesterID,
+                MessageID: messageID,
+                ReadAt:    now,
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("chat-service: failed to publish msg.read event for chat %s: %v", chatID, err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (s *ChatService) GetReadStatus(ctx context.Context, chatID, userID string) (string, error) <span class="cov0" title="0">{
+        members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov0" title="0">for _, m := range members </span><span class="cov0" title="0">{
+                if m.UserID == userID </span><span class="cov0" title="0">{
+                        if m.LastReadMessageID == nil </span><span class="cov0" title="0">{
+                                return "", nil
+                        }</span>
+                        <span class="cov0" title="0">return *m.LastReadMessageID, nil</span>
+                }
+        }
+
+        <span class="cov0" title="0">return "", nil</span>
 }
 
 func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, requesterID string) error <span class="cov8" title="1">{
@@ -1185,6 +1267,28 @@ func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteM
         <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForMeResponse{}, nil</span>
 }
 
+func (s *ChatServer) MarkRead(ctx context.Context, req *chatv1.MarkReadRequest) (*chatv1.MarkReadResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.MarkRead(ctx, req.GetChatId(), requesterID, req.GetMessageId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.MarkReadResponse{}, nil</span>
+}
+
+func (s *ChatServer) GetReadStatus(ctx context.Context, req *chatv1.GetReadStatusRequest) (*chatv1.GetReadStatusResponse, error) <span class="cov0" title="0">{
+        lastReadMessageID, err := s.chat.GetReadStatus(ctx, req.GetChatId(), req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.GetReadStatusResponse{LastReadMessageId: lastReadMessageID}, nil</span>
+}
+
 func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov0" title="0">{
         result := &amp;chatv1.Message{
                 MessageId:     m.ID,
@@ -1239,6 +1343,8 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 return status.Error(codes.PermissionDenied, err.Error())</span>
         case errors.Is(err, domain.ErrMessageDeleted):<span class="cov0" title="0">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
+        case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov0" title="0">
+                return status.Error(codes.InvalidArgument, err.Error())</span>
         default:<span class="cov0" title="0">
                 log.Printf("chat-service: internal error: %v", err)
                 return status.Error(codes.Internal, "internal error")</span>
@@ -1276,11 +1382,12 @@ var publicMethods = map[string]bool{
 }
 
 var internalMethods = map[string]bool{
-        "/chat.v1.ChatService/ListMembers":  true,
-        "/chat.v1.ChatService/GetMessage":   true,
-        "/chat.v1.ChatService/GetPresence":  true,
-        "/chat.v1.ChatService/SetOffline":   true,
-        "/chat.v1.ChatService/ListContacts": true,
+        "/chat.v1.ChatService/ListMembers":   true,
+        "/chat.v1.ChatService/GetMessage":    true,
+        "/chat.v1.ChatService/GetPresence":   true,
+        "/chat.v1.ChatService/SetOffline":    true,
+        "/chat.v1.ChatService/ListContacts":  true,
+        "/chat.v1.ChatService/GetReadStatus": true,
 }
 
 func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor <span class="cov8" title="1">{

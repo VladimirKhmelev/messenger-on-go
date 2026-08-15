@@ -565,6 +565,44 @@
         ]
       }
     },
+    "/v1/chats/{chatId}/read": {
+      "post": {
+        "operationId": "ChatService_MarkRead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1MarkReadResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceMarkReadBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/v1/users": {
       "get": {
         "operationId": "AuthService_SearchUsers",
@@ -787,6 +825,14 @@
       "type": "object",
       "properties": {
         "text": {
+          "type": "string"
+        }
+      }
+    },
+    "ChatServiceMarkReadBody": {
+      "type": "object",
+      "properties": {
+        "messageId": {
           "type": "string"
         }
       }
@@ -1024,6 +1070,9 @@
       }
     },
     "v1LogoutResponse": {
+      "type": "object"
+    },
+    "v1MarkReadResponse": {
       "type": "object"
     },
     "v1Message": {
