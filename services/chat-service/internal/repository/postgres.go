@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -88,13 +89,23 @@ func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID st
 func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) {
 	var members []*domain.ChatMember
 	err := r.conn.SelectContext(ctx, &members, `
-		SELECT chat_id, user_id, joined_at FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
+		SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at
+		FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
 		chatID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return members, nil
+}
+
+func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error {
+	_, err := r.conn.ExecContext(ctx, `
+		UPDATE chat_members SET last_read_message_id = $1, last_read_at = $2
+		WHERE chat_id = $3 AND user_id = $4`,
+		messageID, readAt, chatID, userID,
+	)
+	return err
 }
 
 func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error) {

@@ -15,6 +15,7 @@ const (
 	SubjectMessageCreated = "msg.created"
 	SubjectMessageUpdated = "msg.updated"
 	SubjectMessageDeleted = "msg.deleted"
+	SubjectMessageRead    = "msg.read"
 )
 
 type MessageCreated struct {
@@ -30,6 +31,13 @@ type MessageUpdated struct {
 	NewBody   *string   `json:"new_body,omitempty"`
 	Deleted   bool      `json:"deleted"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type MessageRead struct {
+	ChatID    string    `json:"chat_id"`
+	UserID    string    `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ReadAt    time.Time `json:"read_at"`
 }
 
 type Publisher struct {
@@ -80,5 +88,15 @@ func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpda
 	}
 
 	_, err = p.js.Publish(ctx, subject, payload)
+	return err
+}
+
+func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.js.Publish(ctx, SubjectMessageRead, payload)
 	return err
 }

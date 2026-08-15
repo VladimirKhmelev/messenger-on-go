@@ -66,6 +66,14 @@ service ChatService {
   rpc GetPresence(GetPresenceRequest) returns (GetPresenceResponse);
   rpc SetOffline(SetOfflineRequest) returns (SetOfflineResponse);
   rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
+
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats/{chat_id}/read"
+      body: "*"
+    };
+  }
+  rpc GetReadStatus(GetReadStatusRequest) returns (GetReadStatusResponse);
 }
 
 message HealthRequest {
@@ -188,4 +196,21 @@ message ListContactsRequest {
 
 message ListContactsResponse {
   repeated string user_ids = 1;
+}
+
+message MarkReadRequest {
+  string chat_id = 1;
+  string message_id = 2;
+}
+
+message MarkReadResponse {
+}
+
+message GetReadStatusRequest {
+  string chat_id = 1;
+  string user_id = 2;
+}
+
+message GetReadStatusResponse {
+  string last_read_message_id = 1;
 }

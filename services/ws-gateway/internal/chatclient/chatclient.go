@@ -130,6 +130,23 @@ func (c *Client) DeleteMessageForMe(ctx context.Context, bearerToken, chatID, me
 	return err
 }
 
+func (c *Client) MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error {
+	ctx = withBearerToken(ctx, bearerToken)
+
+	_, err := c.chat.MarkRead(ctx, &chatv1.MarkReadRequest{ChatId: chatID, MessageId: messageID})
+	return err
+}
+
+func (c *Client) GetReadStatus(ctx context.Context, chatID, userID string) (string, error) {
+	ctx = c.withInternalSecret(ctx)
+
+	resp, err := c.chat.GetReadStatus(ctx, &chatv1.GetReadStatusRequest{ChatId: chatID, UserId: userID})
+	if err != nil {
+		return "", err
+	}
+	return resp.GetLastReadMessageId(), nil
+}
+
 func toClientMessage(m *chatv1.Message) Message {
 	return Message{
 		MessageID:     m.GetMessageId(),

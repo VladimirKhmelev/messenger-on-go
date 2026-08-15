@@ -58,3 +58,7 @@ func (failingEventPublisher) PublishMessageCreated(context.Context, events.Messa
 func (failingEventPublisher) PublishMessageUpdated(context.Context, events.MessageUpdated) error {
 	return errPublishFailed
 }
+
+func (failingEventPublisher) PublishMessageRead(context.Context, events.MessageRead) error {
+	return errPublishFailed
+}

@@ -9,7 +9,7 @@ export const state = {
 
   currentUser: null, // { id, email, tag, displayName }
 
-  chats: [], // { id, peer: {id, email, tag, displayName}, messages: [], online, lastSeenUnix }
+  chats: [], // { id, peer: {id, email, tag, displayName}, messages: [], online, lastSeenUnix, peerLastReadMessageId }
   selectedChatId: null,
   searchQuery: '',
   foundUsers: [], // [{ id, tag, displayName }] — search results (tag prefix, 3+ chars) with no existing chat

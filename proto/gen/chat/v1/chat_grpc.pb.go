@@ -32,6 +32,8 @@ const (
 	ChatService_GetPresence_FullMethodName         = "/chat.v1.ChatService/GetPresence"
 	ChatService_SetOffline_FullMethodName          = "/chat.v1.ChatService/SetOffline"
 	ChatService_ListContacts_FullMethodName        = "/chat.v1.ChatService/ListContacts"
+	ChatService_MarkRead_FullMethodName            = "/chat.v1.ChatService/MarkRead"
+	ChatService_GetReadStatus_FullMethodName       = "/chat.v1.ChatService/GetReadStatus"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -51,6 +53,8 @@ type ChatServiceClient interface {
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*GetPresenceResponse, error)
 	SetOffline(ctx context.Context, in *SetOfflineRequest, opts ...grpc.CallOption) (*SetOfflineResponse, error)
 	ListContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (*ListContactsResponse, error)
+	MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error)
+	GetReadStatus(ctx context.Context, in *GetReadStatusRequest, opts ...grpc.CallOption) (*GetReadStatusResponse, error)
 }
 
 type chatServiceClient struct {
@@ -191,6 +195,26 @@ func (c *chatServiceClient) ListContacts(ctx context.Context, in *ListContactsRe
 	return out, nil
 }
 
+func (c *chatServiceClient) MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkReadResponse)
+	err := c.cc.Invoke(ctx, ChatService_MarkRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetReadStatus(ctx context.Context, in *GetReadStatusRequest, opts ...grpc.CallOption) (*GetReadStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetReadStatusResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetReadStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -208,6 +232,8 @@ type ChatServiceServer interface {
 	GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error)
 	SetOffline(context.Context, *SetOfflineRequest) (*SetOfflineResponse, error)
 	ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error)
+	MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error)
+	GetReadStatus(context.Context, *GetReadStatusRequest) (*GetReadStatusResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -256,6 +282,12 @@ func (UnimplementedChatServiceServer) SetOffline(context.Context, *SetOfflineReq
 }
 func (UnimplementedChatServiceServer) ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListContacts not implemented")
+}
+func (UnimplementedChatServiceServer) MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MarkRead not implemented")
+}
+func (UnimplementedChatServiceServer) GetReadStatus(context.Context, *GetReadStatusRequest) (*GetReadStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetReadStatus not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -512,6 +544,42 @@ func _ChatService_ListContacts_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_MarkRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).MarkRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_MarkRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).MarkRead(ctx, req.(*MarkReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetReadStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetReadStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetReadStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetReadStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetReadStatus(ctx, req.(*GetReadStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -570,6 +638,14 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListContacts",
 			Handler:    _ChatService_ListContacts_Handler,
+		},
+		{
+			MethodName: "MarkRead",
+			Handler:    _ChatService_MarkRead_Handler,
+		},
+		{
+			MethodName: "GetReadStatus",
+			Handler:    _ChatService_GetReadStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
