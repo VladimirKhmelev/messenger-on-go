@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -48,7 +49,9 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request, pathParams map[str
 
 	w.Header().Set("Content-Type", avatar.ContentType)
 	w.Header().Set("Cache-Control", "private, max-age=60")
-	w.Write(avatar.Data)
+	if _, err := w.Write(avatar.Data); err != nil {
+		log.Printf("auth-service: failed to write avatar response for %s: %v", userID, err)
+	}
 }
 
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request, _ map[string]string) {
