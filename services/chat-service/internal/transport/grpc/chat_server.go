@@ -165,6 +165,28 @@ func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteM
 	return &chatv1.DeleteMessageForMeResponse{}, nil
 }
 
+func (s *ChatServer) MarkRead(ctx context.Context, req *chatv1.MarkReadRequest) (*chatv1.MarkReadResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.MarkRead(ctx, req.GetChatId(), requesterID, req.GetMessageId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.MarkReadResponse{}, nil
+}
+
+func (s *ChatServer) GetReadStatus(ctx context.Context, req *chatv1.GetReadStatusRequest) (*chatv1.GetReadStatusResponse, error) {
+	lastReadMessageID, err := s.chat.GetReadStatus(ctx, req.GetChatId(), req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.GetReadStatusResponse{LastReadMessageId: lastReadMessageID}, nil
+}
+
 func toProtoMessage(m *domain.Message) *chatv1.Message {
 	result := &chatv1.Message{
 		MessageId:     m.ID,
@@ -219,6 +241,8 @@ func toGRPCError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, domain.ErrMessageDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrMessageNotInChat):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		log.Printf("chat-service: internal error: %v", err)
 		return status.Error(codes.Internal, "internal error")
