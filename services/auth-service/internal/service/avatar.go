@@ -22,9 +22,6 @@ func (s *AuthService) UploadAvatar(ctx context.Context, userID string, data []by
 		return domain.ErrAvatarTooLarge
 	}
 
-	// Sniff the actual bytes rather than trusting a client-supplied
-	// content-type header — this is the only thing standing between an
-	// attacker and storing/serving arbitrary content as an "image".
 	contentType := http.DetectContentType(data)
 	if !allowedAvatarContentTypes[contentType] {
 		return domain.ErrInvalidAvatarType
