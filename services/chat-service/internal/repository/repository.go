@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 )
@@ -13,6 +14,7 @@ type ChatRepository interface {
 	IsMember(ctx context.Context, chatID, userID string) (bool, error)
 	ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error)
 	ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error)
+	MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error
 
 	CreateMessage(ctx context.Context, message *domain.Message) error
 	ListMessages(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error)

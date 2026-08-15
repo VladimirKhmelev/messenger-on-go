@@ -8,9 +8,11 @@ type Chat struct {
 }
 
 type ChatMember struct {
-	ChatID   string    `db:"chat_id"`
-	UserID   string    `db:"user_id"`
-	JoinedAt time.Time `db:"joined_at"`
+	ChatID            string     `db:"chat_id"`
+	UserID            string     `db:"user_id"`
+	JoinedAt          time.Time  `db:"joined_at"`
+	LastReadMessageID *string    `db:"last_read_message_id"`
+	LastReadAt        *time.Time `db:"last_read_at"`
 }
 
 type Message struct {

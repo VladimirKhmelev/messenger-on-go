@@ -12,4 +12,5 @@ var (
 	ErrMessageNotFound    = errors.New("message not found")
 	ErrMessageDeleted     = errors.New("message has been deleted")
 	ErrNotMessageSender   = errors.New("only the sender can edit or delete this message for everyone")
+	ErrMessageNotInChat   = errors.New("message does not belong to this chat")
 )
