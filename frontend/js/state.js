@@ -17,6 +17,7 @@ export const state = {
   editingMessageId: null, // set while a message's inline edit field is open
   focusDraftOnRender: false, // one-shot flag: focus the composer input on the next conversation render
   scrollToBottomOnRender: false, // one-shot flag: force-scroll to the newest message on the next conversation render
+  avatarPreview: null, // { userId, name } — set while the full-size avatar viewer is open
 
   toast: null, // { chatId, name, text }
 
@@ -28,6 +29,8 @@ export const state = {
   settingsPasswordError: '',
   settingsPasswordSuccess: '',
   settingsPasswordBusy: false,
+  settingsAvatarError: '',
+  settingsAvatarBusy: false,
 };
 
 const listeners = {

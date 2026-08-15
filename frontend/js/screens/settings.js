@@ -1,4 +1,5 @@
 import { state } from '../state.js';
+import { renderAvatar } from '../avatar.js';
 
 export function renderSettings(root, handlers) {
   if (!state.settingsOpen) {
@@ -25,6 +26,20 @@ export function renderSettings(root, handlers) {
           <div class="modal-title">Настройки</div>
           <button class="modal-close" data-action="close">×</button>
         </div>
+
+        <div class="settings-avatar-row">
+          ${renderAvatar(state.currentUser?.id ?? '', state.currentUser?.tag ?? '', nameValue, {
+            sizeClass: 'avatar--md',
+          })}
+          <div class="settings-avatar-actions">
+            <label class="btn-secondary settings-avatar-upload">
+              Изменить фото
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-input="avatar-file" hidden />
+            </label>
+            ${state.settingsAvatarBusy ? '<span class="settings-avatar-status">Загрузка...</span>' : ''}
+          </div>
+        </div>
+        <div class="form-error">${state.settingsAvatarError || ''}</div>
 
         <div class="field">
           <label>Имя</label>
@@ -107,6 +122,12 @@ export function renderSettings(root, handlers) {
     nameInput.focus();
     nameInput.setSelectionRange(nameSelectionStart, nameSelectionEnd);
   }
+
+  root.querySelector('[data-input="avatar-file"]').addEventListener('change', (event) => {
+    const file = event.target.files?.[0];
+    if (file) handlers.onUploadAvatar(file);
+    event.target.value = '';
+  });
 
   root.querySelector('[data-action="save-password"]').addEventListener('click', () => {
     const oldPassword = root.querySelector('[data-input="settings-old-password"]').value;

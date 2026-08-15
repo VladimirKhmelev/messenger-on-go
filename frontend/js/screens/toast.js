@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { avatarPalette, initialsFrom } from '../avatar.js';
+import { renderAvatar } from '../avatar.js';
 import { escapeHtml } from './sidebar.js';
 
 export function renderToast(root, handlers) {
@@ -9,13 +9,10 @@ export function renderToast(root, handlers) {
   }
 
   const avatarSeed = state.toast.avatarSeed || state.toast.name;
-  const palette = avatarPalette(avatarSeed);
 
   root.innerHTML = `
     <div class="toast" data-action="open">
-      <div class="avatar avatar--sm" style="background:${palette.bg};color:${palette.text}">
-        ${initialsFrom(state.toast.name)}
-      </div>
+      ${renderAvatar(state.toast.peerUserId, avatarSeed, state.toast.name, { sizeClass: 'avatar--sm' })}
       <div class="toast-body">
         <div class="toast-line1">
           <div class="toast-name">${escapeHtml(state.toast.name)}</div>
