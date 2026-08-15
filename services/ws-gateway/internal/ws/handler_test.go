@@ -38,6 +38,12 @@ type fakeChatClient struct {
 	editedText             string
 	deletedForAllMessageID string
 	deletedForMeMessageID  string
+
+	markReadErr       error
+	markReadMessageID string
+
+	readStatusMessageID string
+	readStatusErr       error
 }
 
 func (c *fakeChatClient) SendMessage(_ context.Context, _, chatID, text string) (string, error) {
@@ -89,6 +95,21 @@ func (c *fakeChatClient) DeleteMessageForMe(_ context.Context, _, _, messageID s
 	}
 	c.deletedForMeMessageID = messageID
 	return nil
+}
+
+func (c *fakeChatClient) MarkRead(_ context.Context, _, _, messageID string) error {
+	if c.markReadErr != nil {
+		return c.markReadErr
+	}
+	c.markReadMessageID = messageID
+	return nil
+}
+
+func (c *fakeChatClient) GetReadStatus(_ context.Context, _, _ string) (string, error) {
+	if c.readStatusErr != nil {
+		return "", c.readStatusErr
+	}
+	return c.readStatusMessageID, nil
 }
 
 type fakePresencePublisher struct{}
@@ -264,5 +285,31 @@ func TestHandler_EditMessage_ForwardsToChatClient(t *testing.T) {
 
 	if chat.editedText != "edited" {
 		t.Errorf("chatclient received editedText=%q, want %q", chat.editedText, "edited")
+	}
+}
+
+func TestHandler_MarkRead_ForwardsToChatClient(t *testing.T) {
+	chat := &fakeChatClient{}
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}))
+	defer server.Close()
+
+	token := issueTestAccessToken(t, "user-1")
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?token=" + url.QueryEscape(token)
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("Dial() unexpected error: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	req, _ := json.Marshal(clientMessage{Type: "mark_read", ChatID: "chat-1", MessageID: "m1"})
+	if err := conn.WriteMessage(websocket.TextMessage, req); err != nil {
+		t.Fatalf("WriteMessage() unexpected error: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	if chat.markReadMessageID != "m1" {
+		t.Errorf("chatclient received markReadMessageID=%q, want %q", chat.markReadMessageID, "m1")
 	}
 }
