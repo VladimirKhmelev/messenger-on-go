@@ -171,6 +171,19 @@ func (r *fakeChatRepository) HideMessageForUser(_ context.Context, messageID, us
 	return nil
 }
 
+func (r *fakeChatRepository) MarkRead(_ context.Context, chatID, userID, messageID string, readAt time.Time) error {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			id := messageID
+			t := readAt
+			m.LastReadMessageID = &id
+			m.LastReadAt = &t
+			return nil
+		}
+	}
+	return domain.ErrNotChatMember
+}
+
 type fakeAuthClient struct {
 	existingUserIDs map[string]bool
 }
@@ -190,6 +203,7 @@ func (c *fakeAuthClient) UserExists(_ context.Context, _, userID string) (bool, 
 type fakeEventPublisher struct {
 	messageCreatedEvents []events.MessageCreated
 	messageUpdatedEvents []events.MessageUpdated
+	messageReadEvents    []events.MessageRead
 }
 
 func newFakeEventPublisher() *fakeEventPublisher {
@@ -203,6 +217,11 @@ func (p *fakeEventPublisher) PublishMessageCreated(_ context.Context, event even
 
 func (p *fakeEventPublisher) PublishMessageUpdated(_ context.Context, event events.MessageUpdated) error {
 	p.messageUpdatedEvents = append(p.messageUpdatedEvents, event)
+	return nil
+}
+
+func (p *fakeEventPublisher) PublishMessageRead(_ context.Context, event events.MessageRead) error {
+	p.messageReadEvents = append(p.messageReadEvents, event)
 	return nil
 }
 
@@ -361,6 +380,26 @@ func TestChatService_GetHistory_NotMember(t *testing.T) {
 	_, err := svc.GetHistory(context.Background(), chat.ID, "user-stranger", 0, 0)
 	if !errors.Is(err, domain.ErrNotChatMember) {
 		t.Errorf("GetHistory() error = %v, want %v", err, domain.ErrNotChatMember)
+	}
+}
+
+func TestChatService_MarkRead_MessageFromDifferentChat(t *testing.T) {
+	repo := newFakeChatRepository()
+	chatA := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chatA, []string{"user-a", "user-b"})
+	chatB := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chatB, []string{"user-a", "user-c"})
+
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
+
+	messageInB, err := svc.SendMessage(context.Background(), chatB.ID, "user-a", "hi")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	err = svc.MarkRead(context.Background(), chatA.ID, "user-b", messageInB.ID)
+	if !errors.Is(err, domain.ErrMessageNotInChat) {
+		t.Errorf("MarkRead() error = %v, want %v", err, domain.ErrMessageNotInChat)
 	}
 }
 
