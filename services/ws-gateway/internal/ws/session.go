@@ -29,20 +29,21 @@ type clientMessage struct {
 }
 
 type serverMessage struct {
-	Type            string               `json:"type"`
-	Error           string               `json:"error,omitempty"`
-	MessageID       string               `json:"message_id,omitempty"`
-	Messages        []chatclient.Message `json:"messages,omitempty"`
-	ChatID          string               `json:"chat_id,omitempty"`
-	Message         *chatclient.Message  `json:"message,omitempty"`
-	PeerUserID      string               `json:"peer_user_id,omitempty"`
-	PeerTag         string               `json:"peer_tag,omitempty"`
-	PeerDisplayName string               `json:"peer_display_name,omitempty"`
-	Online          bool                 `json:"online,omitempty"`
-	LastSeenUnix    int64                `json:"last_seen_unix,omitempty"`
-	NewText         *string              `json:"new_text,omitempty"`
-	Deleted         bool                 `json:"deleted,omitempty"`
-	Offset          int32                `json:"offset,omitempty"`
+	Type              string               `json:"type"`
+	Error             string               `json:"error,omitempty"`
+	MessageID         string               `json:"message_id,omitempty"`
+	Messages          []chatclient.Message `json:"messages,omitempty"`
+	ChatID            string               `json:"chat_id,omitempty"`
+	Message           *chatclient.Message  `json:"message,omitempty"`
+	PeerUserID        string               `json:"peer_user_id,omitempty"`
+	PeerTag           string               `json:"peer_tag,omitempty"`
+	PeerDisplayName   string               `json:"peer_display_name,omitempty"`
+	Online            bool                 `json:"online,omitempty"`
+	LastSeenUnix      int64                `json:"last_seen_unix,omitempty"`
+	NewText           *string              `json:"new_text,omitempty"`
+	Deleted           bool                 `json:"deleted,omitempty"`
+	Offset            int32                `json:"offset,omitempty"`
+	LastReadMessageID string               `json:"last_read_message_id,omitempty"`
 }
 
 type session struct {
@@ -220,6 +221,25 @@ func (s *session) handle(data []byte) {
 			return
 		}
 		s.write(serverMessage{Type: "message_updated", ChatID: msg.ChatID, MessageID: msg.MessageID, Deleted: true})
+
+	case "mark_read":
+		if err := s.chat.MarkRead(ctx, s.token, msg.ChatID, msg.MessageID); err != nil {
+			s.writeError(err.Error())
+			return
+		}
+
+	case "get_read_status":
+		lastReadMessageID, err := s.chat.GetReadStatus(ctx, msg.ChatID, msg.PeerUserID)
+		if err != nil {
+			s.writeError(err.Error())
+			return
+		}
+		s.write(serverMessage{
+			Type:              "read_status",
+			ChatID:            msg.ChatID,
+			PeerUserID:        msg.PeerUserID,
+			LastReadMessageID: lastReadMessageID,
+		})
 
 	default:
 		s.writeError("unknown message type: " + msg.Type)

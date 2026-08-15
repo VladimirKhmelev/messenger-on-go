@@ -75,6 +75,28 @@ func (f *Fanout) HandleMessageUpdated(ctx context.Context, event events.MessageU
 	}
 }
 
+func (f *Fanout) HandleMessageRead(ctx context.Context, event events.MessageRead) {
+	userIDs, err := f.members.ListMembers(ctx, event.ChatID)
+	if err != nil {
+		log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
+		return
+	}
+
+	payload := serverMessage{
+		Type:              "read_status",
+		ChatID:            event.ChatID,
+		PeerUserID:        event.UserID,
+		LastReadMessageID: event.MessageID,
+	}
+
+	for _, userID := range userIDs {
+		if userID == event.UserID {
+			continue
+		}
+		f.registry.Broadcast(userID, payload)
+	}
+}
+
 func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) {
 	payload := serverMessage{
 		Type:      "notify_push",

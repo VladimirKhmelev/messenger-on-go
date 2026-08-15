@@ -24,6 +24,8 @@ type ChatClient interface {
 	EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
 	DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
 	DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
+	MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error
+	GetReadStatus(ctx context.Context, chatID, userID string) (string, error)
 }
 
 type PresencePublisher interface {

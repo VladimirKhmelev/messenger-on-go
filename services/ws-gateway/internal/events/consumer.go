@@ -15,6 +15,7 @@ const (
 	subjectMsg       = "msg.created"
 	subjectMsgEdit   = "msg.updated"
 	subjectMsgDelete = "msg.deleted"
+	subjectMsgRead   = "msg.read"
 
 	notifyStreamName = "NOTIFY_EVENTS"
 	subjectNotify    = "notify.push"
@@ -43,6 +44,13 @@ type MessageUpdated struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type MessageRead struct {
+	ChatID    string    `json:"chat_id"`
+	UserID    string    `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ReadAt    time.Time `json:"read_at"`
+}
+
 type NotifyPush struct {
 	UserID    string    `json:"user_id"`
 	ChatID    string    `json:"chat_id"`
@@ -65,6 +73,7 @@ type ProfileUpdated struct {
 type Handlers struct {
 	OnMessageCreated  func(ctx context.Context, event MessageCreated)
 	OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
+	OnMessageRead     func(ctx context.Context, event MessageRead)
 	OnNotifyPush      func(ctx context.Context, event NotifyPush)
 	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
 	OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
@@ -106,7 +115,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		return err
 	}
 
-	errCh := make(chan error, 5)
+	errCh := make(chan error, 6)
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
@@ -127,6 +136,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 				return
 			}
 			handlers.OnMessageUpdated(ctx, event)
+		})
+	}()
+
+	go func() {
+		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsgRead, func(ctx context.Context, data []byte) {
+			var event MessageRead
+			if err := json.Unmarshal(data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal msg.read event: %v", err)
+				return
+			}
+			handlers.OnMessageRead(ctx, event)
 		})
 	}()
 
@@ -171,7 +191,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		errCh <- nil
 	}()
 
-	for range 5 {
+	for range 6 {
 		if err := <-errCh; err != nil {
 			return err
 		}

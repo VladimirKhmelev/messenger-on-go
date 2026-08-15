@@ -72,6 +72,7 @@ func main() {
 		handlers := events.Handlers{
 			OnMessageCreated:  fanout.HandleMessageCreated,
 			OnMessageUpdated:  fanout.HandleMessageUpdated,
+			OnMessageRead:     fanout.HandleMessageRead,
 			OnNotifyPush:      fanout.HandleNotifyPush,
 			OnPresenceChanged: fanout.HandlePresenceChanged,
 			OnProfileUpdated:  fanout.HandleProfileUpdated,
