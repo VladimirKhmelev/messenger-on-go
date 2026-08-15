@@ -12,7 +12,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
-const maxUploadBytes = 2*1024*1024 + 1024 
+const maxUploadBytes = 2*1024*1024 + 1024
 
 type AvatarService interface {
 	UploadAvatar(ctx context.Context, userID string, data []byte) error
