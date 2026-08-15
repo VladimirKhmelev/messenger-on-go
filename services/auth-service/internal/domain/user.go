@@ -11,3 +11,10 @@ type User struct {
 	EmailVerified bool      `db:"email_verified"`
 	CreatedAt     time.Time `db:"created_at"`
 }
+
+type Avatar struct {
+	UserID      string    `db:"user_id"`
+	Data        []byte    `db:"data"`
+	ContentType string    `db:"content_type"`
+	UpdatedAt   time.Time `db:"updated_at"`
+}

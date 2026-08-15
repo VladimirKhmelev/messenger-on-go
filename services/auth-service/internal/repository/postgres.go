@@ -116,6 +116,36 @@ func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, 
 	return err
 }
 
+func (r *PostgresUserRepository) UpsertAvatar(ctx context.Context, avatar *domain.Avatar) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO user_avatars (user_id, data, content_type, updated_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id) DO UPDATE SET data = $2, content_type = $3, updated_at = $4`,
+		avatar.UserID, avatar.Data, avatar.ContentType, avatar.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresUserRepository) GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error) {
+	var avatar domain.Avatar
+	err := r.conn.GetContext(ctx, &avatar, `
+		SELECT user_id, data, content_type, updated_at FROM user_avatars WHERE user_id = $1`,
+		userID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrAvatarNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &avatar, nil
+}
+
+func (r *PostgresUserRepository) DeleteAvatar(ctx context.Context, userID string) error {
+	_, err := r.conn.ExecContext(ctx, `DELETE FROM user_avatars WHERE user_id = $1`, userID)
+	return err
+}
+
 func escapeLikePattern(s string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return replacer.Replace(s)
