@@ -22,6 +22,7 @@ type AuthClient interface {
 type EventPublisher interface {
 	PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
 	PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
+	PublishMessageRead(ctx context.Context, event events.MessageRead) error
 }
 
 type PresenceChecker interface {
@@ -207,6 +208,58 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
 	}
 
 	return nil
+}
+
+func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error {
+	isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return domain.ErrNotChatMember
+	}
+
+	message, err := s.chats.GetMessage(ctx, messageID)
+	if err != nil {
+		return err
+	}
+	if message.ChatID != chatID {
+		return domain.ErrMessageNotInChat
+	}
+
+	now := time.Now()
+	if err := s.chats.MarkRead(ctx, chatID, requesterID, messageID, now); err != nil {
+		return err
+	}
+
+	if err := s.events.PublishMessageRead(ctx, events.MessageRead{
+		ChatID:    chatID,
+		UserID:    requesterID,
+		MessageID: messageID,
+		ReadAt:    now,
+	}); err != nil {
+		log.Printf("chat-service: failed to publish msg.read event for chat %s: %v", chatID, err)
+	}
+
+	return nil
+}
+
+func (s *ChatService) GetReadStatus(ctx context.Context, chatID, userID string) (string, error) {
+	members, err := s.chats.ListMembers(ctx, chatID)
+	if err != nil {
+		return "", err
+	}
+
+	for _, m := range members {
+		if m.UserID == userID {
+			if m.LastReadMessageID == nil {
+				return "", nil
+			}
+			return *m.LastReadMessageID, nil
+		}
+	}
+
+	return "", nil
 }
 
 func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, requesterID string) error {
