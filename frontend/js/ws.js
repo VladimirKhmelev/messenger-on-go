@@ -10,6 +10,7 @@ export class WsClient {
     onPresenceChanged,
     onMessageUpdated,
     onProfileUpdated,
+    onReadStatus,
     onError,
     onReconnected,
     refreshAccessToken,
@@ -23,6 +24,7 @@ export class WsClient {
     this.onPresenceChanged = onPresenceChanged;
     this.onMessageUpdated = onMessageUpdated;
     this.onProfileUpdated = onProfileUpdated;
+    this.onReadStatus = onReadStatus;
     this.onError = onError;
     this.onReconnected = onReconnected;
     this.refreshAccessToken = refreshAccessToken;
@@ -141,6 +143,13 @@ export class WsClient {
           displayName: msg.peer_display_name,
         });
         break;
+      case 'read_status':
+        this.onReadStatus?.({
+          chatId: msg.chat_id,
+          peerUserId: msg.peer_user_id,
+          lastReadMessageId: msg.last_read_message_id,
+        });
+        break;
       case 'token_expired':
         this._refreshTokenNow = true;
         break;
@@ -172,6 +181,14 @@ export class WsClient {
 
   deleteMessageForMe(chatId, messageId) {
     this.send({ type: 'delete_message_for_me', chat_id: chatId, message_id: messageId });
+  }
+
+  markRead(chatId, messageId) {
+    this.send({ type: 'mark_read', chat_id: chatId, message_id: messageId });
+  }
+
+  getReadStatus(chatId, peerUserId) {
+    this.send({ type: 'get_read_status', chat_id: chatId, peer_user_id: peerUserId });
   }
 
   send(payload) {

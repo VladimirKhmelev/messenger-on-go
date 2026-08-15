@@ -96,6 +96,7 @@ function wireZones() {
         onDeleteMessageForAll: handleDeleteMessageForAll,
         onDeleteMessageForMe: handleDeleteMessageForMe,
         onLoadMoreHistory: handleLoadMoreHistory,
+        onMessageVisible: handleMessageVisible,
       })
     );
   }
@@ -291,6 +292,7 @@ async function loadChats(myUserId) {
           loadingMoreHistory: false,
           online: false,
           lastSeenUnix: 0,
+          peerLastReadMessageId: null,
         };
       })
     );
@@ -361,6 +363,7 @@ async function handleCreateChat(user) {
       loadingMoreHistory: false,
       online: false,
       lastSeenUnix: 0,
+      peerLastReadMessageId: null,
     };
     state.chats.unshift(chat);
     state.foundUsers = [];
@@ -387,6 +390,31 @@ function handleSelectChat(chatId) {
   if (chat && !chat.historyLoaded) {
     ws?.getHistory(chatId);
   }
+  if (chat) {
+    ws?.getReadStatus(chatId, chat.peer.id);
+  }
+}
+
+// Tracks the highest-index message we've already told the server we read,
+// per chat — IntersectionObserver fires repeatedly as messages scroll past,
+// and we only want to notify the server when we've read further than before.
+const readProgress = new Map();
+
+function handleMessageVisible(chatId, messageId) {
+  const chat = state.chats.find((c) => c.id === chatId);
+  if (!chat) return;
+
+  const index = chat.messages.findIndex((m) => m.messageId === messageId);
+  if (index === -1) return;
+
+  const message = chat.messages[index];
+  if (message.mine) return; // no point marking our own messages as read
+
+  const lastIndex = readProgress.get(chatId) ?? -1;
+  if (index <= lastIndex) return;
+
+  readProgress.set(chatId, index);
+  ws?.markRead(chatId, messageId);
 }
 
 function handleLoadMoreHistory(chatId) {
@@ -428,6 +456,7 @@ async function handleLogout() {
   ws?.close();
   ws = null;
   clearInterval(presenceRefreshTimer);
+  readProgress.clear();
   try {
     await authApi.logout();
   } catch {
@@ -578,9 +607,14 @@ function connectWs() {
         chat.hasMoreHistory = messages.length >= HISTORY_PAGE_SIZE;
         chat.loadingMoreHistory = false;
       } else {
-        const historyIds = new Set(history.map((m) => m.messageId));
-        const alreadyLive = chat.messages.filter((m) => !historyIds.has(m.messageId));
-        chat.messages = [...history, ...alreadyLive];
+        // Re-sync of the latest page (initial load, or a reconnect refresh).
+        // chat.messages may already hold more than this page — older ones
+        // loaded via scroll-up pagination, or newer ones appended live after
+        // this fetch was sent — so merge by id and re-sort by time instead of
+        // assuming `history` is a prefix/suffix of what's already there.
+        const merged = new Map(chat.messages.map((m) => [m.messageId, m]));
+        for (const m of history) merged.set(m.messageId, m);
+        chat.messages = [...merged.values()].sort((a, b) => a.createdAtUnix - b.createdAtUnix);
         chat.historyLoaded = true;
         chat.hasMoreHistory = messages.length >= HISTORY_PAGE_SIZE;
       }
@@ -606,6 +640,12 @@ function connectWs() {
       chat.peer.displayName = displayName;
       notify('sidebar');
       if (chat.id === state.selectedChatId) notify('conversation');
+    },
+    onReadStatus: ({ chatId, peerUserId, lastReadMessageId }) => {
+      const chat = state.chats.find((c) => c.id === chatId && c.peer.id === peerUserId);
+      if (!chat) return;
+      chat.peerLastReadMessageId = lastReadMessageId || null;
+      if (chatId === state.selectedChatId) notify('conversation');
     },
     onMessageUpdated: ({ chatId, messageId, newText, deleted }) => {
       const chat = state.chats.find((c) => c.id === chatId);
@@ -641,6 +681,9 @@ function refreshAfterReconnect() {
     ws.getPresence(chat.peer.id);
     if (chat.historyLoaded) {
       ws.getHistory(chat.id);
+    }
+    if (chat.id === state.selectedChatId) {
+      ws.getReadStatus(chat.id, chat.peer.id);
     }
   }
 }
@@ -680,6 +723,7 @@ async function appendMessage(chatId, message) {
       loadingMoreHistory: false,
       online: false,
       lastSeenUnix: 0,
+      peerLastReadMessageId: null,
     });
     index = 0;
   }

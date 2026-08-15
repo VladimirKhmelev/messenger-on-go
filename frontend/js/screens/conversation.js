@@ -62,7 +62,8 @@ export function renderConversation(root, handlers) {
           chat.historyLoaded && chat.messages.length === 0
             ? renderNoMessagesYet()
             : `${chat.loadingMoreHistory ? renderLoadingMoreHistory() : ''}<div class="message-list-inner">${renderMessagesWithDateDividers(
-                chat.messages
+                chat.messages,
+                chat.peerLastReadMessageId
               )}</div>`
         }
       </div>
@@ -101,6 +102,8 @@ export function renderConversation(root, handlers) {
       }
       updateStickyDate(list);
     });
+
+    wireReadObserver(list, chat.id, handlers);
   }
 
   const draftInput = root.querySelector('[data-input="draft"]');
@@ -130,16 +133,40 @@ export function renderConversation(root, handlers) {
   }
 }
 
-function renderMessagesWithDateDividers(messages) {
+function renderMessagesWithDateDividers(messages, peerLastReadMessageId) {
+  const lastReadIndex = peerLastReadMessageId
+    ? messages.findIndex((m) => m.messageId === peerLastReadMessageId)
+    : -1;
+
   let lastDateLabel = null;
   return messages
-    .map((msg) => {
+    .map((msg, index) => {
       const dateLabel = formatDateLabel(msg.createdAtUnix);
       const divider = dateLabel && dateLabel !== lastDateLabel ? renderDateDivider(dateLabel) : '';
       lastDateLabel = dateLabel || lastDateLabel;
-      return divider + renderMessage(msg, state.editingMessageId === msg.messageId);
+      const isRead = lastReadIndex !== -1 && index <= lastReadIndex;
+      return divider + renderMessage(msg, state.editingMessageId === msg.messageId, isRead);
     })
     .join('');
+}
+
+function wireReadObserver(list, chatId, handlers) {
+  const targets = list.querySelectorAll('[data-observe-read]');
+  if (targets.length === 0) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const messageId = entry.target.getAttribute('data-message-id');
+        if (messageId) handlers.onMessageVisible(chatId, messageId);
+        observer.unobserve(entry.target);
+      }
+    },
+    { root: list, threshold: 0.6 }
+  );
+
+  targets.forEach((el) => observer.observe(el));
 }
 
 function updateStickyDate(list) {
@@ -177,7 +204,7 @@ function presenceText(chat) {
   return `Был(а) в сети в ${formatTime(chat.lastSeenUnix)}`;
 }
 
-function renderMessage(msg, isEditing) {
+function renderMessage(msg, isEditing, isRead) {
   if (msg.deleted) {
     return `
       <div class="message-row" data-mine="${msg.mine}">
@@ -201,9 +228,11 @@ function renderMessage(msg, isEditing) {
   }
 
   const editedTag = msg.editedAtUnix ? '<span class="message-edited-tag">изменено</span>' : '';
+  const readTicks = msg.mine ? renderReadTicks(isRead) : '';
+  const observeAttr = !msg.mine ? 'data-observe-read' : '';
 
   return `
-    <div class="message-row" data-mine="${msg.mine}" data-message-id="${msg.messageId}">
+    <div class="message-row" data-mine="${msg.mine}" data-message-id="${msg.messageId}" ${observeAttr}>
       <div class="message-row-inner">
         <button class="message-menu-btn" data-action="open-menu" title="Действия">⋯</button>
         <div class="bubble">
@@ -217,9 +246,13 @@ function renderMessage(msg, isEditing) {
           </div>
         </div>
       </div>
-      <div class="message-time">${formatTime(msg.createdAtUnix)}${editedTag}</div>
+      <div class="message-time">${formatTime(msg.createdAtUnix)}${editedTag}${readTicks}</div>
     </div>
   `;
+}
+
+function renderReadTicks(isRead) {
+  return `<span class="read-ticks" data-read="${!!isRead}">${isRead ? '✓✓' : '✓'}</span>`;
 }
 
 function wireMessageActions(root, handlers) {
