@@ -10,6 +10,7 @@ import {
   ApiError,
 } from './api.js';
 import { WsClient } from './ws.js';
+import { bumpAvatarCacheVersion } from './avatar.js';
 import { renderAuth } from './screens/auth.js';
 import { renderSidebar } from './screens/sidebar.js';
 import { renderConversation } from './screens/conversation.js';
@@ -82,6 +83,7 @@ function wireZones() {
         onSaveTag: handleSaveTag,
         onSaveDisplayName: handleSaveDisplayName,
         onChangePassword: handleChangePassword,
+        onUploadAvatar: handleUploadAvatar,
       })
     );
   }
@@ -568,6 +570,34 @@ async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
   }
 }
 
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
+
+async function handleUploadAvatar(file) {
+  state.settingsAvatarError = '';
+
+  if (file.size > MAX_AVATAR_SIZE_BYTES) {
+    state.settingsAvatarError = 'Файл слишком большой (максимум 2МБ)';
+    notify('settings');
+    return;
+  }
+
+  state.settingsAvatarBusy = true;
+  notify('settings');
+
+  try {
+    await authApi.uploadAvatar(file);
+    bumpAvatarCacheVersion();
+    state.settingsAvatarBusy = false;
+    notify('settings');
+    notify('sidebar');
+    if (state.selectedChatId) notify('conversation');
+  } catch (err) {
+    state.settingsAvatarError = err instanceof ApiError ? err.message : 'Не удалось загрузить фото';
+    state.settingsAvatarBusy = false;
+    notify('settings');
+  }
+}
+
 function handleToastDismiss() {
   state.toast = null;
   notify('toast');
@@ -638,6 +668,7 @@ function connectWs() {
       if (!chat) return;
       chat.peer.tag = tag;
       chat.peer.displayName = displayName;
+      bumpAvatarCacheVersion();
       notify('sidebar');
       if (chat.id === state.selectedChatId) notify('conversation');
     },
@@ -752,7 +783,7 @@ function showToast(chatId, text) {
     return;
   }
 
-  state.toast = { chatId, name, avatarSeed: chat.peer.tag, text };
+  state.toast = { chatId, peerUserId: chat.peer.id, name, avatarSeed: chat.peer.tag, text };
   notify('toast');
 
   clearTimeout(toastTimer);

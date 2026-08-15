@@ -114,6 +114,11 @@ a:hover { color: var(--accent); }
 }
 .field--tag input { padding-left: 28px; }
 
+.settings-avatar-row { display: flex; align-items: center; gap: 14px; }
+.settings-avatar-actions { display: flex; align-items: center; gap: 10px; }
+.settings-avatar-upload { cursor: pointer; width: auto; display: inline-block; text-align: center; }
+.settings-avatar-status { font-size: 13px; color: var(--text-muted-2); }
+
 .field--password { position: relative; }
 .field--password input { padding-right: 40px; }
 .password-toggle {
@@ -224,6 +229,12 @@ a:hover { color: var(--accent); }
   position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px;
   border-radius: 50%; border: 2px solid var(--bg-sidebar);
 }
+.avatar-fallback { position: relative; z-index: 0; }
+.avatar-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border-radius: 50%; object-fit: cover; z-index: 1;
+}
+.avatar--clickable { cursor: pointer; }
 
 .chat-row-body { flex: 1; min-width: 0; }
 .chat-row-line1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -423,3 +434,16 @@ a:hover { color: var(--accent); }
   color: var(--text-muted-3); font-size: 18px; cursor: pointer; line-height: 1;
 }
 .modal-close:hover { color: var(--text); }
+
+.avatar-preview {
+  position: relative; max-width: min(90vw, 480px); max-height: 90vh;
+}
+.avatar-preview-img {
+  display: block; width: 100%; height: 100%; max-height: 90vh;
+  object-fit: contain; border-radius: 12px;
+}
+.avatar-preview-close {
+  position: absolute; top: -12px; right: -12px;
+  background: var(--bg-white); border: 1px solid var(--border);
+  box-shadow: 0 4px 12px var(--shadow);
+}

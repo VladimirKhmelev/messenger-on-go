@@ -201,6 +201,7 @@ type fakeUserRepository struct {
 	users      map[string]*domain.User
 	usersByTag map[string]*domain.User
 	created    *domain.User
+	avatars    map[string]*domain.Avatar
 }
 
 func newFakeUserRepository() *fakeUserRepository {
@@ -209,6 +210,7 @@ func newFakeUserRepository() *fakeUserRepository {
 		byTag:      map[string]bool{},
 		users:      map[string]*domain.User{},
 		usersByTag: map[string]*domain.User{},
+		avatars:    map[string]*domain.Avatar{},
 	}
 }
 
@@ -305,6 +307,24 @@ func (r *fakeUserRepository) UpdateDisplayName(_ context.Context, userID, displa
 			user.DisplayName = displayName
 		}
 	}
+	return nil
+}
+
+func (r *fakeUserRepository) UpsertAvatar(_ context.Context, avatar *domain.Avatar) error {
+	r.avatars[avatar.UserID] = avatar
+	return nil
+}
+
+func (r *fakeUserRepository) GetAvatar(_ context.Context, userID string) (*domain.Avatar, error) {
+	avatar, ok := r.avatars[userID]
+	if !ok {
+		return nil, domain.ErrAvatarNotFound
+	}
+	return avatar, nil
+}
+
+func (r *fakeUserRepository) DeleteAvatar(_ context.Context, userID string) error {
+	delete(r.avatars, userID)
 	return nil
 }
 

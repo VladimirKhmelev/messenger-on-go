@@ -18,4 +18,7 @@ type UserRepository interface {
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 	UpdateTag(ctx context.Context, userID, tag string) error
 	UpdateDisplayName(ctx context.Context, userID, displayName string) error
+	UpsertAvatar(ctx context.Context, avatar *domain.Avatar) error
+	GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error)
+	DeleteAvatar(ctx context.Context, userID string) error
 }

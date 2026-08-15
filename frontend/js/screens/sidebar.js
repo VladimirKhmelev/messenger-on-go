@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
-import { avatarPalette, initialsFrom } from '../avatar.js';
+import { renderAvatar } from '../avatar.js';
 
 export function renderSidebar(root, handlers) {
   const isDark = getTheme() === 'dark';
@@ -93,13 +93,10 @@ export function renderSidebar(root, handlers) {
 }
 
 function renderCreateChatRow(user) {
-  const palette = avatarPalette(user.tag);
   const name = user.displayName || user.tag;
   return `
     <button class="chat-row" data-action="create-chat" data-user-id="${escapeHtml(user.id)}">
-      <div class="avatar" style="background:${palette.bg};color:${palette.text}">
-        ${initialsFrom(name)}
-      </div>
+      ${renderAvatar(user.id, user.tag, name)}
       <div class="chat-row-body">
         <div class="chat-row-name">Создать чат с ${escapeHtml(name)}</div>
         <div class="chat-row-tag">@${escapeHtml(user.tag)}</div>
@@ -110,7 +107,6 @@ function renderCreateChatRow(user) {
 
 function renderChatRow(chat) {
   const name = chat.peer.displayName || chat.peer.tag;
-  const palette = avatarPalette(chat.peer.tag);
   const lastMessage = chat.messages[chat.messages.length - 1];
   const lastTime = lastMessage ? formatTime(lastMessage.createdAtUnix) : '';
   const lastPreview = lastMessage ? escapeHtml(lastMessage.text) : '';
@@ -119,10 +115,9 @@ function renderChatRow(chat) {
 
   return `
     <button class="chat-row" data-chat-id="${chat.id}" data-selected="${isSelected}">
-      <div class="avatar" style="background:${palette.bg};color:${palette.text}">
-        ${initialsFrom(name)}
-        <div class="avatar-dot" style="background:${dotColor}"></div>
-      </div>
+      ${renderAvatar(chat.peer.id, chat.peer.tag, name, {
+        extraHtml: `<div class="avatar-dot" style="background:${dotColor}"></div>`,
+      })}
       <div class="chat-row-body">
         <div class="chat-row-line1">
           <div class="chat-row-name">${escapeHtml(name)}</div>

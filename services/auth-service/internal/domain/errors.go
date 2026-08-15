@@ -18,4 +18,7 @@ var (
 	ErrEmailNotVerified        = errors.New("email not verified")
 	ErrOAuthNoVerifiedEmail    = errors.New("oauth provider account has no verified email")
 	ErrSamePassword            = errors.New("new password must be different from the current password")
+	ErrAvatarNotFound          = errors.New("avatar not found")
+	ErrInvalidAvatarType       = errors.New("avatar must be a JPEG, PNG, GIF, or WebP image")
+	ErrAvatarTooLarge          = errors.New("avatar must be smaller than 2MB")
 )

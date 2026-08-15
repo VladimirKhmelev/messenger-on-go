@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { avatarPalette, initialsFrom } from '../avatar.js';
+import { renderAvatar, avatarUrl } from '../avatar.js';
 import { formatTime, formatDateLabel, escapeHtml } from './sidebar.js';
 
 document.addEventListener('click', () => {
@@ -25,7 +25,6 @@ export function renderConversation(root, handlers) {
   }
 
   const name = chat.peer.displayName || chat.peer.tag;
-  const palette = avatarPalette(chat.peer.tag);
   const statusText = presenceText(chat);
   const sendDisabled = !state.draft.trim();
 
@@ -44,8 +43,8 @@ export function renderConversation(root, handlers) {
     <div class="conversation">
       <div class="conversation-header">
         <div class="conversation-header-inner">
-          <div class="avatar avatar--md" style="background:${palette.bg};color:${palette.text}">
-            ${initialsFrom(name)}
+          <div class="avatar--clickable" data-action="open-avatar" data-user-id="${escapeHtml(chat.peer.id)}">
+            ${renderAvatar(chat.peer.id, chat.peer.tag, name, { sizeClass: 'avatar--md' })}
           </div>
           <div>
             <div class="conversation-header-name">
@@ -80,6 +79,7 @@ export function renderConversation(root, handlers) {
         </div>
       </div>
     </div>
+    ${renderAvatarPreview()}
   `;
 
   const list = root.querySelector('[data-list="messages"]');
@@ -124,6 +124,22 @@ export function renderConversation(root, handlers) {
 
   wireMessageActions(root, handlers);
 
+  root.querySelector('[data-action="open-avatar"]')?.addEventListener('click', () => {
+    state.avatarPreview = { userId: chat.peer.id, name };
+    handlers.onDraftChange();
+  });
+
+  root.querySelectorAll('[data-action="close-avatar-preview"]').forEach((el) => {
+    el.addEventListener('click', () => {
+      state.avatarPreview = null;
+      handlers.onDraftChange();
+    });
+  });
+
+  root.querySelector('.avatar-preview')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
   if (hadFocus) {
     draftInput.focus();
     draftInput.setSelectionRange(selectionStart, selectionEnd);
@@ -131,6 +147,19 @@ export function renderConversation(root, handlers) {
     state.focusDraftOnRender = false;
     draftInput.focus();
   }
+}
+
+function renderAvatarPreview() {
+  if (!state.avatarPreview) return '';
+  const { userId, name } = state.avatarPreview;
+  return `
+    <div class="modal-backdrop" data-action="close-avatar-preview">
+      <div class="avatar-preview" data-action="stop-propagation">
+        <img class="avatar-preview-img" src="${avatarUrl(userId)}" alt="${escapeHtml(name)}" />
+        <button class="modal-close avatar-preview-close" data-action="close-avatar-preview">×</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderMessagesWithDateDividers(messages, peerLastReadMessageId) {

@@ -95,6 +95,20 @@ export const authApi = {
 
   changePassword: (oldPassword, newPassword) =>
     request('/v1/users/me/password', { method: 'POST', body: { oldPassword, newPassword } }),
+
+  uploadAvatar: async (file) => {
+    const response = await fetch('/v1/users/me/avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': file.type, Authorization: `Bearer ${accessToken}` },
+      credentials: 'include',
+      body: file,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new ApiError(text || `Request failed (${response.status})`, response.status);
+    }
+  },
 };
 
 export const chatApi = {

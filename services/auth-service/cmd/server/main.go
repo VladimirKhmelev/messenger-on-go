@@ -24,6 +24,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
+	transportavatar "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
 )
 
@@ -140,6 +141,14 @@ func main() {
 	gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
 		log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
+	}
+
+	avatarHandler := transportavatar.NewHandler(authService, tokenIssuer)
+	if err := gwMux.HandlePath(http.MethodGet, "/v1/users/{user_id}/avatar", avatarHandler.Get); err != nil {
+		log.Fatalf("auth-service: failed to register avatar GET route: %v", err)
+	}
+	if err := gwMux.HandlePath(http.MethodPost, "/v1/users/me/avatar", avatarHandler.Upload); err != nil {
+		log.Fatalf("auth-service: failed to register avatar POST route: %v", err)
 	}
 
 	httpServer := &http.Server{
