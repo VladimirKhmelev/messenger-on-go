@@ -83,31 +83,35 @@
 				
 				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/change_password.go (76.9%)</option>
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/avatar.go (85.7%)</option>
 				
-				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/change_password.go (76.9%)</option>
 				
-				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
+				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
 				
-				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
+				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
 				
-				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
+				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
 				
-				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (75.0%)</option>
+				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
 				
-				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (78.7%)</option>
+				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (75.0%)</option>
 				
-				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (78.7%)</option>
 				
-				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
+				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
 				
-				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
 				
-				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar/handler.go (0.0%)</option>
 				
-				<option value="file26">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (89.7%)</option>
+				<option value="file26">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				
+				<option value="file27">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file28">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (89.7%)</option>
 				
 				</select>
 			</div>
@@ -147,6 +151,7 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service"
+        transportavatar "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar"
         transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
 )
 
@@ -263,6 +268,14 @@ func main() <span class="cov0" title="0">{
         <span class="cov0" title="0">gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
         if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">avatarHandler := transportavatar.NewHandler(authService, tokenIssuer)
+        if err := gwMux.HandlePath(http.MethodGet, "/v1/users/{user_id}/avatar", avatarHandler.Get); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to register avatar GET route: %v", err)
+        }</span>
+        <span class="cov0" title="0">if err := gwMux.HandlePath(http.MethodPost, "/v1/users/me/avatar", avatarHandler.Upload); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to register avatar POST route: %v", err)
         }</span>
 
         <span class="cov0" title="0">httpServer := &amp;http.Server{
@@ -1134,6 +1147,36 @@ func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, 
         return err
 }</span>
 
+func (r *PostgresUserRepository) UpsertAvatar(ctx context.Context, avatar *domain.Avatar) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO user_avatars (user_id, data, content_type, updated_at)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (user_id) DO UPDATE SET data = $2, content_type = $3, updated_at = $4`,
+                avatar.UserID, avatar.Data, avatar.ContentType, avatar.UpdatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresUserRepository) GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error) <span class="cov0" title="0">{
+        var avatar domain.Avatar
+        err := r.conn.GetContext(ctx, &amp;avatar, `
+                SELECT user_id, data, content_type, updated_at FROM user_avatars WHERE user_id = $1`,
+                userID,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrAvatarNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;avatar, nil</span>
+}
+
+func (r *PostgresUserRepository) DeleteAvatar(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `DELETE FROM user_avatars WHERE user_id = $1`, userID)
+        return err
+}</span>
+
 func escapeLikePattern(s string) string <span class="cov0" title="0">{
         replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
         return replacer.Replace(s)
@@ -1141,6 +1184,62 @@ func escapeLikePattern(s string) string <span class="cov0" title="0">{
 </pre>
 		
 		<pre class="file" id="file14" style="display: none">package service
+
+import (
+        "context"
+        "net/http"
+        "time"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const MaxAvatarSizeBytes = 2 * 1024 * 1024 // 2MB
+
+var allowedAvatarContentTypes = map[string]bool{
+        "image/jpeg": true,
+        "image/png":  true,
+        "image/gif":  true,
+        "image/webp": true,
+}
+
+func (s *AuthService) UploadAvatar(ctx context.Context, userID string, data []byte) error <span class="cov8" title="1">{
+        if len(data) &gt; MaxAvatarSizeBytes </span><span class="cov8" title="1">{
+                return domain.ErrAvatarTooLarge
+        }</span>
+
+        <span class="cov8" title="1">contentType := http.DetectContentType(data)
+        if !allowedAvatarContentTypes[contentType] </span><span class="cov8" title="1">{
+                return domain.ErrInvalidAvatarType
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpsertAvatar(ctx, &amp;domain.Avatar{
+                UserID:      userID,
+                Data:        data,
+                ContentType: contentType,
+                UpdatedAt:   time.Now(),
+        }); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        return nil</span>
+}
+
+func (s *AuthService) GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error) <span class="cov8" title="1">{
+        return s.users.GetAvatar(ctx, userID)
+}</span>
+
+func (s *AuthService) DeleteAvatar(ctx context.Context, userID string) error <span class="cov8" title="1">{
+        if err := s.users.DeleteAvatar(ctx, userID); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package service
 
 import (
         "context"
@@ -1208,7 +1307,7 @@ func (s *AuthService) IsAccessTokenStale(ctx context.Context, userID string, iss
 }</span>
 </pre>
 		
-		<pre class="file" id="file15" style="display: none">package service
+		<pre class="file" id="file16" style="display: none">package service
 
 import (
         "context"
@@ -1230,7 +1329,7 @@ func (s *AuthService) UpdateDisplayName(ctx context.Context, userID, displayName
 }
 </pre>
 		
-		<pre class="file" id="file16" style="display: none">package service
+		<pre class="file" id="file17" style="display: none">package service
 
 import (
         "context"
@@ -1328,7 +1427,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <sp
 }
 </pre>
 		
-		<pre class="file" id="file17" style="display: none">package service
+		<pre class="file" id="file18" style="display: none">package service
 
 import (
         "context"
@@ -1446,7 +1545,7 @@ func randomTag(base string) (string, error) <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file18" style="display: none">package service
+		<pre class="file" id="file19" style="display: none">package service
 
 import (
         "unicode"
@@ -1480,7 +1579,7 @@ func ValidatePassword(password string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file19" style="display: none">package service
+		<pre class="file" id="file20" style="display: none">package service
 
 import (
         "context"
@@ -1552,7 +1651,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 }
 </pre>
 		
-		<pre class="file" id="file20" style="display: none">package service
+		<pre class="file" id="file21" style="display: none">package service
 
 import (
         "context"
@@ -1751,7 +1850,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error
 }
 </pre>
 		
-		<pre class="file" id="file21" style="display: none">package service
+		<pre class="file" id="file22" style="display: none">package service
 
 import (
         "context"
@@ -1782,7 +1881,7 @@ func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.
 }
 </pre>
 		
-		<pre class="file" id="file22" style="display: none">package service
+		<pre class="file" id="file23" style="display: none">package service
 
 import (
         "context"
@@ -1851,7 +1950,7 @@ func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (availa
 }
 </pre>
 		
-		<pre class="file" id="file23" style="display: none">package service
+		<pre class="file" id="file24" style="display: none">package service
 
 import (
         "net/mail"
@@ -1893,7 +1992,118 @@ func ValidateDisplayName(name string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file24" style="display: none">package grpc
+		<pre class="file" id="file25" style="display: none">package avatar
+
+import (
+        "context"
+        "errors"
+        "io"
+        "log"
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+)
+
+const maxUploadBytes = 2*1024*1024 + 1024
+
+type AvatarService interface {
+        UploadAvatar(ctx context.Context, userID string, data []byte) error
+        GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error)
+        IsAccessTokenStale(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
+}
+
+type Handler struct {
+        auth   AvatarService
+        issuer *jwtutil.Issuer
+}
+
+func NewHandler(auth AvatarService, issuer *jwtutil.Issuer) *Handler <span class="cov0" title="0">{
+        return &amp;Handler{auth: auth, issuer: issuer}
+}</span>
+
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request, pathParams map[string]string) <span class="cov0" title="0">{
+        userID := pathParams["user_id"]
+        if userID == "" </span><span class="cov0" title="0">{
+                http.Error(w, "missing user id", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">avatar, err := h.auth.GetAvatar(r.Context(), userID)
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, domain.ErrAvatarNotFound) </span><span class="cov0" title="0">{
+                        http.NotFound(w, r)
+                        return
+                }</span>
+                <span class="cov0" title="0">http.Error(w, "internal error", http.StatusInternalServerError)
+                return</span>
+        }
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", avatar.ContentType)
+        w.Header().Set("Cache-Control", "private, max-age=60")
+        if _, err := w.Write(avatar.Data); err != nil </span><span class="cov0" title="0">{
+                log.Printf("auth-service: failed to write avatar response for %s: %v", userID, err)
+        }</span>
+}
+
+func (h *Handler) Upload(w http.ResponseWriter, r *http.Request, _ map[string]string) <span class="cov0" title="0">{
+        userID, ok := h.authenticate(r)
+        if !ok </span><span class="cov0" title="0">{
+                http.Error(w, "missing or invalid authorization", http.StatusUnauthorized)
+                return
+        }</span>
+
+        <span class="cov0" title="0">body := http.MaxBytesReader(w, r.Body, maxUploadBytes)
+        data, err := io.ReadAll(body)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := h.auth.UploadAvatar(r.Context(), userID, data); err != nil </span><span class="cov0" title="0">{
+                writeDomainError(w, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.WriteHeader(http.StatusNoContent)</span>
+}
+
+func (h *Handler) authenticate(r *http.Request) (userID string, ok bool) <span class="cov0" title="0">{
+        authHeader := r.Header.Get("Authorization")
+        const prefix = "Bearer "
+        if !strings.HasPrefix(authHeader, prefix) </span><span class="cov0" title="0">{
+                return "", false
+        }</span>
+        <span class="cov0" title="0">token := strings.TrimPrefix(authHeader, prefix)
+
+        claims, err := h.issuer.Parse(token, jwtutil.TokenTypeAccess)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", false
+        }</span>
+
+        <span class="cov0" title="0">if claims.IssuedAt != nil </span><span class="cov0" title="0">{
+                stale, err := h.auth.IsAccessTokenStale(r.Context(), claims.UserID, claims.IssuedAt.Time)
+                if err != nil || stale </span><span class="cov0" title="0">{
+                        return "", false
+                }</span>
+        }
+
+        <span class="cov0" title="0">return claims.UserID, true</span>
+}
+
+func writeDomainError(w http.ResponseWriter, err error) <span class="cov0" title="0">{
+        switch </span>{
+        case errors.Is(err, domain.ErrAvatarTooLarge), errors.Is(err, domain.ErrInvalidAvatarType):<span class="cov0" title="0">
+                http.Error(w, err.Error(), http.StatusBadRequest)</span>
+        default:<span class="cov0" title="0">
+                http.Error(w, "internal error", http.StatusInternalServerError)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file26" style="display: none">package grpc
 
 import (
         "context"
@@ -2144,7 +2354,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file25" style="display: none">package grpc
+		<pre class="file" id="file27" style="display: none">package grpc
 
 import (
         "context"
@@ -2206,7 +2416,7 @@ func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="co
 }
 </pre>
 		
-		<pre class="file" id="file26" style="display: none">package grpc
+		<pre class="file" id="file28" style="display: none">package grpc
 
 import (
         "context"
