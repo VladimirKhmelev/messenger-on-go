@@ -7,6 +7,11 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.message-row[data-menu-open]').forEach((r) => r.removeAttribute('data-menu-open'));
 });
 
+// renderConversation() re-mounts the whole message list on every change, so
+// without an explicit disconnect the previous observer would just keep
+// existing (with no targets left to watch) until GC eventually collects it.
+let activeReadObserver = null;
+
 export function renderConversation(root, handlers) {
   const chat = state.chats.find((c) => c.id === state.selectedChatId);
 
@@ -204,6 +209,9 @@ function renderMessagesWithDateDividers(messages, peerLastReadMessageId) {
 }
 
 function wireReadObserver(list, chatId, handlers) {
+  activeReadObserver?.disconnect();
+  activeReadObserver = null;
+
   const targets = list.querySelectorAll('[data-observe-read]');
   if (targets.length === 0) return;
 
@@ -220,6 +228,7 @@ function wireReadObserver(list, chatId, handlers) {
   );
 
   targets.forEach((el) => observer.observe(el));
+  activeReadObserver = observer;
 }
 
 function updateStickyDate(list) {

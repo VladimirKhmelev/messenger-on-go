@@ -20,6 +20,7 @@ import { renderSettings } from './screens/settings.js';
 const TOAST_AUTO_DISMISS_MS = 5_000;
 const HISTORY_PAGE_SIZE = 50;
 const PRESENCE_REFRESH_INTERVAL_MS = 15_000;
+const MAX_CACHED_MESSAGES_PER_CHAT = 200;
 
 const app = document.getElementById('app');
 let ws = null;
@@ -418,6 +419,7 @@ async function handleCreateChat(user) {
 }
 
 function handleSelectChat(chatId) {
+  trimInactiveChatHistory(state.selectedChatId);
   state.selectedChatId = chatId;
   syncMobileViewAttr();
   state.focusDraftOnRender = true;
@@ -442,10 +444,32 @@ function handleSelectChat(chatId) {
 // selects the chat to go back to the list. Harmless no-op on desktop, where
 // both panes are always visible side by side.
 function handleBackToChats() {
+  trimInactiveChatHistory(state.selectedChatId);
   state.selectedChatId = null;
   syncMobileViewAttr();
   notify('sidebar');
   notify('conversation');
+}
+
+// Chats accumulate messages forever as you scroll up through history — fine
+// while a chat stays open (nothing should vanish from under the cursor),
+// but with no cap at all a long-lived tab that's visited a lot of chats
+// keeps every page it ever loaded in memory. Trim once a chat is no longer
+// the one on screen, keeping the newest page (oldest-loaded ones are the
+// least likely to be revisited).
+function trimInactiveChatHistory(chatId) {
+  if (!chatId) return;
+  const chat = state.chats.find((c) => c.id === chatId);
+  if (!chat || chat.messages.length <= MAX_CACHED_MESSAGES_PER_CHAT) return;
+
+  const trimmedCount = chat.messages.length - MAX_CACHED_MESSAGES_PER_CHAT;
+  chat.messages = chat.messages.slice(-MAX_CACHED_MESSAGES_PER_CHAT);
+  // Server-side history offset is measured against the chat's real message
+  // count, which trimming doesn't change — track what we cut so the next
+  // "load more" request still asks for the messages actually above what's
+  // cached, instead of re-fetching (and duplicating) what's already here.
+  chat.trimmedOffset = (chat.trimmedOffset || 0) + trimmedCount;
+  chat.hasMoreHistory = true;
 }
 
 // Tracks the highest-index message we've already told the server we read,
@@ -475,7 +499,7 @@ function handleLoadMoreHistory(chatId) {
   if (!chat || !chat.hasMoreHistory || chat.loadingMoreHistory) return;
 
   chat.loadingMoreHistory = true;
-  ws?.getHistory(chatId, HISTORY_PAGE_SIZE, chat.messages.length);
+  ws?.getHistory(chatId, HISTORY_PAGE_SIZE, chat.messages.length + (chat.trimmedOffset || 0));
   notify('conversation');
 }
 
