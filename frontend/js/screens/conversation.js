@@ -43,6 +43,7 @@ export function renderConversation(root, handlers) {
     <div class="conversation">
       <div class="conversation-header">
         <div class="conversation-header-inner">
+          <button class="conversation-back-btn" data-action="back-to-chats" title="К списку чатов" aria-label="Назад">‹</button>
           <div class="avatar--clickable" data-action="open-avatar" data-user-id="${escapeHtml(chat.peer.id)}">
             ${renderAvatar(chat.peer.id, chat.peer.tag, name, { sizeClass: 'avatar--md' })}
           </div>
@@ -66,6 +67,7 @@ export function renderConversation(root, handlers) {
               )}</div>`
         }
       </div>
+      <button class="scroll-to-bottom-btn" data-action="scroll-to-bottom" hidden title="К последним сообщениям">↓</button>
       <div class="composer">
         <div class="composer-inner">
           <input
@@ -95,21 +97,39 @@ export function renderConversation(root, handlers) {
       list.scrollTop = list.scrollHeight;
     }
 
+    const scrollToBottomBtn = root.querySelector('[data-action="scroll-to-bottom"]');
+    const updateScrollToBottomBtn = () => {
+      const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+      scrollToBottomBtn.hidden = nearBottom;
+    };
+
     updateStickyDate(list);
+    updateScrollToBottomBtn();
     list.addEventListener('scroll', () => {
       if (list.scrollTop < 200) {
         handlers.onLoadMoreHistory(chat.id);
       }
       updateStickyDate(list);
+      updateScrollToBottomBtn();
+    });
+
+    scrollToBottomBtn.addEventListener('click', () => {
+      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
     });
 
     wireReadObserver(list, chat.id, handlers);
   }
 
   const draftInput = root.querySelector('[data-input="draft"]');
+  const sendBtn = root.querySelector('[data-action="send"]');
   draftInput.addEventListener('input', (event) => {
+    // A full renderConversation() on every keystroke re-mounts the whole
+    // message list (including a fresh IntersectionObserver per message) —
+    // on mobile, with the keyboard up, that was visibly janky. The only
+    // thing typing actually needs to update is the send button's enabled
+    // state, so patch that directly instead of re-rendering.
     state.draft = event.target.value;
-    handlers.onDraftChange();
+    sendBtn.setAttribute('data-enabled', String(!!state.draft.trim()));
   });
   draftInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -127,6 +147,10 @@ export function renderConversation(root, handlers) {
   root.querySelector('[data-action="open-avatar"]')?.addEventListener('click', () => {
     state.avatarPreview = { userId: chat.peer.id, name };
     handlers.onDraftChange();
+  });
+
+  root.querySelector('[data-action="back-to-chats"]')?.addEventListener('click', () => {
+    handlers.onBack();
   });
 
   root.querySelectorAll('[data-action="close-avatar-preview"]').forEach((el) => {

@@ -25,6 +25,43 @@ const app = document.getElementById('app');
 let ws = null;
 let presenceRefreshTimer = null;
 
+// Mobile CSS reads this to decide whether to show the chat list or the
+// conversation as the single full-screen view — see the max-width media
+// query in app.css. No-op layout-wise on desktop, where both stay visible.
+function syncMobileViewAttr() {
+  app.setAttribute('data-mobile-view', state.selectedChatId ? 'conversation' : 'sidebar');
+}
+
+// 100dvh doesn't reliably track the on-screen keyboard on some Android
+// Chrome versions — the layout box stays taller than the actual visible
+// area, so the browser scrolls the page to keep the focused input visible,
+// dragging the header off-screen with it. visualViewport.height is the one
+// source of truth for "how much space is actually visible right now"; pin
+// #app to that directly instead of trusting dvh alone.
+if (window.visualViewport) {
+  const syncViewportHeight = () => {
+    app.style.height = `${window.visualViewport.height}px`;
+    window.scrollTo(0, 0);
+  };
+  window.visualViewport.addEventListener('resize', syncViewportHeight);
+  syncViewportHeight();
+}
+
+// overflow:hidden on html/body stops wheel/programmatic scroll but not a raw
+// touch drag — with the keyboard open, dragging inside a focused input can
+// still get the OS/browser to scroll the document itself, revealing empty
+// space below the composer. Block touchmove outside our real scroll
+// containers so there's nothing left for a stray drag to scroll.
+document.addEventListener(
+  'touchmove',
+  (event) => {
+    if (!event.target.closest('[data-list="messages"], .chat-list')) {
+      event.preventDefault();
+    }
+  },
+  { passive: false }
+);
+
 initTheme();
 
 function renderRoot() {
@@ -99,6 +136,7 @@ function wireZones() {
         onDeleteMessageForMe: handleDeleteMessageForMe,
         onLoadMoreHistory: handleLoadMoreHistory,
         onMessageVisible: handleMessageVisible,
+        onBack: handleBackToChats,
       })
     );
   }
@@ -253,6 +291,7 @@ async function enterApp() {
   state.chats = await loadChats(me.id);
   state.view = 'app';
   renderRoot();
+  syncMobileViewAttr();
   connectWs();
   requestNotificationPermission();
 }
@@ -380,6 +419,7 @@ async function handleCreateChat(user) {
 
 function handleSelectChat(chatId) {
   state.selectedChatId = chatId;
+  syncMobileViewAttr();
   state.focusDraftOnRender = true;
   if (state.toast?.chatId === chatId) {
     state.toast = null;
@@ -395,6 +435,17 @@ function handleSelectChat(chatId) {
   if (chat) {
     ws?.getReadStatus(chatId, chat.peer.id);
   }
+}
+
+// On mobile the sidebar and conversation are two full-screen views (CSS
+// switches between them based on whether a chat is selected) — this un-
+// selects the chat to go back to the list. Harmless no-op on desktop, where
+// both panes are always visible side by side.
+function handleBackToChats() {
+  state.selectedChatId = null;
+  syncMobileViewAttr();
+  notify('sidebar');
+  notify('conversation');
 }
 
 // Tracks the highest-index message we've already told the server we read,
