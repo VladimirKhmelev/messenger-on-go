@@ -371,6 +371,36 @@
         ]
       }
     },
+    "/v1/chats/{chatId}/key": {
+      "get": {
+        "operationId": "ChatService_GetChatKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetChatKeyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/v1/chats/{chatId}/messages": {
       "get": {
         "operationId": "ChatService_GetHistory",
@@ -759,6 +789,29 @@
         ]
       }
     },
+    "/v1/users/me/wrapped-private-key": {
+      "get": {
+        "summary": "Returns the caller's own RSA private key, still encrypted with their\npassword-derived wrapping key. Any device calls this after login to\nrecover the same identity keypair — the server never sees it unwrapped.",
+        "operationId": "AuthService_GetWrappedPrivateKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetWrappedPrivateKeyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
     "/v1/users/tag-available/{tag}": {
       "get": {
         "operationId": "AuthService_CheckTagAvailable",
@@ -797,6 +850,36 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetUserByIDResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/users/{userId}/public-key": {
+      "get": {
+        "operationId": "AuthService_GetPublicKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetPublicKeyResponse"
             }
           },
           "default": {
@@ -897,6 +980,13 @@
         },
         "newPassword": {
           "type": "string"
+        },
+        "wrappedPrivateKey": {
+          "type": "string",
+          "description": "The existing private key, re-encrypted client-side with a wrapping key\nderived from new_password (RSA keypair itself is unchanged — only its\nwrapping is, since the wrapping key depends on the password)."
+        },
+        "keyWrapSalt": {
+          "type": "string"
         }
       }
     },
@@ -937,6 +1027,13 @@
       "properties": {
         "targetUserId": {
           "type": "string"
+        },
+        "encryptedChatKey": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "The chat's AES-256 key, generated client-side and encrypted separately\nfor each participant with that participant's RSA-OAEP public key\n(base64-encoded ciphertext). Keyed by user_id. The server never sees\nthe plaintext chat key."
         }
       }
     },
@@ -962,6 +1059,15 @@
         }
       }
     },
+    "v1GetChatKeyResponse": {
+      "type": "object",
+      "properties": {
+        "encryptedChatKey": {
+          "type": "string",
+          "description": "This chat's AES key, encrypted for the requesting user with their own\nRSA-OAEP public key (base64)."
+        }
+      }
+    },
     "v1GetHistoryResponse": {
       "type": "object",
       "properties": {
@@ -971,6 +1077,14 @@
             "type": "object",
             "$ref": "#/definitions/v1Message"
           }
+        }
+      }
+    },
+    "v1GetPublicKeyResponse": {
+      "type": "object",
+      "properties": {
+        "publicKey": {
+          "type": "string"
         }
       }
     },
@@ -988,6 +1102,9 @@
         },
         "displayName": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
         }
       }
     },
@@ -1004,6 +1121,20 @@
           "type": "string"
         },
         "displayName": {
+          "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
+        }
+      }
+    },
+    "v1GetWrappedPrivateKeyResponse": {
+      "type": "object",
+      "properties": {
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
           "type": "string"
         }
       }
@@ -1133,6 +1264,18 @@
         },
         "displayName": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string",
+          "description": "RSA-OAEP public key (SPKI, base64), generated client-side."
+        },
+        "wrappedPrivateKey": {
+          "type": "string",
+          "description": "The matching RSA private key (PKCS8, base64), AES-GCM-encrypted\nclient-side with a key derived from `password` via PBKDF2. The server\nstores this ciphertext as-is and can't decrypt it — see key_wrap_salt."
+        },
+        "keyWrapSalt": {
+          "type": "string",
+          "description": "Random salt (base64) used to derive the wrapping key from the password.\nReturned back via GetWrappedPrivateKey so any device can re-derive the\nsame wrapping key from the password and recover the private key."
         }
       }
     },

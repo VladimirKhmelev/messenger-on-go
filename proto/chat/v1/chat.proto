@@ -74,6 +74,12 @@ service ChatService {
     };
   }
   rpc GetReadStatus(GetReadStatusRequest) returns (GetReadStatusResponse);
+
+  rpc GetChatKey(GetChatKeyRequest) returns (GetChatKeyResponse) {
+    option (google.api.http) = {
+      get: "/v1/chats/{chat_id}/key"
+    };
+  }
 }
 
 message HealthRequest {
@@ -85,6 +91,7 @@ message HealthResponse {
 
 message CreateChatRequest {
   string target_user_id = 1;
+  map<string, string> encrypted_chat_key = 2;
 }
 
 message CreateChatResponse {
@@ -213,4 +220,12 @@ message GetReadStatusRequest {
 
 message GetReadStatusResponse {
   string last_read_message_id = 1;
+}
+
+message GetChatKeyRequest {
+  string chat_id = 1;
+}
+
+message GetChatKeyResponse {
+  string encrypted_chat_key = 1;
 }

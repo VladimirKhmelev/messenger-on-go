@@ -103,10 +103,15 @@ func (x *HealthResponse) GetOk() bool {
 }
 
 type CreateChatRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TargetUserId  string                 `protobuf:"bytes,1,opt,name=target_user_id,json=targetUserId,proto3" json:"target_user_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TargetUserId string                 `protobuf:"bytes,1,opt,name=target_user_id,json=targetUserId,proto3" json:"target_user_id,omitempty"`
+	// The chat's AES-256 key, generated client-side and encrypted separately
+	// for each participant with that participant's RSA-OAEP public key
+	// (base64-encoded ciphertext). Keyed by user_id. The server never sees
+	// the plaintext chat key.
+	EncryptedChatKey map[string]string `protobuf:"bytes,2,rep,name=encrypted_chat_key,json=encryptedChatKey,proto3" json:"encrypted_chat_key,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateChatRequest) Reset() {
@@ -144,6 +149,13 @@ func (x *CreateChatRequest) GetTargetUserId() string {
 		return x.TargetUserId
 	}
 	return ""
+}
+
+func (x *CreateChatRequest) GetEncryptedChatKey() map[string]string {
+	if x != nil {
+		return x.EncryptedChatKey
+	}
+	return nil
 }
 
 type CreateChatResponse struct {
@@ -1518,6 +1530,96 @@ func (x *GetReadStatusResponse) GetLastReadMessageId() string {
 	return ""
 }
 
+type GetChatKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChatId        string                 `protobuf:"bytes,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetChatKeyRequest) Reset() {
+	*x = GetChatKeyRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetChatKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetChatKeyRequest) ProtoMessage() {}
+
+func (x *GetChatKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetChatKeyRequest.ProtoReflect.Descriptor instead.
+func (*GetChatKeyRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *GetChatKeyRequest) GetChatId() string {
+	if x != nil {
+		return x.ChatId
+	}
+	return ""
+}
+
+type GetChatKeyResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This chat's AES key, encrypted for the requesting user with their own
+	// RSA-OAEP public key (base64).
+	EncryptedChatKey string `protobuf:"bytes,1,opt,name=encrypted_chat_key,json=encryptedChatKey,proto3" json:"encrypted_chat_key,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetChatKeyResponse) Reset() {
+	*x = GetChatKeyResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetChatKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetChatKeyResponse) ProtoMessage() {}
+
+func (x *GetChatKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetChatKeyResponse.ProtoReflect.Descriptor instead.
+func (*GetChatKeyResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *GetChatKeyResponse) GetEncryptedChatKey() string {
+	if x != nil {
+		return x.EncryptedChatKey
+	}
+	return ""
+}
+
 var File_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_chat_v1_chat_proto_rawDesc = "" +
@@ -1525,9 +1627,13 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\x12chat/v1/chat.proto\x12\achat.v1\x1a\x1cgoogle/api/annotations.proto\"\x0f\n" +
 	"\rHealthRequest\" \n" +
 	"\x0eHealthResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"9\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xde\x01\n" +
 	"\x11CreateChatRequest\x12$\n" +
-	"\x0etarget_user_id\x18\x01 \x01(\tR\ftargetUserId\"-\n" +
+	"\x0etarget_user_id\x18\x01 \x01(\tR\ftargetUserId\x12^\n" +
+	"\x12encrypted_chat_key\x18\x02 \x03(\v20.chat.v1.CreateChatRequest.EncryptedChatKeyEntryR\x10encryptedChatKey\x1aC\n" +
+	"\x15EncryptedChatKeyEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"-\n" +
 	"\x12CreateChatResponse\x12\x17\n" +
 	"\achat_id\x18\x01 \x01(\tR\x06chatId\"A\n" +
 	"\x12SendMessageRequest\x12\x17\n" +
@@ -1604,7 +1710,11 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\achat_id\x18\x01 \x01(\tR\x06chatId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"H\n" +
 	"\x15GetReadStatusResponse\x12/\n" +
-	"\x14last_read_message_id\x18\x01 \x01(\tR\x11lastReadMessageId2\xca\v\n" +
+	"\x14last_read_message_id\x18\x01 \x01(\tR\x11lastReadMessageId\",\n" +
+	"\x11GetChatKeyRequest\x12\x17\n" +
+	"\achat_id\x18\x01 \x01(\tR\x06chatId\"B\n" +
+	"\x12GetChatKeyResponse\x12,\n" +
+	"\x12encrypted_chat_key\x18\x01 \x01(\tR\x10encryptedChatKey2\xb2\f\n" +
 	"\vChatService\x12R\n" +
 	"\x06Health\x12\x16.chat.v1.HealthRequest\x1a\x17.chat.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/chat/health\x12[\n" +
 	"\n" +
@@ -1624,7 +1734,9 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"SetOffline\x12\x1a.chat.v1.SetOfflineRequest\x1a\x1b.chat.v1.SetOfflineResponse\x12K\n" +
 	"\fListContacts\x12\x1c.chat.v1.ListContactsRequest\x1a\x1d.chat.v1.ListContactsResponse\x12d\n" +
 	"\bMarkRead\x12\x18.chat.v1.MarkReadRequest\x1a\x19.chat.v1.MarkReadResponse\"#\x82\xd3\xe4\x93\x02\x1d:\x01*\"\x18/v1/chats/{chat_id}/read\x12N\n" +
-	"\rGetReadStatus\x12\x1d.chat.v1.GetReadStatusRequest\x1a\x1e.chat.v1.GetReadStatusResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1b\x06proto3"
+	"\rGetReadStatus\x12\x1d.chat.v1.GetReadStatusRequest\x1a\x1e.chat.v1.GetReadStatusResponse\x12f\n" +
+	"\n" +
+	"GetChatKey\x12\x1a.chat.v1.GetChatKeyRequest\x1a\x1b.chat.v1.GetChatKeyResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/v1/chats/{chat_id}/keyBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1b\x06proto3"
 
 var (
 	file_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -1638,7 +1750,7 @@ func file_chat_v1_chat_proto_rawDescGZIP() []byte {
 	return file_chat_v1_chat_proto_rawDescData
 }
 
-var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_chat_v1_chat_proto_goTypes = []any{
 	(*HealthRequest)(nil),               // 0: chat.v1.HealthRequest
 	(*HealthResponse)(nil),              // 1: chat.v1.HealthResponse
@@ -1672,48 +1784,54 @@ var file_chat_v1_chat_proto_goTypes = []any{
 	(*MarkReadResponse)(nil),            // 29: chat.v1.MarkReadResponse
 	(*GetReadStatusRequest)(nil),        // 30: chat.v1.GetReadStatusRequest
 	(*GetReadStatusResponse)(nil),       // 31: chat.v1.GetReadStatusResponse
+	(*GetChatKeyRequest)(nil),           // 32: chat.v1.GetChatKeyRequest
+	(*GetChatKeyResponse)(nil),          // 33: chat.v1.GetChatKeyResponse
+	nil,                                 // 34: chat.v1.CreateChatRequest.EncryptedChatKeyEntry
 }
 var file_chat_v1_chat_proto_depIdxs = []int32{
-	8,  // 0: chat.v1.GetHistoryResponse.messages:type_name -> chat.v1.Message
-	8,  // 1: chat.v1.EditMessageResponse.message:type_name -> chat.v1.Message
-	17, // 2: chat.v1.ListChatsResponse.chats:type_name -> chat.v1.ChatSummary
-	8,  // 3: chat.v1.ChatSummary.last_message:type_name -> chat.v1.Message
-	8,  // 4: chat.v1.GetMessageResponse.message:type_name -> chat.v1.Message
-	0,  // 5: chat.v1.ChatService.Health:input_type -> chat.v1.HealthRequest
-	2,  // 6: chat.v1.ChatService.CreateChat:input_type -> chat.v1.CreateChatRequest
-	4,  // 7: chat.v1.ChatService.SendMessage:input_type -> chat.v1.SendMessageRequest
-	6,  // 8: chat.v1.ChatService.GetHistory:input_type -> chat.v1.GetHistoryRequest
-	15, // 9: chat.v1.ChatService.ListChats:input_type -> chat.v1.ListChatsRequest
-	9,  // 10: chat.v1.ChatService.EditMessage:input_type -> chat.v1.EditMessageRequest
-	11, // 11: chat.v1.ChatService.DeleteMessageForAll:input_type -> chat.v1.DeleteMessageForAllRequest
-	13, // 12: chat.v1.ChatService.DeleteMessageForMe:input_type -> chat.v1.DeleteMessageForMeRequest
-	18, // 13: chat.v1.ChatService.ListMembers:input_type -> chat.v1.ListMembersRequest
-	20, // 14: chat.v1.ChatService.GetMessage:input_type -> chat.v1.GetMessageRequest
-	22, // 15: chat.v1.ChatService.GetPresence:input_type -> chat.v1.GetPresenceRequest
-	24, // 16: chat.v1.ChatService.SetOffline:input_type -> chat.v1.SetOfflineRequest
-	26, // 17: chat.v1.ChatService.ListContacts:input_type -> chat.v1.ListContactsRequest
-	28, // 18: chat.v1.ChatService.MarkRead:input_type -> chat.v1.MarkReadRequest
-	30, // 19: chat.v1.ChatService.GetReadStatus:input_type -> chat.v1.GetReadStatusRequest
-	1,  // 20: chat.v1.ChatService.Health:output_type -> chat.v1.HealthResponse
-	3,  // 21: chat.v1.ChatService.CreateChat:output_type -> chat.v1.CreateChatResponse
-	5,  // 22: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
-	7,  // 23: chat.v1.ChatService.GetHistory:output_type -> chat.v1.GetHistoryResponse
-	16, // 24: chat.v1.ChatService.ListChats:output_type -> chat.v1.ListChatsResponse
-	10, // 25: chat.v1.ChatService.EditMessage:output_type -> chat.v1.EditMessageResponse
-	12, // 26: chat.v1.ChatService.DeleteMessageForAll:output_type -> chat.v1.DeleteMessageForAllResponse
-	14, // 27: chat.v1.ChatService.DeleteMessageForMe:output_type -> chat.v1.DeleteMessageForMeResponse
-	19, // 28: chat.v1.ChatService.ListMembers:output_type -> chat.v1.ListMembersResponse
-	21, // 29: chat.v1.ChatService.GetMessage:output_type -> chat.v1.GetMessageResponse
-	23, // 30: chat.v1.ChatService.GetPresence:output_type -> chat.v1.GetPresenceResponse
-	25, // 31: chat.v1.ChatService.SetOffline:output_type -> chat.v1.SetOfflineResponse
-	27, // 32: chat.v1.ChatService.ListContacts:output_type -> chat.v1.ListContactsResponse
-	29, // 33: chat.v1.ChatService.MarkRead:output_type -> chat.v1.MarkReadResponse
-	31, // 34: chat.v1.ChatService.GetReadStatus:output_type -> chat.v1.GetReadStatusResponse
-	20, // [20:35] is the sub-list for method output_type
-	5,  // [5:20] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	34, // 0: chat.v1.CreateChatRequest.encrypted_chat_key:type_name -> chat.v1.CreateChatRequest.EncryptedChatKeyEntry
+	8,  // 1: chat.v1.GetHistoryResponse.messages:type_name -> chat.v1.Message
+	8,  // 2: chat.v1.EditMessageResponse.message:type_name -> chat.v1.Message
+	17, // 3: chat.v1.ListChatsResponse.chats:type_name -> chat.v1.ChatSummary
+	8,  // 4: chat.v1.ChatSummary.last_message:type_name -> chat.v1.Message
+	8,  // 5: chat.v1.GetMessageResponse.message:type_name -> chat.v1.Message
+	0,  // 6: chat.v1.ChatService.Health:input_type -> chat.v1.HealthRequest
+	2,  // 7: chat.v1.ChatService.CreateChat:input_type -> chat.v1.CreateChatRequest
+	4,  // 8: chat.v1.ChatService.SendMessage:input_type -> chat.v1.SendMessageRequest
+	6,  // 9: chat.v1.ChatService.GetHistory:input_type -> chat.v1.GetHistoryRequest
+	15, // 10: chat.v1.ChatService.ListChats:input_type -> chat.v1.ListChatsRequest
+	9,  // 11: chat.v1.ChatService.EditMessage:input_type -> chat.v1.EditMessageRequest
+	11, // 12: chat.v1.ChatService.DeleteMessageForAll:input_type -> chat.v1.DeleteMessageForAllRequest
+	13, // 13: chat.v1.ChatService.DeleteMessageForMe:input_type -> chat.v1.DeleteMessageForMeRequest
+	18, // 14: chat.v1.ChatService.ListMembers:input_type -> chat.v1.ListMembersRequest
+	20, // 15: chat.v1.ChatService.GetMessage:input_type -> chat.v1.GetMessageRequest
+	22, // 16: chat.v1.ChatService.GetPresence:input_type -> chat.v1.GetPresenceRequest
+	24, // 17: chat.v1.ChatService.SetOffline:input_type -> chat.v1.SetOfflineRequest
+	26, // 18: chat.v1.ChatService.ListContacts:input_type -> chat.v1.ListContactsRequest
+	28, // 19: chat.v1.ChatService.MarkRead:input_type -> chat.v1.MarkReadRequest
+	30, // 20: chat.v1.ChatService.GetReadStatus:input_type -> chat.v1.GetReadStatusRequest
+	32, // 21: chat.v1.ChatService.GetChatKey:input_type -> chat.v1.GetChatKeyRequest
+	1,  // 22: chat.v1.ChatService.Health:output_type -> chat.v1.HealthResponse
+	3,  // 23: chat.v1.ChatService.CreateChat:output_type -> chat.v1.CreateChatResponse
+	5,  // 24: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
+	7,  // 25: chat.v1.ChatService.GetHistory:output_type -> chat.v1.GetHistoryResponse
+	16, // 26: chat.v1.ChatService.ListChats:output_type -> chat.v1.ListChatsResponse
+	10, // 27: chat.v1.ChatService.EditMessage:output_type -> chat.v1.EditMessageResponse
+	12, // 28: chat.v1.ChatService.DeleteMessageForAll:output_type -> chat.v1.DeleteMessageForAllResponse
+	14, // 29: chat.v1.ChatService.DeleteMessageForMe:output_type -> chat.v1.DeleteMessageForMeResponse
+	19, // 30: chat.v1.ChatService.ListMembers:output_type -> chat.v1.ListMembersResponse
+	21, // 31: chat.v1.ChatService.GetMessage:output_type -> chat.v1.GetMessageResponse
+	23, // 32: chat.v1.ChatService.GetPresence:output_type -> chat.v1.GetPresenceResponse
+	25, // 33: chat.v1.ChatService.SetOffline:output_type -> chat.v1.SetOfflineResponse
+	27, // 34: chat.v1.ChatService.ListContacts:output_type -> chat.v1.ListContactsResponse
+	29, // 35: chat.v1.ChatService.MarkRead:output_type -> chat.v1.MarkReadResponse
+	31, // 36: chat.v1.ChatService.GetReadStatus:output_type -> chat.v1.GetReadStatusResponse
+	33, // 37: chat.v1.ChatService.GetChatKey:output_type -> chat.v1.GetChatKeyResponse
+	22, // [22:38] is the sub-list for method output_type
+	6,  // [6:22] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_chat_v1_chat_proto_init() }
@@ -1727,7 +1845,7 @@ func file_chat_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_v1_chat_proto_rawDesc), len(file_chat_v1_chat_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
