@@ -238,6 +238,9 @@ message RequestPasswordResetResponse {
 message ResetPasswordRequest {
   string token = 1;
   string new_password = 2;
+  string public_key = 3;
+  string wrapped_private_key = 4;
+  string key_wrap_salt = 5;
 }
 
 message ResetPasswordResponse {

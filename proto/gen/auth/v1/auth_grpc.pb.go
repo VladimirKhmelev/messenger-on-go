@@ -60,9 +60,6 @@ type AuthServiceClient interface {
 	UpdateDisplayName(ctx context.Context, in *UpdateDisplayNameRequest, opts ...grpc.CallOption) (*UpdateDisplayNameResponse, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
 	GetPublicKey(ctx context.Context, in *GetPublicKeyRequest, opts ...grpc.CallOption) (*GetPublicKeyResponse, error)
-	// Returns the caller's own RSA private key, still encrypted with their
-	// password-derived wrapping key. Any device calls this after login to
-	// recover the same identity keypair — the server never sees it unwrapped.
 	GetWrappedPrivateKey(ctx context.Context, in *GetWrappedPrivateKeyRequest, opts ...grpc.CallOption) (*GetWrappedPrivateKeyResponse, error)
 }
 
@@ -275,9 +272,6 @@ type AuthServiceServer interface {
 	UpdateDisplayName(context.Context, *UpdateDisplayNameRequest) (*UpdateDisplayNameResponse, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
 	GetPublicKey(context.Context, *GetPublicKeyRequest) (*GetPublicKeyResponse, error)
-	// Returns the caller's own RSA private key, still encrypted with their
-	// password-derived wrapping key. Any device calls this after login to
-	// recover the same identity keypair — the server never sees it unwrapped.
 	GetWrappedPrivateKey(context.Context, *GetWrappedPrivateKeyRequest) (*GetWrappedPrivateKeyResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }

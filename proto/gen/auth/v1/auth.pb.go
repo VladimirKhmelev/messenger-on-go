@@ -103,23 +103,16 @@ func (x *HealthResponse) GetOk() bool {
 }
 
 type RegisterRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Email       string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Password    string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	Tag         string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	DisplayName string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	// RSA-OAEP public key (SPKI, base64), generated client-side.
-	PublicKey string `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
-	// The matching RSA private key (PKCS8, base64), AES-GCM-encrypted
-	// client-side with a key derived from `password` via PBKDF2. The server
-	// stores this ciphertext as-is and can't decrypt it — see key_wrap_salt.
-	WrappedPrivateKey string `protobuf:"bytes,6,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
-	// Random salt (base64) used to derive the wrapping key from the password.
-	// Returned back via GetWrappedPrivateKey so any device can re-derive the
-	// same wrapping key from the password and recover the private key.
-	KeyWrapSalt   string `protobuf:"bytes,7,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Email             string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Password          string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	Tag               string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	DisplayName       string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	PublicKey         string                 `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string                 `protobuf:"bytes,6,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,7,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *RegisterRequest) Reset() {
@@ -1090,11 +1083,21 @@ func (*RequestPasswordResetResponse) Descriptor() ([]byte, []int) {
 }
 
 type ResetPasswordRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Token       string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	NewPassword string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	// The old private key is unrecoverable — resetting via email means the
+	// user doesn't know the password that wrapped it, so there is no key to
+	// re-wrap. The client generates a brand-new RSA-OAEP keypair instead and
+	// wraps it under new_password; old chats become unreadable to this user
+	// (their encrypted_chat_key entries were sealed under the old public key),
+	// but the account is left in a working state for new ones rather than
+	// permanently stuck with a wrapped blob no password can ever open.
+	PublicKey         string `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string `protobuf:"bytes,4,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string `protobuf:"bytes,5,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ResetPasswordRequest) Reset() {
@@ -1137,6 +1140,27 @@ func (x *ResetPasswordRequest) GetToken() string {
 func (x *ResetPasswordRequest) GetNewPassword() string {
 	if x != nil {
 		return x.NewPassword
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetWrappedPrivateKey() string {
+	if x != nil {
+		return x.WrappedPrivateKey
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetKeyWrapSalt() string {
+	if x != nil {
+		return x.KeyWrapSalt
 	}
 	return ""
 }
@@ -1549,14 +1573,11 @@ func (x *UpdateDisplayNameResponse) GetDisplayName() string {
 }
 
 type ChangePasswordRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	OldPassword string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
-	NewPassword string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
-	// The existing private key, re-encrypted client-side with a wrapping key
-	// derived from new_password (RSA keypair itself is unchanged — only its
-	// wrapping is, since the wrapping key depends on the password).
-	WrappedPrivateKey string `protobuf:"bytes,3,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
-	KeyWrapSalt       string `protobuf:"bytes,4,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	OldPassword       string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
+	NewPassword       string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	WrappedPrivateKey string                 `protobuf:"bytes,3,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,4,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -1897,10 +1918,14 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x13VerifyEmailResponse\"3\n" +
 	"\x1bRequestPasswordResetRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"\x1e\n" +
-	"\x1cRequestPasswordResetResponse\"O\n" +
+	"\x1cRequestPasswordResetResponse\"\xc2\x01\n" +
 	"\x14ResetPasswordRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
-	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x17\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x03 \x01(\tR\tpublicKey\x12.\n" +
+	"\x13wrapped_private_key\x18\x04 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
+	"\rkey_wrap_salt\x18\x05 \x01(\tR\vkeyWrapSalt\"\x17\n" +
 	"\x15ResetPasswordResponse\",\n" +
 	"\x16LoginWithGitHubRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\"a\n" +
