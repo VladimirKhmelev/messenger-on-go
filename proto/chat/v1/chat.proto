@@ -80,6 +80,19 @@ service ChatService {
       get: "/v1/chats/{chat_id}/key"
     };
   }
+
+  rpc ListChatKeys(ListChatKeysRequest) returns (ListChatKeysResponse) {
+    option (google.api.http) = {
+      get: "/v1/chats/{chat_id}/keys"
+    };
+  }
+
+  rpc UpdateChatKey(UpdateChatKeyRequest) returns (UpdateChatKeyResponse) {
+    option (google.api.http) = {
+      put: "/v1/chats/{chat_id}/keys/{user_id}"
+      body: "*"
+    };
+  }
 }
 
 message HealthRequest {
@@ -92,6 +105,7 @@ message HealthResponse {
 message CreateChatRequest {
   string target_user_id = 1;
   map<string, string> encrypted_chat_key = 2;
+  map<string, string> wrapped_for_public_key = 3;
 }
 
 message CreateChatResponse {
@@ -228,4 +242,28 @@ message GetChatKeyRequest {
 
 message GetChatKeyResponse {
   string encrypted_chat_key = 1;
+}
+
+message ListChatKeysRequest {
+  string chat_id = 1;
+}
+
+message MemberChatKey {
+  string user_id = 1;
+  string encrypted_chat_key = 2;
+  string wrapped_for_public_key = 3;
+}
+
+message ListChatKeysResponse {
+  repeated MemberChatKey member_keys = 1;
+}
+
+message UpdateChatKeyRequest {
+  string chat_id = 1;
+  string user_id = 2;
+  string encrypted_chat_key = 3;
+  string wrapped_for_public_key = 4;
+}
+
+message UpdateChatKeyResponse {
 }
