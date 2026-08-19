@@ -43,7 +43,7 @@ func TestAuthService_UploadAvatar_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestAuthService_UploadAvatar_AcceptsJPEG(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestAuthService_UploadAvatar_RejectsNonImage(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestAuthService_UploadAvatar_RejectsTooLarge(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestAuthService_DeleteAvatar_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
