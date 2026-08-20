@@ -17,7 +17,7 @@ var errPublishFailed = errors.New("publish failed")
 func TestChatService_SendMessage_PublishesMessageCreated(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	publisher := newFakeEventPublisher()
 	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker())
@@ -39,7 +39,7 @@ func TestChatService_SendMessage_PublishesMessageCreated(t *testing.T) {
 func TestChatService_SendMessage_EventPublishFailureDoesNotFailSend(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), &failingEventPublisher{}, newFakePresenceChecker())
 

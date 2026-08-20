@@ -10,6 +10,7 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
+	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
 type fakeChatRepository struct {
@@ -30,6 +31,33 @@ func newFakeChatRepository() *fakeChatRepository {
 	}
 }
 
+func chatKeys(ids ...string) map[string]repository.MemberChatKey {
+	keys := make(map[string]repository.MemberChatKey, len(ids))
+	for _, id := range ids {
+		keys[id] = repository.MemberChatKey{
+			EncryptedChatKey:    "encrypted-key-" + id,
+			WrappedForPublicKey: "public-key-" + id,
+		}
+	}
+	return keys
+}
+
+func encryptedChatKeysOnly(keys map[string]repository.MemberChatKey) map[string]string {
+	out := make(map[string]string, len(keys))
+	for id, k := range keys {
+		out[id] = k.EncryptedChatKey
+	}
+	return out
+}
+
+func wrappedForPublicKeysOnly(keys map[string]repository.MemberChatKey) map[string]string {
+	out := make(map[string]string, len(keys))
+	for id, k := range keys {
+		out[id] = k.WrappedForPublicKey
+	}
+	return out
+}
+
 func (r *fakeChatRepository) project(m *domain.Message) *domain.Message {
 	projected := *m
 	for _, e := range r.events[m.ID] {
@@ -46,14 +74,35 @@ func (r *fakeChatRepository) project(m *domain.Message) *domain.Message {
 	return &projected
 }
 
-func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, memberIDs []string) error {
+func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, chatKeyByUserID map[string]repository.MemberChatKey) error {
 	r.chats[chat.ID] = chat
-	for _, id := range memberIDs {
+	for id, key := range chatKeyByUserID {
 		r.members[chat.ID] = append(r.members[chat.ID], &domain.ChatMember{
 			ChatID: chat.ID, UserID: id, JoinedAt: chat.CreatedAt,
+			EncryptedChatKey: key.EncryptedChatKey, WrappedForPublicKey: key.WrappedForPublicKey,
 		})
 	}
 	return nil
+}
+
+func (r *fakeChatRepository) UpdateChatKey(_ context.Context, chatID, userID, encryptedChatKey, wrappedForPublicKey string) error {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			m.EncryptedChatKey = encryptedChatKey
+			m.WrappedForPublicKey = wrappedForPublicKey
+			return nil
+		}
+	}
+	return domain.ErrNotChatMember
+}
+
+func (r *fakeChatRepository) GetChatKeyForUser(_ context.Context, chatID, userID string) (string, error) {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			return m.EncryptedChatKey, nil
+		}
+	}
+	return "", domain.ErrNotChatMember
 }
 
 func (r *fakeChatRepository) GetChat(_ context.Context, chatID string) (*domain.Chat, error) {
@@ -255,7 +304,7 @@ func TestChatService_CreateChat_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"), newFakeEventPublisher(), newFakePresenceChecker())
 
-	chat, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
+	chat, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b", encryptedChatKeysOnly(chatKeys("user-a", "user-b")), wrappedForPublicKeysOnly(chatKeys("user-a", "user-b")))
 	if err != nil {
 		t.Fatalf("CreateChat() unexpected error: %v", err)
 	}
@@ -273,12 +322,12 @@ func TestChatService_CreateChat_Idempotent(t *testing.T) {
 	repo := newFakeChatRepository()
 	svc := NewChatService(repo, newFakeAuthClient("user-a", "user-b"), newFakeEventPublisher(), newFakePresenceChecker())
 
-	first, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
+	first, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b", encryptedChatKeysOnly(chatKeys("user-a", "user-b")), wrappedForPublicKeysOnly(chatKeys("user-a", "user-b")))
 	if err != nil {
 		t.Fatalf("CreateChat() unexpected error: %v", err)
 	}
 
-	second, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b")
+	second, err := svc.CreateChat(context.Background(), "token", "user-a", "user-b", encryptedChatKeysOnly(chatKeys("user-a", "user-b")), wrappedForPublicKeysOnly(chatKeys("user-a", "user-b")))
 	if err != nil {
 		t.Fatalf("CreateChat() second call unexpected error: %v", err)
 	}
@@ -292,7 +341,7 @@ func TestChatService_CreateChat_WithSelf(t *testing.T) {
 	repo := newFakeChatRepository()
 	svc := NewChatService(repo, newFakeAuthClient("user-a"), newFakeEventPublisher(), newFakePresenceChecker())
 
-	_, err := svc.CreateChat(context.Background(), "token", "user-a", "user-a")
+	_, err := svc.CreateChat(context.Background(), "token", "user-a", "user-a", encryptedChatKeysOnly(chatKeys("user-a")), wrappedForPublicKeysOnly(chatKeys("user-a")))
 	if !errors.Is(err, domain.ErrCannotChatWithSelf) {
 		t.Errorf("CreateChat() error = %v, want %v", err, domain.ErrCannotChatWithSelf)
 	}
@@ -302,7 +351,7 @@ func TestChatService_CreateChat_TargetNotFound(t *testing.T) {
 	repo := newFakeChatRepository()
 	svc := NewChatService(repo, newFakeAuthClient("user-a"), newFakeEventPublisher(), newFakePresenceChecker())
 
-	_, err := svc.CreateChat(context.Background(), "token", "user-a", "missing-user")
+	_, err := svc.CreateChat(context.Background(), "token", "user-a", "missing-user", encryptedChatKeysOnly(chatKeys("user-a", "missing-user")), wrappedForPublicKeysOnly(chatKeys("user-a", "missing-user")))
 	if !errors.Is(err, domain.ErrTargetUserNotFound) {
 		t.Errorf("CreateChat() error = %v, want %v", err, domain.ErrTargetUserNotFound)
 	}
@@ -311,7 +360,7 @@ func TestChatService_CreateChat_TargetNotFound(t *testing.T) {
 func TestChatService_SendMessage_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -327,7 +376,7 @@ func TestChatService_SendMessage_Success(t *testing.T) {
 func TestChatService_SendMessage_NotMember(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -340,7 +389,7 @@ func TestChatService_SendMessage_NotMember(t *testing.T) {
 func TestChatService_SendMessage_Empty(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -353,7 +402,7 @@ func TestChatService_SendMessage_Empty(t *testing.T) {
 func TestChatService_GetHistory_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -373,7 +422,7 @@ func TestChatService_GetHistory_Success(t *testing.T) {
 func TestChatService_GetHistory_NotMember(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -386,9 +435,9 @@ func TestChatService_GetHistory_NotMember(t *testing.T) {
 func TestChatService_MarkRead_MessageFromDifferentChat(t *testing.T) {
 	repo := newFakeChatRepository()
 	chatA := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chatA, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chatA, chatKeys("user-a", "user-b"))
 	chatB := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chatB, []string{"user-a", "user-c"})
+	_ = repo.CreateChat(context.Background(), chatB, chatKeys("user-a", "user-c"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -406,7 +455,7 @@ func TestChatService_MarkRead_MessageFromDifferentChat(t *testing.T) {
 func TestChatService_ListMembers_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -471,7 +520,7 @@ func TestChatService_SetOffline(t *testing.T) {
 func TestChatService_EditMessage_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	publisher := newFakeEventPublisher()
 	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker())
@@ -512,7 +561,7 @@ func TestChatService_EditMessage_Success(t *testing.T) {
 func TestChatService_EditMessage_NotSender(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
@@ -530,7 +579,7 @@ func TestChatService_EditMessage_NotSender(t *testing.T) {
 func TestChatService_DeleteMessageForAll_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	publisher := newFakeEventPublisher()
 	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker())
@@ -567,7 +616,7 @@ func TestChatService_DeleteMessageForAll_Success(t *testing.T) {
 func TestChatService_DeleteMessageForMe_NotChatMember(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
-	_ = repo.CreateChat(context.Background(), chat, []string{"user-a", "user-b"})
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker())
 
