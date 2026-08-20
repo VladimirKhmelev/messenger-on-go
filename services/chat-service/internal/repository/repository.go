@@ -7,14 +7,21 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 )
 
+type MemberChatKey struct {
+	EncryptedChatKey    string
+	WrappedForPublicKey string
+}
+
 type ChatRepository interface {
-	CreateChat(ctx context.Context, chat *domain.Chat, memberIDs []string) error
+	CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]MemberChatKey) error
 	GetChat(ctx context.Context, chatID string) (*domain.Chat, error)
 	FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error)
 	IsMember(ctx context.Context, chatID, userID string) (bool, error)
 	ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error)
 	ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error)
 	MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error
+	GetChatKeyForUser(ctx context.Context, chatID, userID string) (string, error)
+	UpdateChatKey(ctx context.Context, chatID, userID, encryptedChatKey, wrappedForPublicKey string) error
 
 	CreateMessage(ctx context.Context, message *domain.Message) error
 	ListMessages(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error)
