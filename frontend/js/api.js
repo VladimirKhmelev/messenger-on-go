@@ -49,10 +49,10 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
 
 
 export const authApi = {
-  register: (email, password, tag, displayName) =>
+  register: (email, password, tag, displayName, publicKey, wrappedPrivateKey, keyWrapSalt) =>
     request('/v1/auth/register', {
       method: 'POST',
-      body: { email, password, tag, displayName },
+      body: { email, password, tag, displayName, publicKey, wrappedPrivateKey, keyWrapSalt },
       auth: false,
     }),
 
@@ -72,10 +72,10 @@ export const authApi = {
   requestPasswordReset: (email) =>
     request('/v1/auth/password-reset/request', { method: 'POST', body: { email }, auth: false }),
 
-  resetPassword: (token, newPassword) =>
+  resetPassword: (token, newPassword, publicKey, wrappedPrivateKey, keyWrapSalt) =>
     request('/v1/auth/password-reset/confirm', {
       method: 'POST',
-      body: { token, newPassword },
+      body: { token, newPassword, publicKey, wrappedPrivateKey, keyWrapSalt },
       auth: false,
     }),
 
@@ -93,8 +93,15 @@ export const authApi = {
   updateDisplayName: (displayName) =>
     request('/v1/users/me/display-name', { method: 'PATCH', body: { displayName } }),
 
-  changePassword: (oldPassword, newPassword) =>
-    request('/v1/users/me/password', { method: 'POST', body: { oldPassword, newPassword } }),
+  changePassword: (oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt) =>
+    request('/v1/users/me/password', {
+      method: 'POST',
+      body: { oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt },
+    }),
+
+  getPublicKey: (userId) => request(`/v1/users/${encodeURIComponent(userId)}/public-key`),
+
+  getWrappedPrivateKey: () => request('/v1/users/me/wrapped-private-key'),
 
   uploadAvatar: async (file) => {
     const response = await fetch('/v1/users/me/avatar', {
@@ -114,8 +121,18 @@ export const authApi = {
 export const chatApi = {
   listChats: () => request('/v1/chats'),
 
-  createChat: (targetUserId) =>
-    request('/v1/chats', { method: 'POST', body: { targetUserId } }),
+  createChat: (targetUserId, encryptedChatKey, wrappedForPublicKey) =>
+    request('/v1/chats', { method: 'POST', body: { targetUserId, encryptedChatKey, wrappedForPublicKey } }),
+
+  getChatKey: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/key`),
+
+  listChatKeys: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/keys`),
+
+  updateChatKey: (chatId, userId, encryptedChatKey, wrappedForPublicKey) =>
+    request(`/v1/chats/${encodeURIComponent(chatId)}/keys/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      body: { encryptedChatKey, wrappedForPublicKey },
+    }),
 
   sendMessage: (chatId, text) =>
     request(`/v1/chats/${encodeURIComponent(chatId)}/messages`, { method: 'POST', body: { text } }),

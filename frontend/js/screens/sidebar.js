@@ -112,6 +112,8 @@ function renderChatRow(chat) {
   const lastPreview = lastMessage ? escapeHtml(lastMessage.text) : '';
   const isSelected = chat.id === state.selectedChatId;
   const dotColor = chat.online ? 'var(--dot-online)' : 'var(--dot-offline)';
+  const unreadBadge =
+    chat.unreadCount > 0 ? `<div class="chat-row-unread-badge">${chat.unreadCount}</div>` : '';
 
   return `
     <button class="chat-row" data-chat-id="${chat.id}" data-selected="${isSelected}">
@@ -125,6 +127,7 @@ function renderChatRow(chat) {
         </div>
         <div class="chat-row-preview">${lastPreview}</div>
       </div>
+      ${unreadBadge}
     </button>
   `;
 }

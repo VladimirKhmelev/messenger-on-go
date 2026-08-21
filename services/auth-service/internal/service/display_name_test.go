@@ -12,7 +12,7 @@ func TestAuthService_UpdateDisplayName_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Old Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Old Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestAuthService_UpdateDisplayName_TrimsWhitespace(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Old Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Old Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestAuthService_UpdateDisplayName_Invalid(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Old Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Old Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -71,11 +71,11 @@ func TestAuthService_UpdateDisplayName_NotUniqueAcrossUsers(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	_, err := svc.Register(context.Background(), "a@example.com", "alice", "Same Name", "abcd1234")
+	_, err := svc.Register(context.Background(), "a@example.com", "alice", "Same Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
-	bob, err := svc.Register(context.Background(), "b@example.com", "bob", "Bob", "abcd1234")
+	bob, err := svc.Register(context.Background(), "b@example.com", "bob", "Bob", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}

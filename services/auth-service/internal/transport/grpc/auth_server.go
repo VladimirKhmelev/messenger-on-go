@@ -24,7 +24,7 @@ func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer {
 }
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
-	user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword())
+	user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -59,6 +59,7 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
 		Email:       user.Email,
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,
+		PublicKey:   user.PublicKey,
 	}, nil
 }
 
@@ -73,6 +74,7 @@ func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDReq
 		Email:       user.Email,
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,
+		PublicKey:   user.PublicKey,
 	}, nil
 }
 
@@ -150,7 +152,7 @@ func (s *AuthServer) RequestPasswordReset(ctx context.Context, req *authv1.Reque
 }
 
 func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) {
-	if err := s.auth.ResetPassword(ctx, req.GetToken(), req.GetNewPassword()); err != nil {
+	if err := s.auth.ResetPassword(ctx, req.GetToken(), req.GetNewPassword(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt()); err != nil {
 		return nil, toGRPCError(err)
 	}
 
@@ -214,11 +216,34 @@ func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePassw
 		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
 	}
 
-	if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword()); err != nil {
+	if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt()); err != nil {
 		return nil, toGRPCError(err)
 	}
 
 	return &authv1.ChangePasswordResponse{}, nil
+}
+
+func (s *AuthServer) GetPublicKey(ctx context.Context, req *authv1.GetPublicKeyRequest) (*authv1.GetPublicKeyResponse, error) {
+	publicKey, err := s.auth.GetPublicKey(ctx, req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.GetPublicKeyResponse{PublicKey: publicKey}, nil
+}
+
+func (s *AuthServer) GetWrappedPrivateKey(ctx context.Context, req *authv1.GetWrappedPrivateKeyRequest) (*authv1.GetWrappedPrivateKeyResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	wrappedPrivateKey, keyWrapSalt, err := s.auth.GetWrappedPrivateKey(ctx, userID)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.GetWrappedPrivateKeyResponse{WrappedPrivateKey: wrappedPrivateKey, KeyWrapSalt: keyWrapSalt}, nil
 }
 
 func toGRPCError(err error) error {
@@ -228,7 +253,8 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrInvalidDisplayName),
 		errors.Is(err, domain.ErrWeakPassword),
 		errors.Is(err, domain.ErrSamePassword),
-		errors.Is(err, domain.ErrSearchQueryTooShort):
+		errors.Is(err, domain.ErrSearchQueryTooShort),
+		errors.Is(err, domain.ErrInvalidPublicKey):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailTaken),
 		errors.Is(err, domain.ErrTagTaken):
@@ -239,7 +265,8 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrInvalidVerificationCode),
 		errors.Is(err, domain.ErrOAuthNoVerifiedEmail):
 		return status.Error(codes.Unauthenticated, err.Error())
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, domain.ErrUserNotFound),
+		errors.Is(err, domain.ErrPublicKeyNotSet):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrTooManyAttempts):
 		return status.Error(codes.ResourceExhausted, err.Error())

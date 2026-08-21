@@ -35,6 +35,8 @@ const (
 	AuthService_CheckTagAvailable_FullMethodName    = "/auth.v1.AuthService/CheckTagAvailable"
 	AuthService_UpdateDisplayName_FullMethodName    = "/auth.v1.AuthService/UpdateDisplayName"
 	AuthService_ChangePassword_FullMethodName       = "/auth.v1.AuthService/ChangePassword"
+	AuthService_GetPublicKey_FullMethodName         = "/auth.v1.AuthService/GetPublicKey"
+	AuthService_GetWrappedPrivateKey_FullMethodName = "/auth.v1.AuthService/GetWrappedPrivateKey"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -57,6 +59,8 @@ type AuthServiceClient interface {
 	CheckTagAvailable(ctx context.Context, in *CheckTagAvailableRequest, opts ...grpc.CallOption) (*CheckTagAvailableResponse, error)
 	UpdateDisplayName(ctx context.Context, in *UpdateDisplayNameRequest, opts ...grpc.CallOption) (*UpdateDisplayNameResponse, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
+	GetPublicKey(ctx context.Context, in *GetPublicKeyRequest, opts ...grpc.CallOption) (*GetPublicKeyResponse, error)
+	GetWrappedPrivateKey(ctx context.Context, in *GetWrappedPrivateKeyRequest, opts ...grpc.CallOption) (*GetWrappedPrivateKeyResponse, error)
 }
 
 type authServiceClient struct {
@@ -227,6 +231,26 @@ func (c *authServiceClient) ChangePassword(ctx context.Context, in *ChangePasswo
 	return out, nil
 }
 
+func (c *authServiceClient) GetPublicKey(ctx context.Context, in *GetPublicKeyRequest, opts ...grpc.CallOption) (*GetPublicKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPublicKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetPublicKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetWrappedPrivateKey(ctx context.Context, in *GetWrappedPrivateKeyRequest, opts ...grpc.CallOption) (*GetWrappedPrivateKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWrappedPrivateKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetWrappedPrivateKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -247,6 +271,8 @@ type AuthServiceServer interface {
 	CheckTagAvailable(context.Context, *CheckTagAvailableRequest) (*CheckTagAvailableResponse, error)
 	UpdateDisplayName(context.Context, *UpdateDisplayNameRequest) (*UpdateDisplayNameResponse, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
+	GetPublicKey(context.Context, *GetPublicKeyRequest) (*GetPublicKeyResponse, error)
+	GetWrappedPrivateKey(context.Context, *GetWrappedPrivateKeyRequest) (*GetWrappedPrivateKeyResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -304,6 +330,12 @@ func (UnimplementedAuthServiceServer) UpdateDisplayName(context.Context, *Update
 }
 func (UnimplementedAuthServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
+}
+func (UnimplementedAuthServiceServer) GetPublicKey(context.Context, *GetPublicKeyRequest) (*GetPublicKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPublicKey not implemented")
+}
+func (UnimplementedAuthServiceServer) GetWrappedPrivateKey(context.Context, *GetWrappedPrivateKeyRequest) (*GetWrappedPrivateKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetWrappedPrivateKey not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -614,6 +646,42 @@ func _AuthService_ChangePassword_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_GetPublicKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPublicKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetPublicKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetPublicKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetPublicKey(ctx, req.(*GetPublicKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetWrappedPrivateKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWrappedPrivateKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetWrappedPrivateKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetWrappedPrivateKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetWrappedPrivateKey(ctx, req.(*GetWrappedPrivateKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -684,6 +752,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangePassword",
 			Handler:    _AuthService_ChangePassword_Handler,
+		},
+		{
+			MethodName: "GetPublicKey",
+			Handler:    _AuthService_GetPublicKey_Handler,
+		},
+		{
+			MethodName: "GetWrappedPrivateKey",
+			Handler:    _AuthService_GetWrappedPrivateKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

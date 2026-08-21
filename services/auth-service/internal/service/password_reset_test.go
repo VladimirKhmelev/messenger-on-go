@@ -68,7 +68,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 		t.Fatal("no reset token was stored")
 	}
 
-	if err := svc.ResetPassword(context.Background(), token, "newpass1"); err != nil {
+	if err := svc.ResetPassword(context.Background(), token, "newpass1", "test-public-key", "test-wrapped-key", "test-salt"); err != nil {
 		t.Fatalf("ResetPassword() unexpected error: %v", err)
 	}
 
@@ -93,11 +93,11 @@ func TestAuthService_ResetPassword_TokenIsSingleUse(t *testing.T) {
 		t.Fatalf("GenerateAndStore() unexpected error: %v", err)
 	}
 
-	if err := svc.ResetPassword(context.Background(), token, "newpass1"); err != nil {
+	if err := svc.ResetPassword(context.Background(), token, "newpass1", "test-public-key", "test-wrapped-key", "test-salt"); err != nil {
 		t.Fatalf("first ResetPassword() unexpected error: %v", err)
 	}
 
-	err = svc.ResetPassword(context.Background(), token, "anotherpass1")
+	err = svc.ResetPassword(context.Background(), token, "anotherpass1", "test-public-key", "test-wrapped-key", "test-salt")
 	if !errors.Is(err, domain.ErrInvalidToken) {
 		t.Errorf("second ResetPassword() error = %v, want %v", err, domain.ErrInvalidToken)
 	}
@@ -107,7 +107,7 @@ func TestAuthService_ResetPassword_InvalidToken(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	err := svc.ResetPassword(context.Background(), "not-a-real-token", "newpass1")
+	err := svc.ResetPassword(context.Background(), "not-a-real-token", "newpass1", "test-public-key", "test-wrapped-key", "test-salt")
 	if !errors.Is(err, domain.ErrInvalidToken) {
 		t.Errorf("ResetPassword() error = %v, want %v", err, domain.ErrInvalidToken)
 	}
@@ -126,7 +126,7 @@ func TestAuthService_ResetPassword_WeakPassword(t *testing.T) {
 		t.Fatalf("GenerateAndStore() unexpected error: %v", err)
 	}
 
-	err = svc.ResetPassword(context.Background(), token, "weak")
+	err = svc.ResetPassword(context.Background(), token, "weak", "test-public-key", "test-wrapped-key", "test-salt")
 	if !errors.Is(err, domain.ErrWeakPassword) {
 		t.Errorf("ResetPassword() error = %v, want %v", err, domain.ErrWeakPassword)
 	}

@@ -24,7 +24,7 @@ func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) {
 	return &PostgresChatRepository{conn: conn}, nil
 }
 
-func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, memberIDs []string) error {
+func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]MemberChatKey) error {
 	tx, err := r.conn.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -35,10 +35,11 @@ func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Ch
 		return err
 	}
 
-	for _, memberID := range memberIDs {
+	for memberID, key := range chatKeyByUserID {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO chat_members (chat_id, user_id, joined_at) VALUES ($1, $2, $3)`,
-			chat.ID, memberID, chat.CreatedAt,
+			INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key)
+			VALUES ($1, $2, $3, $4, $5)`,
+			chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey,
 		); err != nil {
 			return err
 		}
@@ -89,7 +90,7 @@ func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID st
 func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) {
 	var members []*domain.ChatMember
 	err := r.conn.SelectContext(ctx, &members, `
-		SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at
+		SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at, encrypted_chat_key, wrapped_for_public_key
 		FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
 		chatID,
 	)
@@ -97,6 +98,40 @@ func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string)
 		return nil, err
 	}
 	return members, nil
+}
+
+func (r *PostgresChatRepository) UpdateChatKey(ctx context.Context, chatID, userID, encryptedChatKey, wrappedForPublicKey string) error {
+	result, err := r.conn.ExecContext(ctx, `
+		UPDATE chat_members SET encrypted_chat_key = $1, wrapped_for_public_key = $2
+		WHERE chat_id = $3 AND user_id = $4`,
+		encryptedChatKey, wrappedForPublicKey, chatID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrNotChatMember
+	}
+	return nil
+}
+
+func (r *PostgresChatRepository) GetChatKeyForUser(ctx context.Context, chatID, userID string) (string, error) {
+	var encryptedChatKey string
+	err := r.conn.GetContext(ctx, &encryptedChatKey, `
+		SELECT encrypted_chat_key FROM chat_members WHERE chat_id = $1 AND user_id = $2`,
+		chatID, userID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", domain.ErrNotChatMember
+	}
+	if err != nil {
+		return "", err
+	}
+	return encryptedChatKey, nil
 }
 
 func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error {

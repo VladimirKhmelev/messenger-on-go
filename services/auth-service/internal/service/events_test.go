@@ -17,7 +17,7 @@ func TestAuthService_Register_PublishesUserRegistered(t *testing.T) {
 	publisher := newFakeEventPublisher()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), publisher, newFakePasswordChangeTracker())
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestAuthService_Register_EventPublishFailureDoesNotFailRegistration(t *test
 	publisher := &failingEventPublisher{}
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), publisher, newFakePasswordChangeTracker())
 
-	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234")
+	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v, want nil (event publish failures must not fail registration)", err)
 	}
@@ -56,7 +56,7 @@ func TestAuthService_ResetPassword_PublishesUserPasswordReset(t *testing.T) {
 		t.Fatalf("GenerateAndStore() unexpected error: %v", err)
 	}
 
-	if err := svc.ResetPassword(context.Background(), token, "newpass1"); err != nil {
+	if err := svc.ResetPassword(context.Background(), token, "newpass1", "test-public-key", "test-wrapped-key", "test-salt"); err != nil {
 		t.Fatalf("ResetPassword() unexpected error: %v", err)
 	}
 

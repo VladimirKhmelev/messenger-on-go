@@ -38,7 +38,7 @@ func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatReque
 		return nil, err
 	}
 
-	chat, err := s.chat.CreateChat(ctx, bearerToken, requesterID, req.GetTargetUserId())
+	chat, err := s.chat.CreateChat(ctx, bearerToken, requesterID, req.GetTargetUserId(), req.GetEncryptedChatKey(), req.GetWrappedForPublicKey())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -187,6 +187,56 @@ func (s *ChatServer) GetReadStatus(ctx context.Context, req *chatv1.GetReadStatu
 	return &chatv1.GetReadStatusResponse{LastReadMessageId: lastReadMessageID}, nil
 }
 
+func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyRequest) (*chatv1.GetChatKeyResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	encryptedChatKey, err := s.chat.GetChatKey(ctx, req.GetChatId(), requesterID)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.GetChatKeyResponse{EncryptedChatKey: encryptedChatKey}, nil
+}
+
+func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysRequest) (*chatv1.ListChatKeysResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	members, err := s.chat.ListChatKeys(ctx, req.GetChatId(), requesterID)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	memberKeys := make([]*chatv1.MemberChatKey, 0, len(members))
+	for _, m := range members {
+		memberKeys = append(memberKeys, &chatv1.MemberChatKey{
+			UserId:              m.UserID,
+			EncryptedChatKey:    m.EncryptedChatKey,
+			WrappedForPublicKey: m.WrappedForPublicKey,
+		})
+	}
+
+	return &chatv1.ListChatKeysResponse{MemberKeys: memberKeys}, nil
+}
+
+func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKeyRequest) (*chatv1.UpdateChatKeyResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.UpdateChatKey(ctx, req.GetChatId(), requesterID, req.GetUserId(), req.GetEncryptedChatKey(), req.GetWrappedForPublicKey()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.UpdateChatKeyResponse{}, nil
+}
+
 func toProtoMessage(m *domain.Message) *chatv1.Message {
 	result := &chatv1.Message{
 		MessageId:     m.ID,
@@ -230,7 +280,8 @@ func (s *ChatServer) ListContacts(ctx context.Context, req *chatv1.ListContactsR
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrCannotChatWithSelf),
-		errors.Is(err, domain.ErrEmptyMessage):
+		errors.Is(err, domain.ErrEmptyMessage),
+		errors.Is(err, domain.ErrMissingChatKey):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrTargetUserNotFound),
 		errors.Is(err, domain.ErrChatNotFound),

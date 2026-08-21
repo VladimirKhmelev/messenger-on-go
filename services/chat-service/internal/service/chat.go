@@ -42,7 +42,7 @@ func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPubli
 	return &ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence}
 }
 
-func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string) (*domain.Chat, error) {
+func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) {
 	if requesterID == targetID {
 		return nil, domain.ErrCannotChatWithSelf
 	}
@@ -63,16 +63,66 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
 		return nil, err
 	}
 
+	if encryptedChatKeyByUserID[requesterID] == "" || encryptedChatKeyByUserID[targetID] == "" ||
+		wrappedForPublicKeyByUserID[requesterID] == "" || wrappedForPublicKeyByUserID[targetID] == "" {
+		return nil, domain.ErrMissingChatKey
+	}
+
 	chat := &domain.Chat{
 		ID:        uuid.NewString(),
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.chats.CreateChat(ctx, chat, []string{requesterID, targetID}); err != nil {
+	chatKeyByUserID := map[string]repository.MemberChatKey{
+		requesterID: {EncryptedChatKey: encryptedChatKeyByUserID[requesterID], WrappedForPublicKey: wrappedForPublicKeyByUserID[requesterID]},
+		targetID:    {EncryptedChatKey: encryptedChatKeyByUserID[targetID], WrappedForPublicKey: wrappedForPublicKeyByUserID[targetID]},
+	}
+
+	if err := s.chats.CreateChat(ctx, chat, chatKeyByUserID); err != nil {
 		return nil, err
 	}
 
 	return chat, nil
+}
+
+func (s *ChatService) GetChatKey(ctx context.Context, chatID, requesterID string) (string, error) {
+	isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+	if err != nil {
+		return "", err
+	}
+	if !isMember {
+		return "", domain.ErrNotChatMember
+	}
+
+	return s.chats.GetChatKeyForUser(ctx, chatID, requesterID)
+}
+
+func (s *ChatService) ListChatKeys(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, error) {
+	isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, domain.ErrNotChatMember
+	}
+
+	return s.chats.ListMembers(ctx, chatID)
+}
+
+func (s *ChatService) UpdateChatKey(ctx context.Context, chatID, requesterID, targetUserID, encryptedChatKey, wrappedForPublicKey string) error {
+	isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return domain.ErrNotChatMember
+	}
+
+	if encryptedChatKey == "" || wrappedForPublicKey == "" {
+		return domain.ErrMissingChatKey
+	}
+
+	return s.chats.UpdateChatKey(ctx, chatID, targetUserID, encryptedChatKey, wrappedForPublicKey)
 }
 
 func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) {

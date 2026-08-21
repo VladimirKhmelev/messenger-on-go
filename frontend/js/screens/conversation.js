@@ -263,7 +263,14 @@ function renderDateDivider(label) {
 function presenceText(chat) {
   if (chat.online) return 'В сети';
   if (!chat.lastSeenUnix) return 'Не в сети';
-  return `Был(а) в сети в ${formatTime(chat.lastSeenUnix)}`;
+
+  const dateLabel = formatDateLabel(chat.lastSeenUnix);
+  const time = formatTime(chat.lastSeenUnix);
+  // Same-day is common enough (recent activity) that spelling out "Сегодня"
+  // every time would just be noise — only prefix the date once it's no
+  // longer obvious from context, same threshold as the message dividers.
+  if (dateLabel === 'Сегодня') return `Был(а) в сети в ${time}`;
+  return `Был(а) в сети ${dateLabel.toLowerCase()} в ${time}`;
 }
 
 function renderMessage(msg, isEditing, isRead) {

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -11,7 +12,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
-func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt string) error {
 	allowed, err := s.loginLimiter.Allow(ctx, "change-password:"+userID)
 	if err != nil {
 		return err
@@ -37,12 +38,20 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
 		return domain.ErrSamePassword
 	}
 
+	if strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" {
+		return domain.ErrInvalidPublicKey
+	}
+
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
 	if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil {
+		return err
+	}
+
+	if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil {
 		return err
 	}
 

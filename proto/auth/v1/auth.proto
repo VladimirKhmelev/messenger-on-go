@@ -119,6 +119,19 @@ service AuthService {
       body: "*"
     };
   }
+
+  rpc GetPublicKey(GetPublicKeyRequest) returns (GetPublicKeyResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/public-key"
+    };
+  }
+
+  rpc GetWrappedPrivateKey(GetWrappedPrivateKeyRequest)
+      returns (GetWrappedPrivateKeyResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/me/wrapped-private-key"
+    };
+  }
 }
 
 message HealthRequest {
@@ -133,6 +146,9 @@ message RegisterRequest {
   string password = 2;
   string tag = 3;
   string display_name = 4;
+  string public_key = 5;
+  string wrapped_private_key = 6;
+  string key_wrap_salt = 7;
 }
 
 message RegisterResponse {
@@ -158,6 +174,7 @@ message GetUserByTagResponse {
   string email = 2;
   string tag = 3;
   string display_name = 4;
+  string public_key = 5;
 }
 
 message GetUserByIDRequest {
@@ -169,6 +186,7 @@ message GetUserByIDResponse {
   string email = 2;
   string tag = 3;
   string display_name = 4;
+  string public_key = 5;
 }
 
 message SearchUsersRequest {
@@ -220,6 +238,9 @@ message RequestPasswordResetResponse {
 message ResetPasswordRequest {
   string token = 1;
   string new_password = 2;
+  string public_key = 3;
+  string wrapped_private_key = 4;
+  string key_wrap_salt = 5;
 }
 
 message ResetPasswordResponse {
@@ -265,7 +286,25 @@ message UpdateDisplayNameResponse {
 message ChangePasswordRequest {
   string old_password = 1;
   string new_password = 2;
+  string wrapped_private_key = 3;
+  string key_wrap_salt = 4;
 }
 
 message ChangePasswordResponse {
+}
+
+message GetPublicKeyRequest {
+  string user_id = 1;
+}
+
+message GetPublicKeyResponse {
+  string public_key = 1;
+}
+
+message GetWrappedPrivateKeyRequest {
+}
+
+message GetWrappedPrivateKeyResponse {
+  string wrapped_private_key = 1;
+  string key_wrap_salt = 2;
 }

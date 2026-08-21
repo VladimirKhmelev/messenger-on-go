@@ -101,7 +101,7 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password string) (*domain.User, error) {
+func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) {
 	if err := ValidateEmail(email); err != nil {
 		return nil, err
 	}
@@ -113,6 +113,9 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
 	}
 	if err := ValidatePassword(password); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" {
+		return nil, domain.ErrInvalidPublicKey
 	}
 
 	emailTaken, err := s.users.ExistsByEmail(ctx, email)
@@ -137,13 +140,16 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
 	}
 
 	user := &domain.User{
-		ID:            uuid.NewString(),
-		Email:         email,
-		Tag:           tag,
-		DisplayName:   strings.TrimSpace(displayName),
-		PasswordHash:  string(passwordHash),
-		EmailVerified: false,
-		CreatedAt:     time.Now(),
+		ID:                uuid.NewString(),
+		Email:             email,
+		Tag:               tag,
+		DisplayName:       strings.TrimSpace(displayName),
+		PasswordHash:      string(passwordHash),
+		EmailVerified:     false,
+		CreatedAt:         time.Now(),
+		PublicKey:         publicKey,
+		WrappedPrivateKey: wrappedPrivateKey,
+		KeyWrapSalt:       keyWrapSalt,
 	}
 
 	if err := s.users.Create(ctx, user); err != nil {

@@ -103,13 +103,16 @@ func (x *HealthResponse) GetOk() bool {
 }
 
 type RegisterRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Email             string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Password          string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	Tag               string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	DisplayName       string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	PublicKey         string                 `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string                 `protobuf:"bytes,6,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,7,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *RegisterRequest) Reset() {
@@ -166,6 +169,27 @@ func (x *RegisterRequest) GetTag() string {
 func (x *RegisterRequest) GetDisplayName() string {
 	if x != nil {
 		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetWrappedPrivateKey() string {
+	if x != nil {
+		return x.WrappedPrivateKey
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetKeyWrapSalt() string {
+	if x != nil {
+		return x.KeyWrapSalt
 	}
 	return ""
 }
@@ -368,6 +392,7 @@ type GetUserByTagResponse struct {
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
 	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	PublicKey     string                 `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -430,6 +455,13 @@ func (x *GetUserByTagResponse) GetDisplayName() string {
 	return ""
 }
 
+func (x *GetUserByTagResponse) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
 type GetUserByIDRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -480,6 +512,7 @@ type GetUserByIDResponse struct {
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
 	DisplayName   string                 `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	PublicKey     string                 `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -538,6 +571,13 @@ func (x *GetUserByIDResponse) GetTag() string {
 func (x *GetUserByIDResponse) GetDisplayName() string {
 	if x != nil {
 		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *GetUserByIDResponse) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
 	}
 	return ""
 }
@@ -1043,11 +1083,21 @@ func (*RequestPasswordResetResponse) Descriptor() ([]byte, []int) {
 }
 
 type ResetPasswordRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Token       string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	NewPassword string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	// The old private key is unrecoverable — resetting via email means the
+	// user doesn't know the password that wrapped it, so there is no key to
+	// re-wrap. The client generates a brand-new RSA-OAEP keypair instead and
+	// wraps it under new_password; old chats become unreadable to this user
+	// (their encrypted_chat_key entries were sealed under the old public key),
+	// but the account is left in a working state for new ones rather than
+	// permanently stuck with a wrapped blob no password can ever open.
+	PublicKey         string `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string `protobuf:"bytes,4,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string `protobuf:"bytes,5,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ResetPasswordRequest) Reset() {
@@ -1090,6 +1140,27 @@ func (x *ResetPasswordRequest) GetToken() string {
 func (x *ResetPasswordRequest) GetNewPassword() string {
 	if x != nil {
 		return x.NewPassword
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetWrappedPrivateKey() string {
+	if x != nil {
+		return x.WrappedPrivateKey
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetKeyWrapSalt() string {
+	if x != nil {
+		return x.KeyWrapSalt
 	}
 	return ""
 }
@@ -1502,11 +1573,13 @@ func (x *UpdateDisplayNameResponse) GetDisplayName() string {
 }
 
 type ChangePasswordRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OldPassword   string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
-	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	OldPassword       string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
+	NewPassword       string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	WrappedPrivateKey string                 `protobuf:"bytes,3,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,4,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ChangePasswordRequest) Reset() {
@@ -1553,6 +1626,20 @@ func (x *ChangePasswordRequest) GetNewPassword() string {
 	return ""
 }
 
+func (x *ChangePasswordRequest) GetWrappedPrivateKey() string {
+	if x != nil {
+		return x.WrappedPrivateKey
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetKeyWrapSalt() string {
+	if x != nil {
+		return x.KeyWrapSalt
+	}
+	return ""
+}
+
 type ChangePasswordResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1589,6 +1676,182 @@ func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{32}
 }
 
+type GetPublicKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPublicKeyRequest) Reset() {
+	*x = GetPublicKeyRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPublicKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPublicKeyRequest) ProtoMessage() {}
+
+func (x *GetPublicKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPublicKeyRequest.ProtoReflect.Descriptor instead.
+func (*GetPublicKeyRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *GetPublicKeyRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetPublicKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PublicKey     string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPublicKeyResponse) Reset() {
+	*x = GetPublicKeyResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPublicKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPublicKeyResponse) ProtoMessage() {}
+
+func (x *GetPublicKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPublicKeyResponse.ProtoReflect.Descriptor instead.
+func (*GetPublicKeyResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GetPublicKeyResponse) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+type GetWrappedPrivateKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWrappedPrivateKeyRequest) Reset() {
+	*x = GetWrappedPrivateKeyRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWrappedPrivateKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWrappedPrivateKeyRequest) ProtoMessage() {}
+
+func (x *GetWrappedPrivateKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWrappedPrivateKeyRequest.ProtoReflect.Descriptor instead.
+func (*GetWrappedPrivateKeyRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{35}
+}
+
+type GetWrappedPrivateKeyResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	WrappedPrivateKey string                 `protobuf:"bytes,1,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,2,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetWrappedPrivateKeyResponse) Reset() {
+	*x = GetWrappedPrivateKeyResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWrappedPrivateKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWrappedPrivateKeyResponse) ProtoMessage() {}
+
+func (x *GetWrappedPrivateKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWrappedPrivateKeyResponse.ProtoReflect.Descriptor instead.
+func (*GetWrappedPrivateKeyResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GetWrappedPrivateKeyResponse) GetWrappedPrivateKey() string {
+	if x != nil {
+		return x.WrappedPrivateKey
+	}
+	return ""
+}
+
+func (x *GetWrappedPrivateKeyResponse) GetKeyWrapSalt() string {
+	if x != nil {
+		return x.KeyWrapSalt
+	}
+	return ""
+}
+
 var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
@@ -1596,12 +1859,16 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1cgoogle/api/annotations.proto\"\x0f\n" +
 	"\rHealthRequest\" \n" +
 	"\x0eHealthResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"x\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xeb\x01\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x10\n" +
 	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
-	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\"+\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x05 \x01(\tR\tpublicKey\x12.\n" +
+	"\x13wrapped_private_key\x18\x06 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
+	"\rkey_wrap_salt\x18\a \x01(\tR\vkeyWrapSalt\"+\n" +
 	"\x10RegisterResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
@@ -1611,19 +1878,23 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
 	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"'\n" +
 	"\x13GetUserByTagRequest\x12\x10\n" +
-	"\x03tag\x18\x01 \x01(\tR\x03tag\"z\n" +
+	"\x03tag\x18\x01 \x01(\tR\x03tag\"\x99\x01\n" +
 	"\x14GetUserByTagResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x10\n" +
 	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
-	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\"-\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x05 \x01(\tR\tpublicKey\"-\n" +
 	"\x12GetUserByIDRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"y\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x98\x01\n" +
 	"\x13GetUserByIDResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x10\n" +
 	"\x03tag\x18\x03 \x01(\tR\x03tag\x12!\n" +
-	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\"*\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x05 \x01(\tR\tpublicKey\"*\n" +
 	"\x12SearchUsersRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\"A\n" +
 	"\x13SearchUsersResponse\x12*\n" +
@@ -1647,10 +1918,14 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x13VerifyEmailResponse\"3\n" +
 	"\x1bRequestPasswordResetRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"\x1e\n" +
-	"\x1cRequestPasswordResetResponse\"O\n" +
+	"\x1cRequestPasswordResetResponse\"\xc2\x01\n" +
 	"\x14ResetPasswordRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
-	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x17\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x03 \x01(\tR\tpublicKey\x12.\n" +
+	"\x13wrapped_private_key\x18\x04 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
+	"\rkey_wrap_salt\x18\x05 \x01(\tR\vkeyWrapSalt\"\x17\n" +
 	"\x15ResetPasswordResponse\",\n" +
 	"\x16LoginWithGitHubRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\"a\n" +
@@ -1669,11 +1944,22 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x18UpdateDisplayNameRequest\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\">\n" +
 	"\x19UpdateDisplayNameResponse\x12!\n" +
-	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"]\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"\xb1\x01\n" +
 	"\x15ChangePasswordRequest\x12!\n" +
 	"\fold_password\x18\x01 \x01(\tR\voldPassword\x12!\n" +
-	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x18\n" +
-	"\x16ChangePasswordResponse2\xce\r\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\x12.\n" +
+	"\x13wrapped_private_key\x18\x03 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
+	"\rkey_wrap_salt\x18\x04 \x01(\tR\vkeyWrapSalt\"\x18\n" +
+	"\x16ChangePasswordResponse\".\n" +
+	"\x13GetPublicKeyRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"5\n" +
+	"\x14GetPublicKeyResponse\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey\"\x1d\n" +
+	"\x1bGetWrappedPrivateKeyRequest\"r\n" +
+	"\x1cGetWrappedPrivateKeyResponse\x12.\n" +
+	"\x13wrapped_private_key\x18\x01 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
+	"\rkey_wrap_salt\x18\x02 \x01(\tR\vkeyWrapSalt2\xd3\x0f\n" +
 	"\vAuthService\x12R\n" +
 	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/auth/health\x12]\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12Q\n" +
@@ -1690,7 +1976,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\tUpdateTag\x12\x19.auth.v1.UpdateTagRequest\x1a\x1a.auth.v1.UpdateTagResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*2\x10/v1/users/me/tag\x12\x81\x01\n" +
 	"\x11CheckTagAvailable\x12!.auth.v1.CheckTagAvailableRequest\x1a\".auth.v1.CheckTagAvailableResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/users/tag-available/{tag}\x12\x80\x01\n" +
 	"\x11UpdateDisplayName\x12!.auth.v1.UpdateDisplayNameRequest\x1a\".auth.v1.UpdateDisplayNameResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*2\x19/v1/users/me/display-name\x12s\n" +
-	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/v1/users/me/passwordBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
+	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/v1/users/me/password\x12s\n" +
+	"\fGetPublicKey\x12\x1c.auth.v1.GetPublicKeyRequest\x1a\x1d.auth.v1.GetPublicKeyResponse\"&\x82\xd3\xe4\x93\x02 \x12\x1e/v1/users/{user_id}/public-key\x12\x8d\x01\n" +
+	"\x14GetWrappedPrivateKey\x12$.auth.v1.GetWrappedPrivateKeyRequest\x1a%.auth.v1.GetWrappedPrivateKeyResponse\"(\x82\xd3\xe4\x93\x02\"\x12 /v1/users/me/wrapped-private-keyBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -1704,7 +1992,7 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_auth_v1_auth_proto_goTypes = []any{
 	(*HealthRequest)(nil),                // 0: auth.v1.HealthRequest
 	(*HealthResponse)(nil),               // 1: auth.v1.HealthResponse
@@ -1739,6 +2027,10 @@ var file_auth_v1_auth_proto_goTypes = []any{
 	(*UpdateDisplayNameResponse)(nil),    // 30: auth.v1.UpdateDisplayNameResponse
 	(*ChangePasswordRequest)(nil),        // 31: auth.v1.ChangePasswordRequest
 	(*ChangePasswordResponse)(nil),       // 32: auth.v1.ChangePasswordResponse
+	(*GetPublicKeyRequest)(nil),          // 33: auth.v1.GetPublicKeyRequest
+	(*GetPublicKeyResponse)(nil),         // 34: auth.v1.GetPublicKeyResponse
+	(*GetWrappedPrivateKeyRequest)(nil),  // 35: auth.v1.GetWrappedPrivateKeyRequest
+	(*GetWrappedPrivateKeyResponse)(nil), // 36: auth.v1.GetWrappedPrivateKeyResponse
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	12, // 0: auth.v1.SearchUsersResponse.users:type_name -> auth.v1.UserSummary
@@ -1758,24 +2050,28 @@ var file_auth_v1_auth_proto_depIdxs = []int32{
 	27, // 14: auth.v1.AuthService.CheckTagAvailable:input_type -> auth.v1.CheckTagAvailableRequest
 	29, // 15: auth.v1.AuthService.UpdateDisplayName:input_type -> auth.v1.UpdateDisplayNameRequest
 	31, // 16: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
-	1,  // 17: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
-	3,  // 18: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	5,  // 19: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	7,  // 20: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
-	9,  // 21: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
-	11, // 22: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
-	14, // 23: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	16, // 24: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	18, // 25: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	20, // 26: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	22, // 27: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
-	24, // 28: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
-	26, // 29: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
-	28, // 30: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
-	30, // 31: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
-	32, // 32: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
-	17, // [17:33] is the sub-list for method output_type
-	1,  // [1:17] is the sub-list for method input_type
+	33, // 17: auth.v1.AuthService.GetPublicKey:input_type -> auth.v1.GetPublicKeyRequest
+	35, // 18: auth.v1.AuthService.GetWrappedPrivateKey:input_type -> auth.v1.GetWrappedPrivateKeyRequest
+	1,  // 19: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
+	3,  // 20: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	5,  // 21: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	7,  // 22: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
+	9,  // 23: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
+	11, // 24: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
+	14, // 25: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	16, // 26: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	18, // 27: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	20, // 28: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	22, // 29: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	24, // 30: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
+	26, // 31: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
+	28, // 32: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
+	30, // 33: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
+	32, // 34: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	34, // 35: auth.v1.AuthService.GetPublicKey:output_type -> auth.v1.GetPublicKeyResponse
+	36, // 36: auth.v1.AuthService.GetWrappedPrivateKey:output_type -> auth.v1.GetWrappedPrivateKeyResponse
+	19, // [19:37] is the sub-list for method output_type
+	1,  // [1:19] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -1792,7 +2088,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

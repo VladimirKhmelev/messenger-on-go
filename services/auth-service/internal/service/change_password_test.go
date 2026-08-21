@@ -15,13 +15,13 @@ func TestAuthService_ChangePassword_Success(t *testing.T) {
 	mailer := newFakeMailer()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 	repo.users[user.Email].EmailVerified = true
 
-	if err := svc.ChangePassword(context.Background(), user.ID, "abcd1234", "newpass9"); err != nil {
+	if err := svc.ChangePassword(context.Background(), user.ID, "abcd1234", "newpass9", "new-wrapped-key", "new-salt"); err != nil {
 		t.Fatalf("ChangePassword() unexpected error: %v", err)
 	}
 
@@ -38,12 +38,12 @@ func TestAuthService_ChangePassword_WrongOldPassword(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 
-	err = svc.ChangePassword(context.Background(), user.ID, "wrongpass1", "newpass9")
+	err = svc.ChangePassword(context.Background(), user.ID, "wrongpass1", "newpass9", "new-wrapped-key", "new-salt")
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Errorf("ChangePassword() error = %v, want %v", err, domain.ErrInvalidCredentials)
 	}
@@ -53,12 +53,12 @@ func TestAuthService_ChangePassword_WeakNewPassword(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 
-	err = svc.ChangePassword(context.Background(), user.ID, "abcd1234", "weak")
+	err = svc.ChangePassword(context.Background(), user.ID, "abcd1234", "weak", "new-wrapped-key", "new-salt")
 	if !errors.Is(err, domain.ErrWeakPassword) {
 		t.Errorf("ChangePassword() error = %v, want %v", err, domain.ErrWeakPassword)
 	}
@@ -68,12 +68,12 @@ func TestAuthService_ChangePassword_SameAsOld(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 
-	err = svc.ChangePassword(context.Background(), user.ID, "abcd1234", "abcd1234")
+	err = svc.ChangePassword(context.Background(), user.ID, "abcd1234", "abcd1234", "new-wrapped-key", "new-salt")
 	if !errors.Is(err, domain.ErrSamePassword) {
 		t.Errorf("ChangePassword() error = %v, want %v", err, domain.ErrSamePassword)
 	}
@@ -84,14 +84,14 @@ func TestAuthService_ChangePassword_RateLimited(t *testing.T) {
 	limiter := &fakeRateLimiter{allow: true}
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 
 	limiter.allow = false
 
-	err = svc.ChangePassword(context.Background(), user.ID, "wrongpass1", "newpass9")
+	err = svc.ChangePassword(context.Background(), user.ID, "wrongpass1", "newpass9", "new-wrapped-key", "new-salt")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
 		t.Errorf("ChangePassword() error = %v, want %v", err, domain.ErrTooManyAttempts)
 	}
@@ -102,14 +102,14 @@ func TestAuthService_ChangePassword_InvalidatesTokensIssuedBefore(t *testing.T) 
 	tracker := newFakePasswordChangeTracker()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), tracker)
 
-	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234")
+	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
 		t.Fatalf("Register() unexpected error: %v", err)
 	}
 
 	issuedBeforeChange := time.Now()
 
-	if err := svc.ChangePassword(context.Background(), user.ID, "abcd1234", "newpass9"); err != nil {
+	if err := svc.ChangePassword(context.Background(), user.ID, "abcd1234", "newpass9", "new-wrapped-key", "new-salt"); err != nil {
 		t.Fatalf("ChangePassword() unexpected error: %v", err)
 	}
 
