@@ -11,6 +11,19 @@ import {
 } from './api.js';
 import { WsClient } from './ws.js';
 import { bumpAvatarCacheVersion } from './avatar.js';
+import {
+  generateAndWrapKeyPair,
+  unwrapPrivateKey,
+  rewrapPrivateKey,
+  hasPrivateKey,
+  clearPrivateKey,
+  loadPrivateKeyFromThisDevice,
+  generateChatKey,
+  encryptChatKeyForPeer,
+  decryptChatKey,
+  encryptMessage,
+  decryptMessage,
+} from './crypto.js';
 import { renderAuth } from './screens/auth.js';
 import { renderSidebar } from './screens/sidebar.js';
 import { renderConversation } from './screens/conversation.js';
@@ -25,6 +38,33 @@ const MAX_CACHED_MESSAGES_PER_CHAT = 200;
 const app = document.getElementById('app');
 let ws = null;
 let presenceRefreshTimer = null;
+
+// Decrypted AES-GCM chat keys, kept in memory only — re-derived from the
+// server's RSA-encrypted copy (via our own private key) on first use per
+// chat, per page load. Never persisted: there's nothing sensitive to cache
+// across reloads that IndexedDB (holding the RSA private key) doesn't
+// already cover.
+const chatKeyCache = new Map();
+const chatKeyRequests = new Map();
+
+async function getChatKey(chatId) {
+  if (chatKeyCache.has(chatId)) return chatKeyCache.get(chatId);
+  if (chatKeyRequests.has(chatId)) return chatKeyRequests.get(chatId);
+
+  const promise = (async () => {
+    const data = await chatApi.getChatKey(chatId);
+    const key = await decryptChatKey(data.encryptedChatKey);
+    chatKeyCache.set(chatId, key);
+    return key;
+  })();
+
+  chatKeyRequests.set(chatId, promise);
+  try {
+    return await promise;
+  } finally {
+    chatKeyRequests.delete(chatId);
+  }
+}
 
 // Mobile CSS reads this to decide whether to show the chat list or the
 // conversation as the single full-screen view — see the max-width media
@@ -94,6 +134,8 @@ function wireZones() {
         onTagInput: handleAuthTagInput,
         onRequestPasswordReset: handleRequestPasswordReset,
         onResetPassword: handleResetPassword,
+        onUnlock: handleUnlock,
+        onLogout: handleLogout,
       })
     );
   }
@@ -171,7 +213,17 @@ async function handleAuthSubmit({ email, password, tag, displayName, isRegister 
 
   try {
     if (isRegister) {
-      await authApi.register(email, password, tag, displayName);
+      const { publicKeySpkiBase64, wrappedPrivateKeyBase64, keyWrapSaltBase64 } =
+        await generateAndWrapKeyPair(password);
+      await authApi.register(
+        email,
+        password,
+        tag,
+        displayName,
+        publicKeySpkiBase64,
+        wrappedPrivateKeyBase64,
+        keyWrapSaltBase64
+      );
       state.pendingVerifyEmail = email;
       state.authMode = 'verify';
       state.authBusy = false;
@@ -181,9 +233,18 @@ async function handleAuthSubmit({ email, password, tag, displayName, isRegister 
 
     const data = await authApi.login(email, password);
     setAccessToken(data.accessToken);
+
+    // Recover this account's RSA private key on whatever device is logging
+    // in right now — same password, same key, no matter how many other
+    // devices are already using this account.
+    const userId = currentUserIdFromToken();
+    const wrappedKeyData = await authApi.getWrappedPrivateKey();
+    await unwrapPrivateKey(userId, password, wrappedKeyData.wrappedPrivateKey, wrappedKeyData.keyWrapSalt);
+
     await enterApp();
   } catch (err) {
-    state.authError = err instanceof ApiError ? err.message : 'Что-то пошло не так';
+    console.error('login failed:', err);
+    state.authError = err instanceof ApiError ? err.message : `Что-то пошло не так: ${err?.message || err}`;
     state.authBusy = false;
     notify('auth');
   }
@@ -232,7 +293,22 @@ async function handleResetPassword({ token, newPassword }) {
   notify('auth');
 
   try {
-    await authApi.resetPassword(token, newPassword);
+    // Resetting via email means the user doesn't know the password that
+    // wrapped their old private key, so there is no way to recover it — the
+    // old key material is gone no matter what happens here. The only choice
+    // left is generating a fresh identity so the account stays usable,
+    // instead of silently stranding it with a wrapped blob nothing can ever
+    // open again. The reset-password screen warns about this before
+    // submitting.
+    const { publicKeySpkiBase64, wrappedPrivateKeyBase64, keyWrapSaltBase64 } =
+      await generateAndWrapKeyPair(newPassword);
+    await authApi.resetPassword(
+      token,
+      newPassword,
+      publicKeySpkiBase64,
+      wrappedPrivateKeyBase64,
+      keyWrapSaltBase64
+    );
     state.authMode = 'login';
     state.authError = 'Пароль изменён. Теперь войдите.';
     state.authBusy = false;
@@ -297,6 +373,49 @@ async function enterApp() {
   requestNotificationPermission();
 }
 
+// Called after any successful session restore (fresh login, or a refresh
+// token restored via cookie on page reload) — makes sure this device has the
+// private key unwrapped before touching chats, since every chat list/history
+// fetch immediately tries to decrypt message previews. A fresh login always
+// already has it (handleAuthSubmit unwraps before calling this). A restored
+// session might not — loadPrivateKeyFromThisDevice recovers it from this
+// device's own IndexedDB cache if a previous unlock left one there;
+// otherwise falls back to prompting for the password once.
+async function enterAppOrPromptUnlock() {
+  const userId = currentUserIdFromToken();
+
+  if (!hasPrivateKey()) {
+    const loaded = await loadPrivateKeyFromThisDevice(userId);
+    if (!loaded) {
+      state.view = 'login';
+      state.authMode = 'unlock';
+      state.authError = '';
+      state.authBusy = false;
+      renderRoot();
+      return;
+    }
+  }
+
+  await enterApp();
+}
+
+async function handleUnlock(password) {
+  state.authError = '';
+  state.authBusy = true;
+  notify('auth');
+
+  try {
+    const userId = currentUserIdFromToken();
+    const wrappedKeyData = await authApi.getWrappedPrivateKey();
+    await unwrapPrivateKey(userId, password, wrappedKeyData.wrappedPrivateKey, wrappedKeyData.keyWrapSalt);
+    await enterApp();
+  } catch (err) {
+    state.authError = err instanceof ApiError ? err.message : 'Неверный пароль';
+    state.authBusy = false;
+    notify('auth');
+  }
+}
+
 async function resolvePeer(userId) {
   try {
     const user = await authApi.getUserByID(userId);
@@ -324,6 +443,7 @@ async function loadChats(myUserId) {
         const lastMessage = summary.lastMessage
           ? { ...summary.lastMessage, mine: summary.lastMessage.senderUserId === myUserId }
           : null;
+        if (lastMessage) await decryptMessageInPlace(summary.chatId, lastMessage);
 
         return {
           id: summary.chatId,
@@ -335,6 +455,7 @@ async function loadChats(myUserId) {
           online: false,
           lastSeenUnix: 0,
           peerLastReadMessageId: null,
+          unreadCount: 0,
         };
       })
     );
@@ -395,7 +516,26 @@ function handleSearchChange() {
 async function handleCreateChat(user) {
   if (!user) return;
   try {
-    const data = await chatApi.createChat(user.id);
+    const targetKeyData = await authApi.getPublicKey(user.id);
+    if (!targetKeyData?.publicKey) {
+      console.error('failed to create chat: peer has no encryption key uploaded yet');
+      return;
+    }
+
+    const myKeyData = await authApi.getPublicKey(state.currentUser.id);
+    const { key: chatKey, raw: rawChatKey } = await generateChatKey();
+    const encryptedChatKey = {
+      [state.currentUser.id]: await encryptChatKeyForPeer(rawChatKey, myKeyData.publicKey),
+      [user.id]: await encryptChatKeyForPeer(rawChatKey, targetKeyData.publicKey),
+    };
+    const wrappedForPublicKey = {
+      [state.currentUser.id]: myKeyData.publicKey,
+      [user.id]: targetKeyData.publicKey,
+    };
+
+    const data = await chatApi.createChat(user.id, encryptedChatKey, wrappedForPublicKey);
+    chatKeyCache.set(data.chatId, chatKey);
+
     const chat = {
       id: data.chatId,
       peer: { id: user.id, email: null, tag: user.tag, displayName: user.displayName || user.tag },
@@ -406,6 +546,7 @@ async function handleCreateChat(user) {
       online: false,
       lastSeenUnix: 0,
       peerLastReadMessageId: null,
+      unreadCount: 0,
     };
     state.chats.unshift(chat);
     state.foundUsers = [];
@@ -431,11 +572,55 @@ function handleSelectChat(chatId) {
   notify('conversation');
 
   const chat = state.chats.find((c) => c.id === chatId);
+  if (chat) chat.unreadCount = 0;
   if (chat && !chat.historyLoaded) {
     ws?.getHistory(chatId);
   }
   if (chat) {
     ws?.getReadStatus(chatId, chat.peer.id);
+  }
+
+  reKeyChatForStalePeers(chatId).catch((err) => {
+    console.error('failed to re-key chat for stale peer public keys:', err);
+  });
+}
+
+// A peer who reset their password (see handleResetPassword) gets a brand
+// new RSA keypair — their old encrypted_chat_key entry, sealed under their
+// previous public key, becomes undecryptable to them. Only someone who
+// still holds the plaintext chat key (i.e. whose own private key never
+// changed) can fix this: on opening the chat, check every other member's
+// wrapped_for_public_key against their current public key, and if they no
+// longer match, re-encrypt the chat key under the new one and push it. This
+// runs on every open (cheap — a handful of RSA ops at most) rather than
+// needing a signal from the server about who changed keys.
+async function reKeyChatForStalePeers(chatId) {
+  const chat = state.chats.find((c) => c.id === chatId);
+  if (!chat) return;
+
+  // getChatKey can legitimately fail here — if THIS account is the one that
+  // reset its password, its own copy is exactly what's stale, and only a
+  // peer can fix that (see below). That must not stop this account from
+  // still fixing a stale copy for a *different* peer whose key it can
+  // decrypt — so the two are independent, not a single Promise.all.
+  let chatKey;
+  try {
+    chatKey = await getChatKey(chatId);
+  } catch {
+    return;
+  }
+  const rawChatKey = await crypto.subtle.exportKey('raw', chatKey);
+
+  const keysData = await chatApi.listChatKeys(chatId);
+  for (const memberKey of keysData.memberKeys || []) {
+    if (memberKey.userId === state.currentUser?.id) continue;
+
+    const peerKeyData = await authApi.getPublicKey(memberKey.userId);
+    const currentPublicKey = peerKeyData?.publicKey;
+    if (!currentPublicKey || currentPublicKey === memberKey.wrappedForPublicKey) continue;
+
+    const encryptedChatKey = await encryptChatKeyForPeer(rawChatKey, currentPublicKey);
+    await chatApi.updateChatKey(chatId, memberKey.userId, encryptedChatKey, currentPublicKey);
   }
 }
 
@@ -503,20 +688,28 @@ function handleLoadMoreHistory(chatId) {
   notify('conversation');
 }
 
-function handleSend() {
+async function handleSend() {
   const text = state.draft.trim();
-  if (!text || !state.selectedChatId) return;
+  const chatId = state.selectedChatId;
+  if (!text || !chatId) return;
 
-  ws?.sendMessage(state.selectedChatId, text);
   state.draft = '';
   state.scrollToBottomOnRender = true;
   notify('conversation');
+
+  const chatKey = await getChatKey(chatId);
+  const ciphertext = await encryptMessage(chatKey, text);
+  ws?.sendMessage(chatId, ciphertext);
 }
 
-function handleEditMessage(messageId, newText) {
+async function handleEditMessage(messageId, newText) {
   const text = newText.trim();
-  if (!text || !state.selectedChatId) return;
-  ws?.editMessage(state.selectedChatId, messageId, text);
+  const chatId = state.selectedChatId;
+  if (!text || !chatId) return;
+
+  const chatKey = await getChatKey(chatId);
+  const ciphertext = await encryptMessage(chatKey, text);
+  ws?.editMessage(chatId, messageId, ciphertext);
 }
 
 function handleDeleteMessageForAll(messageId) {
@@ -540,6 +733,7 @@ async function handleLogout() {
     // best-effort — even if the request fails, drop local session state
   }
   setAccessToken(null);
+  clearPrivateKey();
   state.view = 'login';
   state.authMode = 'login';
   state.authError = '';
@@ -634,7 +828,12 @@ async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
   notify('settings');
 
   try {
-    await authApi.changePassword(oldPassword, newPassword);
+    // The wrapping key is derived from the password, so the wrapped private
+    // key has to be re-wrapped for the new password before the server ever
+    // sees it — the RSA keypair itself is untouched, only its packaging.
+    const { wrappedPrivateKeyBase64, keyWrapSaltBase64 } = await rewrapPrivateKey(newPassword);
+    await authApi.changePassword(oldPassword, newPassword, wrappedPrivateKeyBase64, keyWrapSaltBase64);
+
     state.settingsPasswordBusy = false;
     state.settingsPasswordSuccess = 'Пароль изменён';
     notify('settings');
@@ -678,6 +877,33 @@ function handleToastDismiss() {
   notify('toast');
 }
 
+// Every message body on the wire/in history is AES-GCM ciphertext under the
+// chat's key — decrypt in place before it ever reaches render or the toast
+// preview. A deleted message has no body to decrypt; a message from before
+// this browser had access to the chat key (or plain decrypt failure) falls
+// back to a placeholder rather than throwing and blanking the whole list.
+async function decryptMessageInPlace(chatId, message) {
+  if (!message || message.deleted || !message.text) return message;
+  try {
+    const chatKey = await getChatKey(chatId);
+    message.text = await decryptMessage(chatKey, message.text);
+  } catch (err) {
+    console.error('failed to decrypt message:', err);
+    message.text = UNDECRYPTABLE_MESSAGE_PLACEHOLDER;
+  }
+  return message;
+}
+
+// Shown whenever a message can't be decrypted with our current chat key.
+// The single most common cause: this account reset its password (see
+// handleResetPassword), which issued a brand new RSA keypair — every chat
+// key sealed for the old one is unreadable until a peer who still has the
+// old key re-seals it for the new one (see reKeyChatForStalePeers), which
+// only happens once that peer opens the chat. Framed as "waiting", not a
+// dead end, since it usually resolves itself without user action.
+const UNDECRYPTABLE_MESSAGE_PLACEHOLDER =
+  '[Не удалось расшифровать — если вы недавно сбросили пароль, дождитесь, пока собеседник откроет этот чат]';
+
 function connectWs() {
   ws = new WsClient({
     refreshAccessToken: async () => {
@@ -685,23 +911,24 @@ function connectWs() {
       return ok ? getAccessToken() : null;
     },
     onMessageReceived: async ({ chatId, message }) => {
+      await decryptMessageInPlace(chatId, message);
       await appendMessage(chatId, message);
 
       if (chatId !== state.selectedChatId || document.hidden) {
-        showToast(chatId, message.text);
+        showToast(chatId);
       }
       notify('sidebar');
       if (chatId === state.selectedChatId) notify('conversation');
     },
     onNotifyPush: ({ chatId }) => {
       if (chatId === state.selectedChatId && !document.hidden) return;
-      const chat = state.chats.find((c) => c.id === chatId);
-      showToast(chatId, chat?.messages.at(-1)?.text ?? 'Новое сообщение');
+      showToast(chatId);
     },
-    onHistory: ({ chatId, messages, offset }) => {
+    onHistory: async ({ chatId, messages, offset }) => {
       const chat = state.chats.find((c) => c.id === chatId);
       if (!chat) return;
 
+      await Promise.all(messages.map((m) => decryptMessageInPlace(chatId, m)));
       const history = messages.map((m) => ({ ...m, mine: m.senderUserId === state.currentUser?.id }));
 
       if (offset > 0) {
@@ -753,7 +980,7 @@ function connectWs() {
       chat.peerLastReadMessageId = lastReadMessageId || null;
       if (chatId === state.selectedChatId) notify('conversation');
     },
-    onMessageUpdated: ({ chatId, messageId, newText, deleted }) => {
+    onMessageUpdated: async ({ chatId, messageId, newText, deleted }) => {
       const chat = state.chats.find((c) => c.id === chatId);
       if (!chat) return;
 
@@ -762,7 +989,13 @@ function connectWs() {
         if (deleted) {
           message.deleted = true;
         } else if (newText !== null) {
-          message.text = newText;
+          const chatKey = await getChatKey(chatId);
+          try {
+            message.text = await decryptMessage(chatKey, newText);
+          } catch (err) {
+            console.error('failed to decrypt edited message:', err);
+            message.text = UNDECRYPTABLE_MESSAGE_PLACEHOLDER;
+          }
           message.editedAtUnix = Math.floor(Date.now() / 1000);
         }
       }
@@ -830,12 +1063,16 @@ async function appendMessage(chatId, message) {
       online: false,
       lastSeenUnix: 0,
       peerLastReadMessageId: null,
+      unreadCount: 0,
     });
     index = 0;
   }
 
   const chat = state.chats[index];
   chat.messages.push({ ...message, mine });
+  if (!mine && (chatId !== state.selectedChatId || document.hidden)) {
+    chat.unreadCount = (chat.unreadCount || 0) + 1;
+  }
 
   // Bump the chat to the top of the list, same as every other messenger —
   // sidebar renders state.chats in array order with no separate sort.
@@ -845,20 +1082,29 @@ async function appendMessage(chatId, message) {
   }
 }
 
+// Messages are end-to-end encrypted, so previews here are deliberately
+// content-free — only "new message" plus how many are unread, never the
+// decrypted text, even though we technically hold the key to show it.
+function unreadPreviewText(chat) {
+  const count = chat.unreadCount || 0;
+  return count > 1 ? `Новые сообщения (${count})` : 'Новое сообщение';
+}
+
 let toastTimer = null;
-function showToast(chatId, text) {
+function showToast(chatId) {
   const chat = state.chats.find((c) => c.id === chatId);
   if (!chat) return;
 
   const name = chat.peer.displayName || chat.peer.tag;
+  const preview = unreadPreviewText(chat);
   playNotificationSound();
 
   if (document.hidden) {
-    showBrowserNotification(chatId, name, text);
+    showBrowserNotification(chatId, name, preview);
     return;
   }
 
-  state.toast = { chatId, peerUserId: chat.peer.id, name, avatarSeed: chat.peer.tag, text };
+  state.toast = { chatId, peerUserId: chat.peer.id, name, avatarSeed: chat.peer.tag, text: preview };
   notify('toast');
 
   clearTimeout(toastTimer);
@@ -875,10 +1121,10 @@ function requestNotificationPermission() {
   }
 }
 
-function showBrowserNotification(chatId, name, text) {
+function showBrowserNotification(chatId, name, preview) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-  const notification = new Notification(name, { body: text, tag: chatId });
+  const notification = new Notification(name, { body: preview, tag: chatId });
   notification.addEventListener('click', () => {
     window.focus();
     handleSelectChat(chatId);
@@ -923,7 +1169,7 @@ function playNotificationSound() {
 async function bootstrap() {
   const restored = await refreshAccessToken();
   if (restored) {
-    await enterApp();
+    await enterAppOrPromptUnlock();
   } else {
     state.view = 'login';
     renderRoot();

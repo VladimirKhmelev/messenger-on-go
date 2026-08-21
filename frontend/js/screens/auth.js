@@ -2,6 +2,10 @@ import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
 
 export function renderAuth(root, handlers) {
+  if (state.authMode === 'unlock') {
+    renderUnlock(root, handlers);
+    return;
+  }
   if (state.authMode === 'verify') {
     renderVerify(root, handlers);
     return;
@@ -205,6 +209,75 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Shown when a session is restored via the refresh-token cookie (F5, reopened
+// tab) but this device has no locally-cached private key yet — the key only
+// ever lives unwrapped in memory/IndexedDB, never in the refresh token, so
+// the password has to be typed once more to unlock chats on this device.
+function renderUnlock(root, handlers) {
+  const isDark = getTheme() === 'dark';
+
+  root.innerHTML = `
+    <div class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="brand">
+            <div class="brand-mark"></div>
+            <div class="brand-name">Wisp</div>
+          </div>
+          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
+            <span class="knob"></span>
+          </button>
+        </div>
+
+        <div class="auth-title">Разблокировать чаты</div>
+        <div class="auth-subtitle">Введите пароль, чтобы расшифровать сообщения на этом устройстве</div>
+
+        <form class="field-list" data-form="unlock">
+          <div class="field field--password">
+            <label>Пароль</label>
+            <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password" data-input="password" />
+            <button type="button" class="password-toggle" data-action="toggle-password" title="Показать пароль">${eyeIcon(
+              false
+            )}</button>
+          </div>
+          <div class="form-error">${state.authError || ''}</div>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Разблокировать</button>
+        </form>
+
+        <div class="auth-toggle">
+          <span class="action" data-action="logout-instead">Выйти из аккаунта</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
+    toggleTheme();
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-action="logout-instead"]').addEventListener('click', () => {
+    handlers.onLogout();
+  });
+
+  root.querySelector('[data-form="unlock"]').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const password = formData.get('password');
+    handlers.onUnlock(password);
+  });
+
+  const passwordInput = root.querySelector('[data-input="password"]');
+  passwordInput.focus();
+  const passwordToggle = root.querySelector('[data-action="toggle-password"]');
+  passwordToggle.addEventListener('click', () => {
+    const showing = passwordInput.type === 'text';
+    passwordInput.type = showing ? 'password' : 'text';
+    passwordToggle.innerHTML = eyeIcon(!showing);
+    passwordToggle.title = showing ? 'Показать пароль' : 'Скрыть пароль';
+  });
+}
+
 function renderVerify(root, handlers) {
   const isDark = getTheme() === 'dark';
 
@@ -285,6 +358,10 @@ function renderForgotPassword(root, handlers) {
 
         <div class="auth-title">Восстановление пароля</div>
         <div class="auth-subtitle">Введите email — мы отправим токен для сброса пароля</div>
+        <div class="form-warning">
+          Сброс пароля создаст новый ключ шифрования — история переписки в старых чатах станет
+          недоступна для чтения. Новые сообщения будут отправляться и читаться как обычно.
+        </div>
 
         <form class="field-list" data-form="forgot-password">
           <div class="field">
@@ -341,6 +418,11 @@ function renderResetPassword(root, handlers) {
 
         <div class="auth-title">Новый пароль</div>
         <div class="auth-subtitle">Введите токен из письма и новый пароль</div>
+        <div class="form-warning">
+          Сообщения зашифрованы ключом, который восстанавливается только вашим текущим паролем.
+          Сброс пароля создаст новый ключ шифрования — история переписки в старых чатах станет
+          недоступна для чтения. Новые сообщения будут отправляться и читаться как обычно.
+        </div>
 
         <form class="field-list" data-form="reset-password">
           <div class="field">
