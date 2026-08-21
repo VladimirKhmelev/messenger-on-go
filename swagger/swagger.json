@@ -371,6 +371,110 @@
         ]
       }
     },
+    "/v1/chats/{chatId}/key": {
+      "get": {
+        "operationId": "ChatService_GetChatKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetChatKeyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/keys": {
+      "get": {
+        "operationId": "ChatService_ListChatKeys",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListChatKeysResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/keys/{userId}": {
+      "put": {
+        "operationId": "ChatService_UpdateChatKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateChatKeyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceUpdateChatKeyBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/v1/chats/{chatId}/messages": {
       "get": {
         "operationId": "ChatService_GetHistory",
@@ -759,6 +863,28 @@
         ]
       }
     },
+    "/v1/users/me/wrapped-private-key": {
+      "get": {
+        "operationId": "AuthService_GetWrappedPrivateKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetWrappedPrivateKeyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
     "/v1/users/tag-available/{tag}": {
       "get": {
         "operationId": "AuthService_CheckTagAvailable",
@@ -818,6 +944,36 @@
           "AuthService"
         ]
       }
+    },
+    "/v1/users/{userId}/public-key": {
+      "get": {
+        "operationId": "AuthService_GetPublicKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetPublicKeyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -841,6 +997,17 @@
       "type": "object",
       "properties": {
         "text": {
+          "type": "string"
+        }
+      }
+    },
+    "ChatServiceUpdateChatKeyBody": {
+      "type": "object",
+      "properties": {
+        "encryptedChatKey": {
+          "type": "string"
+        },
+        "wrappedForPublicKey": {
           "type": "string"
         }
       }
@@ -897,6 +1064,12 @@
         },
         "newPassword": {
           "type": "string"
+        },
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
+          "type": "string"
         }
       }
     },
@@ -937,6 +1110,18 @@
       "properties": {
         "targetUserId": {
           "type": "string"
+        },
+        "encryptedChatKey": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "wrappedForPublicKey": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -962,6 +1147,14 @@
         }
       }
     },
+    "v1GetChatKeyResponse": {
+      "type": "object",
+      "properties": {
+        "encryptedChatKey": {
+          "type": "string"
+        }
+      }
+    },
     "v1GetHistoryResponse": {
       "type": "object",
       "properties": {
@@ -971,6 +1164,14 @@
             "type": "object",
             "$ref": "#/definitions/v1Message"
           }
+        }
+      }
+    },
+    "v1GetPublicKeyResponse": {
+      "type": "object",
+      "properties": {
+        "publicKey": {
+          "type": "string"
         }
       }
     },
@@ -987,6 +1188,9 @@
           "type": "string"
         },
         "displayName": {
+          "type": "string"
+        },
+        "publicKey": {
           "type": "string"
         }
       }
@@ -1005,6 +1209,32 @@
         },
         "displayName": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
+        }
+      }
+    },
+    "v1GetWrappedPrivateKeyResponse": {
+      "type": "object",
+      "properties": {
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
+          "type": "string"
+        }
+      }
+    },
+    "v1ListChatKeysResponse": {
+      "type": "object",
+      "properties": {
+        "memberKeys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1MemberChatKey"
+          }
         }
       }
     },
@@ -1075,6 +1305,20 @@
     "v1MarkReadResponse": {
       "type": "object"
     },
+    "v1MemberChatKey": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "encryptedChatKey": {
+          "type": "string"
+        },
+        "wrappedForPublicKey": {
+          "type": "string"
+        }
+      }
+    },
     "v1Message": {
       "type": "object",
       "properties": {
@@ -1133,6 +1377,15 @@
         },
         "displayName": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
+        },
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
+          "type": "string"
         }
       }
     },
@@ -1163,6 +1416,15 @@
         },
         "newPassword": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
+        },
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
+          "type": "string"
         }
       }
     },
@@ -1188,6 +1450,9 @@
           "type": "string"
         }
       }
+    },
+    "v1UpdateChatKeyResponse": {
+      "type": "object"
     },
     "v1UpdateDisplayNameRequest": {
       "type": "object",

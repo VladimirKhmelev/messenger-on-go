@@ -85,7 +85,7 @@
 				
 				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/avatar.go (85.7%)</option>
 				
-				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/change_password.go (76.9%)</option>
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/change_password.go (73.3%)</option>
 				
 				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
 				
@@ -95,23 +95,25 @@
 				
 				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
 				
-				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (75.0%)</option>
+				<option value="file20">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password_reset.go (70.6%)</option>
 				
-				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (78.7%)</option>
+				<option value="file21">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/public_key.go (0.0%)</option>
 				
-				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
+				<option value="file22">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (77.6%)</option>
 				
-				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
+				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
 				
-				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
 				
-				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar/handler.go (0.0%)</option>
+				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file26">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				<option value="file26">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar/handler.go (0.0%)</option>
 				
-				<option value="file27">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				<option value="file27">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
 				
-				<option value="file28">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (89.7%)</option>
+				<option value="file28">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file29">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (89.7%)</option>
 				
 				</select>
 			</div>
@@ -1057,9 +1059,10 @@ func NewPostgresUserRepository(dsn string) (*PostgresUserRepository, error) <spa
 
 func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) error <span class="cov0" title="0">{
         _, err := r.conn.ExecContext(ctx, `
-                INSERT INTO users (id, email, tag, display_name, password_hash, email_verified, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                INSERT INTO users (id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                 user.ID, user.Email, user.Tag, user.DisplayName, user.PasswordHash, user.EmailVerified, user.CreatedAt,
+                user.PublicKey, user.WrappedPrivateKey, user.KeyWrapSalt,
         )
         return err
 }</span>
@@ -1078,7 +1081,7 @@ func (r *PostgresUserRepository) ExistsByTag(ctx context.Context, tag string) (b
 
 func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) <span class="cov0" title="0">{
         var user domain.User
-        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE email = $1`, email)
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt FROM users WHERE email = $1`, email)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrUserNotFound
         }</span>
@@ -1090,7 +1093,7 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 
 func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*domain.User, error) <span class="cov0" title="0">{
         var user domain.User
-        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE tag = $1`, tag)
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt FROM users WHERE tag = $1`, tag)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrUserNotFound
         }</span>
@@ -1102,7 +1105,7 @@ func (r *PostgresUserRepository) GetByTag(ctx context.Context, tag string) (*dom
 
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) <span class="cov0" title="0">{
         var user domain.User
-        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users WHERE id = $1`, id)
+        err := r.conn.GetContext(ctx, &amp;user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt FROM users WHERE id = $1`, id)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrUserNotFound
         }</span>
@@ -1117,7 +1120,7 @@ func (r *PostgresUserRepository) SearchByTagPrefix(ctx context.Context, prefix s
 
         var users []*domain.User
         err := r.conn.SelectContext(ctx, &amp;users, `
-                SELECT id, email, tag, display_name, password_hash, email_verified, created_at FROM users
+                SELECT id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt FROM users
                 WHERE tag LIKE $1 ESCAPE '\' ORDER BY tag LIMIT $2`,
                 pattern, limit,
         )
@@ -1144,6 +1147,19 @@ func (r *PostgresUserRepository) UpdateTag(ctx context.Context, userID, tag stri
 
 func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, displayName string) error <span class="cov0" title="0">{
         _, err := r.conn.ExecContext(ctx, `UPDATE users SET display_name = $1 WHERE id = $2`, displayName, userID)
+        return err
+}</span>
+
+func (r *PostgresUserRepository) UpdatePublicKey(ctx context.Context, userID, publicKey string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `UPDATE users SET public_key = $1 WHERE id = $2`, publicKey, userID)
+        return err
+}</span>
+
+func (r *PostgresUserRepository) UpdateWrappedPrivateKey(ctx context.Context, userID, wrappedPrivateKey, keyWrapSalt string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                UPDATE users SET wrapped_private_key = $1, key_wrap_salt = $2 WHERE id = $3`,
+                wrappedPrivateKey, keyWrapSalt, userID,
+        )
         return err
 }</span>
 
@@ -1244,6 +1260,7 @@ func (s *AuthService) DeleteAvatar(ctx context.Context, userID string) error <sp
 import (
         "context"
         "log"
+        "strings"
         "time"
 
         "golang.org/x/crypto/bcrypt"
@@ -1252,7 +1269,7 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
-func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error <span class="cov8" title="1">{
+func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt string) error <span class="cov8" title="1">{
         allowed, err := s.loginLimiter.Allow(ctx, "change-password:"+userID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -1278,12 +1295,20 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
                 return domain.ErrSamePassword
         }</span>
 
+        <span class="cov8" title="1">if strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+                return domain.ErrInvalidPublicKey
+        }</span>
+
         <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
         <span class="cov8" title="1">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
@@ -1585,6 +1610,7 @@ import (
         "context"
         "errors"
         "log"
+        "strings"
         "time"
 
         "golang.org/x/crypto/bcrypt"
@@ -1610,7 +1636,7 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
         <span class="cov8" title="1">return s.mailer.SendPasswordResetToken(user.Email, token)</span>
 }
 
-func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) error <span class="cov8" title="1">{
+func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, publicKey, wrappedPrivateKey, keyWrapSalt string) error <span class="cov8" title="1">{
         email, ok, err := s.passwordResets.Consume(ctx, token)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -1621,6 +1647,10 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 
         <span class="cov8" title="1">if err := ValidatePassword(newPassword); err != nil </span><span class="cov8" title="1">{
                 return err
+        }</span>
+
+        <span class="cov8" title="1">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+                return domain.ErrInvalidPublicKey
         }</span>
 
         <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
@@ -1634,6 +1664,14 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
         }</span>
 
         <span class="cov8" title="1">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpdatePublicKey(ctx, user.ID, publicKey); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
@@ -1652,6 +1690,46 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 </pre>
 		
 		<pre class="file" id="file21" style="display: none">package service
+
+import (
+        "context"
+        "strings"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+func (s *AuthService) GetPublicKey(ctx context.Context, userID string) (string, error) <span class="cov0" title="0">{
+        user, err := s.users.GetByID(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">if user.PublicKey == "" </span><span class="cov0" title="0">{
+                return "", domain.ErrPublicKeyNotSet
+        }</span>
+        <span class="cov0" title="0">return user.PublicKey, nil</span>
+}
+
+func (s *AuthService) GetWrappedPrivateKey(ctx context.Context, userID string) (wrappedPrivateKey, keyWrapSalt string, err error) <span class="cov0" title="0">{
+        user, err := s.users.GetByID(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", "", err
+        }</span>
+        <span class="cov0" title="0">if user.WrappedPrivateKey == "" || user.KeyWrapSalt == "" </span><span class="cov0" title="0">{
+                return "", "", domain.ErrPublicKeyNotSet
+        }</span>
+        <span class="cov0" title="0">return user.WrappedPrivateKey, user.KeyWrapSalt, nil</span>
+}
+
+func (s *AuthService) RewrapPrivateKey(ctx context.Context, userID, wrappedPrivateKey, keyWrapSalt string) error <span class="cov0" title="0">{
+        if strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+                return domain.ErrInvalidPublicKey
+        }</span>
+
+        <span class="cov0" title="0">return s.users.UpdateWrappedPrivateKey(ctx, userID, wrappedPrivateKey, keyWrapSalt)</span>
+}
+</pre>
+		
+		<pre class="file" id="file22" style="display: none">package service
 
 import (
         "context"
@@ -1754,7 +1832,7 @@ func NewAuthService(
         }
 }</span>
 
-func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password string) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="1">{
         if err := ValidateEmail(email); err != nil </span><span class="cov8" title="1">{
                 return nil, err
         }</span>
@@ -1766,6 +1844,9 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
         }</span>
         <span class="cov8" title="1">if err := ValidatePassword(password); err != nil </span><span class="cov8" title="1">{
                 return nil, err
+        }</span>
+        <span class="cov8" title="1">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+                return nil, domain.ErrInvalidPublicKey
         }</span>
 
         <span class="cov8" title="1">emailTaken, err := s.users.ExistsByEmail(ctx, email)
@@ -1790,13 +1871,16 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
         }</span>
 
         <span class="cov8" title="1">user := &amp;domain.User{
-                ID:            uuid.NewString(),
-                Email:         email,
-                Tag:           tag,
-                DisplayName:   strings.TrimSpace(displayName),
-                PasswordHash:  string(passwordHash),
-                EmailVerified: false,
-                CreatedAt:     time.Now(),
+                ID:                uuid.NewString(),
+                Email:             email,
+                Tag:               tag,
+                DisplayName:       strings.TrimSpace(displayName),
+                PasswordHash:      string(passwordHash),
+                EmailVerified:     false,
+                CreatedAt:         time.Now(),
+                PublicKey:         publicKey,
+                WrappedPrivateKey: wrappedPrivateKey,
+                KeyWrapSalt:       keyWrapSalt,
         }
 
         if err := s.users.Create(ctx, user); err != nil </span><span class="cov0" title="0">{
@@ -1850,7 +1934,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error
 }
 </pre>
 		
-		<pre class="file" id="file22" style="display: none">package service
+		<pre class="file" id="file23" style="display: none">package service
 
 import (
         "context"
@@ -1881,7 +1965,7 @@ func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.
 }
 </pre>
 		
-		<pre class="file" id="file23" style="display: none">package service
+		<pre class="file" id="file24" style="display: none">package service
 
 import (
         "context"
@@ -1950,7 +2034,7 @@ func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (availa
 }
 </pre>
 		
-		<pre class="file" id="file24" style="display: none">package service
+		<pre class="file" id="file25" style="display: none">package service
 
 import (
         "net/mail"
@@ -1992,7 +2076,7 @@ func ValidateDisplayName(name string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file25" style="display: none">package avatar
+		<pre class="file" id="file26" style="display: none">package avatar
 
 import (
         "context"
@@ -2103,7 +2187,7 @@ func writeDomainError(w http.ResponseWriter, err error) <span class="cov0" title
 }
 </pre>
 		
-		<pre class="file" id="file26" style="display: none">package grpc
+		<pre class="file" id="file27" style="display: none">package grpc
 
 import (
         "context"
@@ -2129,7 +2213,7 @@ func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer <sp
 }</span>
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) <span class="cov0" title="0">{
-        user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword())
+        user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt())
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
@@ -2164,6 +2248,7 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
                 Email:       user.Email,
                 Tag:         user.Tag,
                 DisplayName: user.DisplayName,
+                PublicKey:   user.PublicKey,
         }, nil</span>
 }
 
@@ -2178,6 +2263,7 @@ func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDReq
                 Email:       user.Email,
                 Tag:         user.Tag,
                 DisplayName: user.DisplayName,
+                PublicKey:   user.PublicKey,
         }, nil</span>
 }
 
@@ -2255,7 +2341,7 @@ func (s *AuthServer) RequestPasswordReset(ctx context.Context, req *authv1.Reque
 }
 
 func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) <span class="cov0" title="0">{
-        if err := s.auth.ResetPassword(ctx, req.GetToken(), req.GetNewPassword()); err != nil </span><span class="cov0" title="0">{
+        if err := s.auth.ResetPassword(ctx, req.GetToken(), req.GetNewPassword(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt()); err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
 
@@ -2319,11 +2405,34 @@ func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePassw
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
-        <span class="cov0" title="0">if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword()); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt()); err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.ChangePasswordResponse{}, nil</span>
+}
+
+func (s *AuthServer) GetPublicKey(ctx context.Context, req *authv1.GetPublicKeyRequest) (*authv1.GetPublicKeyResponse, error) <span class="cov0" title="0">{
+        publicKey, err := s.auth.GetPublicKey(ctx, req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.GetPublicKeyResponse{PublicKey: publicKey}, nil</span>
+}
+
+func (s *AuthServer) GetWrappedPrivateKey(ctx context.Context, req *authv1.GetWrappedPrivateKeyRequest) (*authv1.GetWrappedPrivateKeyResponse, error) <span class="cov0" title="0">{
+        userID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">wrappedPrivateKey, keyWrapSalt, err := s.auth.GetWrappedPrivateKey(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.GetWrappedPrivateKeyResponse{WrappedPrivateKey: wrappedPrivateKey, KeyWrapSalt: keyWrapSalt}, nil</span>
 }
 
 func toGRPCError(err error) error <span class="cov0" title="0">{
@@ -2333,7 +2442,8 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 errors.Is(err, domain.ErrInvalidDisplayName),
                 errors.Is(err, domain.ErrWeakPassword),
                 errors.Is(err, domain.ErrSamePassword),
-                errors.Is(err, domain.ErrSearchQueryTooShort):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrSearchQueryTooShort),
+                errors.Is(err, domain.ErrInvalidPublicKey):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrEmailTaken),
                 errors.Is(err, domain.ErrTagTaken):<span class="cov0" title="0">
@@ -2344,7 +2454,8 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 errors.Is(err, domain.ErrInvalidVerificationCode),
                 errors.Is(err, domain.ErrOAuthNoVerifiedEmail):<span class="cov0" title="0">
                 return status.Error(codes.Unauthenticated, err.Error())</span>
-        case errors.Is(err, domain.ErrUserNotFound):<span class="cov0" title="0">
+        case errors.Is(err, domain.ErrUserNotFound),
+                errors.Is(err, domain.ErrPublicKeyNotSet):<span class="cov0" title="0">
                 return status.Error(codes.NotFound, err.Error())</span>
         case errors.Is(err, domain.ErrTooManyAttempts):<span class="cov0" title="0">
                 return status.Error(codes.ResourceExhausted, err.Error())</span>
@@ -2354,7 +2465,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file27" style="display: none">package grpc
+		<pre class="file" id="file28" style="display: none">package grpc
 
 import (
         "context"
@@ -2416,7 +2527,7 @@ func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="co
 }
 </pre>
 		
-		<pre class="file" id="file28" style="display: none">package grpc
+		<pre class="file" id="file29" style="display: none">package grpc
 
 import (
         "context"
