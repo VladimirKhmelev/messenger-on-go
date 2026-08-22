@@ -66,6 +66,8 @@ service ChatService {
   rpc GetPresence(GetPresenceRequest) returns (GetPresenceResponse);
   rpc SetOffline(SetOfflineRequest) returns (SetOfflineResponse);
   rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
+  rpc SetTyping(SetTypingRequest) returns (SetTypingResponse);
+  rpc GetTyping(GetTypingRequest) returns (GetTypingResponse);
 
   rpc MarkRead(MarkReadRequest) returns (MarkReadResponse) {
     option (google.api.http) = {
@@ -217,6 +219,23 @@ message ListContactsRequest {
 
 message ListContactsResponse {
   repeated string user_ids = 1;
+}
+
+message SetTypingRequest {
+  string chat_id = 1;
+  string user_id = 2;
+}
+
+message SetTypingResponse {
+}
+
+message GetTypingRequest {
+  string chat_id = 1;
+  string user_id = 2;
+}
+
+message GetTypingResponse {
+  bool typing = 1;
 }
 
 message MarkReadRequest {

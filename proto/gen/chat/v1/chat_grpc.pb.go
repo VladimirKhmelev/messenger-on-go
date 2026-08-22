@@ -32,6 +32,8 @@ const (
 	ChatService_GetPresence_FullMethodName         = "/chat.v1.ChatService/GetPresence"
 	ChatService_SetOffline_FullMethodName          = "/chat.v1.ChatService/SetOffline"
 	ChatService_ListContacts_FullMethodName        = "/chat.v1.ChatService/ListContacts"
+	ChatService_SetTyping_FullMethodName           = "/chat.v1.ChatService/SetTyping"
+	ChatService_GetTyping_FullMethodName           = "/chat.v1.ChatService/GetTyping"
 	ChatService_MarkRead_FullMethodName            = "/chat.v1.ChatService/MarkRead"
 	ChatService_GetReadStatus_FullMethodName       = "/chat.v1.ChatService/GetReadStatus"
 	ChatService_GetChatKey_FullMethodName          = "/chat.v1.ChatService/GetChatKey"
@@ -56,6 +58,8 @@ type ChatServiceClient interface {
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*GetPresenceResponse, error)
 	SetOffline(ctx context.Context, in *SetOfflineRequest, opts ...grpc.CallOption) (*SetOfflineResponse, error)
 	ListContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (*ListContactsResponse, error)
+	SetTyping(ctx context.Context, in *SetTypingRequest, opts ...grpc.CallOption) (*SetTypingResponse, error)
+	GetTyping(ctx context.Context, in *GetTypingRequest, opts ...grpc.CallOption) (*GetTypingResponse, error)
 	MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error)
 	GetReadStatus(ctx context.Context, in *GetReadStatusRequest, opts ...grpc.CallOption) (*GetReadStatusResponse, error)
 	GetChatKey(ctx context.Context, in *GetChatKeyRequest, opts ...grpc.CallOption) (*GetChatKeyResponse, error)
@@ -201,6 +205,26 @@ func (c *chatServiceClient) ListContacts(ctx context.Context, in *ListContactsRe
 	return out, nil
 }
 
+func (c *chatServiceClient) SetTyping(ctx context.Context, in *SetTypingRequest, opts ...grpc.CallOption) (*SetTypingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetTypingResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetTyping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetTyping(ctx context.Context, in *GetTypingRequest, opts ...grpc.CallOption) (*GetTypingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTypingResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetTyping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MarkReadResponse)
@@ -268,6 +292,8 @@ type ChatServiceServer interface {
 	GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error)
 	SetOffline(context.Context, *SetOfflineRequest) (*SetOfflineResponse, error)
 	ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error)
+	SetTyping(context.Context, *SetTypingRequest) (*SetTypingResponse, error)
+	GetTyping(context.Context, *GetTypingRequest) (*GetTypingResponse, error)
 	MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error)
 	GetReadStatus(context.Context, *GetReadStatusRequest) (*GetReadStatusResponse, error)
 	GetChatKey(context.Context, *GetChatKeyRequest) (*GetChatKeyResponse, error)
@@ -321,6 +347,12 @@ func (UnimplementedChatServiceServer) SetOffline(context.Context, *SetOfflineReq
 }
 func (UnimplementedChatServiceServer) ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListContacts not implemented")
+}
+func (UnimplementedChatServiceServer) SetTyping(context.Context, *SetTypingRequest) (*SetTypingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetTyping not implemented")
+}
+func (UnimplementedChatServiceServer) GetTyping(context.Context, *GetTypingRequest) (*GetTypingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTyping not implemented")
 }
 func (UnimplementedChatServiceServer) MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MarkRead not implemented")
@@ -592,6 +624,42 @@ func _ChatService_ListContacts_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_SetTyping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTypingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetTyping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetTyping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetTyping(ctx, req.(*SetTypingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetTyping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTypingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetTyping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetTyping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetTyping(ctx, req.(*GetTypingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_MarkRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MarkReadRequest)
 	if err := dec(in); err != nil {
@@ -740,6 +808,14 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListContacts",
 			Handler:    _ChatService_ListContacts_Handler,
+		},
+		{
+			MethodName: "SetTyping",
+			Handler:    _ChatService_SetTyping_Handler,
+		},
+		{
+			MethodName: "GetTyping",
+			Handler:    _ChatService_GetTyping_Handler,
 		},
 		{
 			MethodName: "MarkRead",

@@ -1121,8 +1121,7 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          },
-          "description": "The public key each entry in encrypted_chat_key was sealed under, keyed\nby the same user_id. Recorded so a peer can later detect that a\nmember's public key has changed (e.g. after a password reset) and knows\nto re-seal the chat key for them via UpdateChatKey."
+          }
         }
       }
     },
@@ -1316,8 +1315,7 @@
           "type": "string"
         },
         "wrappedForPublicKey": {
-          "type": "string",
-          "description": "The public key encrypted_chat_key was sealed under — compare against\nthe member's current public key (fetched from auth-service) to detect\na stale seal after that member got a fresh RSA keypair."
+          "type": "string"
         }
       }
     },
@@ -1420,8 +1418,7 @@
           "type": "string"
         },
         "publicKey": {
-          "type": "string",
-          "description": "The old private key is unrecoverable — resetting via email means the\nuser doesn't know the password that wrapped it, so there is no key to\nre-wrap. The client generates a brand-new RSA-OAEP keypair instead and\nwraps it under new_password; old chats become unreadable to this user\n(their encrypted_chat_key entries were sealed under the old public key),\nbut the account is left in a working state for new ones rather than\npermanently stuck with a wrapped blob no password can ever open."
+          "type": "string"
         },
         "wrappedPrivateKey": {
           "type": "string"
