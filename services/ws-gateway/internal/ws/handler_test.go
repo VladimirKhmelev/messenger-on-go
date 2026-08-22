@@ -112,9 +112,17 @@ func (c *fakeChatClient) GetReadStatus(_ context.Context, _, _ string) (string, 
 	return c.readStatusMessageID, nil
 }
 
+func (c *fakeChatClient) SetTyping(_ context.Context, _, _ string) error {
+	return nil
+}
+
 type fakePresencePublisher struct{}
 
 func (fakePresencePublisher) PublishPresenceChanged(_ events.PresenceChanged) error {
+	return nil
+}
+
+func (fakePresencePublisher) PublishTypingChanged(_ events.TypingChanged) error {
 	return nil
 }
 
