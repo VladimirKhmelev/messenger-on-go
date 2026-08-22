@@ -89,6 +89,13 @@ func (c *Client) SetOffline(ctx context.Context, userID string) error {
 	return err
 }
 
+func (c *Client) SetTyping(ctx context.Context, chatID, userID string) error {
+	ctx = c.withInternalSecret(ctx)
+
+	_, err := c.chat.SetTyping(ctx, &chatv1.SetTypingRequest{ChatId: chatID, UserId: userID})
+	return err
+}
+
 func (c *Client) ListContacts(ctx context.Context, userID string) ([]string, error) {
 	ctx = c.withInternalSecret(ctx)
 
