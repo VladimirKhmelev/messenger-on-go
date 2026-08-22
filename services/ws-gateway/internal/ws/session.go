@@ -241,6 +241,15 @@ func (s *session) handle(data []byte) {
 			LastReadMessageID: lastReadMessageID,
 		})
 
+	case "start_typing":
+		if err := s.chat.SetTyping(ctx, msg.ChatID, s.userID); err != nil {
+			log.Printf("ws-gateway: failed to set typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
+			return
+		}
+		if err := s.presence.PublishTypingChanged(events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil {
+			log.Printf("ws-gateway: failed to publish typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
+		}
+
 	default:
 		s.writeError("unknown message type: " + msg.Type)
 	}

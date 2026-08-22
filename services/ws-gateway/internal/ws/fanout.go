@@ -126,6 +126,27 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.Presenc
 	}
 }
 
+func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingChanged) {
+	userIDs, err := f.members.ListMembers(ctx, event.ChatID)
+	if err != nil {
+		log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
+		return
+	}
+
+	payload := serverMessage{
+		Type:       "typing_changed",
+		ChatID:     event.ChatID,
+		PeerUserID: event.UserID,
+	}
+
+	for _, userID := range userIDs {
+		if userID == event.UserID {
+			continue
+		}
+		f.registry.Broadcast(userID, payload)
+	}
+}
+
 func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) {
 	contacts, err := f.contacts.ListContacts(ctx, event.UserID)
 	if err != nil {
