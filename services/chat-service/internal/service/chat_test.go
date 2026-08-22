@@ -277,6 +277,7 @@ func (p *fakeEventPublisher) PublishMessageRead(_ context.Context, event events.
 type fakePresenceChecker struct {
 	onlineUserIDs map[string]bool
 	lastSeen      map[string]int64
+	typing        map[string]bool
 }
 
 func newFakePresenceChecker(onlineUserIDs ...string) *fakePresenceChecker {
@@ -284,7 +285,7 @@ func newFakePresenceChecker(onlineUserIDs ...string) *fakePresenceChecker {
 	for _, id := range onlineUserIDs {
 		set[id] = true
 	}
-	return &fakePresenceChecker{onlineUserIDs: set, lastSeen: make(map[string]int64)}
+	return &fakePresenceChecker{onlineUserIDs: set, lastSeen: make(map[string]int64), typing: make(map[string]bool)}
 }
 
 func (c *fakePresenceChecker) IsOnline(_ context.Context, userID string) (bool, error) {
@@ -298,6 +299,15 @@ func (c *fakePresenceChecker) LastSeen(_ context.Context, userID string) (int64,
 func (c *fakePresenceChecker) SetOffline(_ context.Context, userID string) error {
 	delete(c.onlineUserIDs, userID)
 	return nil
+}
+
+func (c *fakePresenceChecker) SetTyping(_ context.Context, chatID, userID string) error {
+	c.typing[chatID+":"+userID] = true
+	return nil
+}
+
+func (c *fakePresenceChecker) IsTyping(_ context.Context, chatID, userID string) (bool, error) {
+	return c.typing[chatID+":"+userID], nil
 }
 
 func TestChatService_CreateChat_Success(t *testing.T) {
