@@ -12,6 +12,9 @@ const (
 	onlineKeyPrefix   = "chat:online:"
 	lastSeenKeyPrefix = "chat:last_seen:"
 	onlineTTL         = 30 * time.Second
+
+	typingKeyPrefix = "chat:typing:"
+	typingTTL       = 3 * time.Second
 )
 
 type PresenceStore struct {
@@ -50,4 +53,16 @@ func (s *PresenceStore) LastSeen(ctx context.Context, userID string) (int64, err
 		return 0, err
 	}
 	return val, nil
+}
+
+func (s *PresenceStore) SetTyping(ctx context.Context, chatID, userID string) error {
+	return s.client.Set(ctx, typingKeyPrefix+chatID+":"+userID, "1", typingTTL).Err()
+}
+
+func (s *PresenceStore) IsTyping(ctx context.Context, chatID, userID string) (bool, error) {
+	exists, err := s.client.Exists(ctx, typingKeyPrefix+chatID+":"+userID).Result()
+	if err != nil {
+		return false, err
+	}
+	return exists > 0, nil
 }

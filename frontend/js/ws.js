@@ -11,6 +11,7 @@ export class WsClient {
     onMessageUpdated,
     onProfileUpdated,
     onReadStatus,
+    onTypingChanged,
     onError,
     onReconnected,
     refreshAccessToken,
@@ -25,6 +26,7 @@ export class WsClient {
     this.onMessageUpdated = onMessageUpdated;
     this.onProfileUpdated = onProfileUpdated;
     this.onReadStatus = onReadStatus;
+    this.onTypingChanged = onTypingChanged;
     this.onError = onError;
     this.onReconnected = onReconnected;
     this.refreshAccessToken = refreshAccessToken;
@@ -150,6 +152,9 @@ export class WsClient {
           lastReadMessageId: msg.last_read_message_id,
         });
         break;
+      case 'typing_changed':
+        this.onTypingChanged?.({ chatId: msg.chat_id, peerUserId: msg.peer_user_id });
+        break;
       case 'token_expired':
         this._refreshTokenNow = true;
         break;
@@ -189,6 +194,14 @@ export class WsClient {
 
   getReadStatus(chatId, peerUserId) {
     this.send({ type: 'get_read_status', chat_id: chatId, peer_user_id: peerUserId });
+  }
+
+  startTyping(chatId) {
+    // Ephemeral signal — skip silently if not connected rather than queuing
+    // it for delivery after a reconnect, which would be stale by then.
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'start_typing', chat_id: chatId }));
+    }
   }
 
   send(payload) {

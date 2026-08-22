@@ -76,6 +76,7 @@ func main() {
 			OnNotifyPush:      fanout.HandleNotifyPush,
 			OnPresenceChanged: fanout.HandlePresenceChanged,
 			OnProfileUpdated:  fanout.HandleProfileUpdated,
+			OnTypingChanged:   fanout.HandleTypingChanged,
 		}
 		if err := events.Consume(consumerCtx, natsURL, handlers); err != nil {
 			log.Fatalf("ws-gateway: NATS consumer failed: %v", err)

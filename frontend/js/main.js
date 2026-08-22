@@ -34,6 +34,11 @@ const TOAST_AUTO_DISMISS_MS = 5_000;
 const HISTORY_PAGE_SIZE = 50;
 const PRESENCE_REFRESH_INTERVAL_MS = 15_000;
 const MAX_CACHED_MESSAGES_PER_CHAT = 200;
+// Mirrors chat-service's own typing TTL (services/chat-service/internal/cache/presence.go) —
+// the indicator self-clears if a further start_typing (sent every couple keystrokes while
+// composing) never arrives, so a dropped "stop" signal can't leave it stuck.
+const TYPING_INDICATOR_TTL_MS = 3_000;
+const TYPING_SEND_THROTTLE_MS = 2_000;
 
 const app = document.getElementById('app');
 let ws = null;
@@ -180,6 +185,7 @@ function wireZones() {
         onLoadMoreHistory: handleLoadMoreHistory,
         onMessageVisible: handleMessageVisible,
         onBack: handleBackToChats,
+        onTyping: handleTyping,
       })
     );
   }
@@ -679,6 +685,16 @@ function handleMessageVisible(chatId, messageId) {
   ws?.markRead(chatId, messageId);
 }
 
+const lastTypingSentAt = new Map();
+
+function handleTyping(chatId) {
+  const now = Date.now();
+  const last = lastTypingSentAt.get(chatId) || 0;
+  if (now - last < TYPING_SEND_THROTTLE_MS) return;
+  lastTypingSentAt.set(chatId, now);
+  ws?.startTyping(chatId);
+}
+
 function handleLoadMoreHistory(chatId) {
   const chat = state.chats.find((c) => c.id === chatId);
   if (!chat || !chat.hasMoreHistory || chat.loadingMoreHistory) return;
@@ -973,6 +989,17 @@ function connectWs() {
       bumpAvatarCacheVersion();
       notify('sidebar');
       if (chat.id === state.selectedChatId) notify('conversation');
+    },
+    onTypingChanged: ({ chatId, peerUserId }) => {
+      const chat = state.chats.find((c) => c.id === chatId && c.peer.id === peerUserId);
+      if (!chat) return;
+      clearTimeout(chat.typingClearTimer);
+      chat.peerTyping = true;
+      chat.typingClearTimer = setTimeout(() => {
+        chat.peerTyping = false;
+        if (chatId === state.selectedChatId) notify('conversation');
+      }, TYPING_INDICATOR_TTL_MS);
+      if (chatId === state.selectedChatId) notify('conversation');
     },
     onReadStatus: ({ chatId, peerUserId, lastReadMessageId }) => {
       const chat = state.chats.find((c) => c.id === chatId && c.peer.id === peerUserId);

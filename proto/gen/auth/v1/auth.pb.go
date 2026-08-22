@@ -1083,19 +1083,12 @@ func (*RequestPasswordResetResponse) Descriptor() ([]byte, []int) {
 }
 
 type ResetPasswordRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Token       string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	NewPassword string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
-	// The old private key is unrecoverable — resetting via email means the
-	// user doesn't know the password that wrapped it, so there is no key to
-	// re-wrap. The client generates a brand-new RSA-OAEP keypair instead and
-	// wraps it under new_password; old chats become unreadable to this user
-	// (their encrypted_chat_key entries were sealed under the old public key),
-	// but the account is left in a working state for new ones rather than
-	// permanently stuck with a wrapped blob no password can ever open.
-	PublicKey         string `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
-	WrappedPrivateKey string `protobuf:"bytes,4,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
-	KeyWrapSalt       string `protobuf:"bytes,5,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Token             string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	NewPassword       string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	PublicKey         string                 `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string                 `protobuf:"bytes,4,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,5,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }

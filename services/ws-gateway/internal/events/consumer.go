@@ -24,6 +24,7 @@ const (
 	subjectProfileUpdated = "user.profile_updated"
 
 	subjectPresence = "user.presence"
+	subjectTyping   = "chat.typing"
 
 	pullMaxWait = 5 * time.Second
 	pullBatch   = 10
@@ -70,6 +71,11 @@ type ProfileUpdated struct {
 	DisplayName string `json:"display_name"`
 }
 
+type TypingChanged struct {
+	ChatID string `json:"chat_id"`
+	UserID string `json:"user_id"`
+}
+
 type Handlers struct {
 	OnMessageCreated  func(ctx context.Context, event MessageCreated)
 	OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
@@ -77,6 +83,7 @@ type Handlers struct {
 	OnNotifyPush      func(ctx context.Context, event NotifyPush)
 	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
 	OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
+	OnTypingChanged   func(ctx context.Context, event TypingChanged)
 }
 
 type PresencePublisher struct {
@@ -103,6 +110,14 @@ func (p *PresencePublisher) PublishPresenceChanged(event PresenceChanged) error 
 	return p.nc.Publish(subjectPresence, payload)
 }
 
+func (p *PresencePublisher) PublishTypingChanged(event TypingChanged) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	return p.nc.Publish(subjectTyping, payload)
+}
+
 func Consume(ctx context.Context, url string, handlers Handlers) error {
 	nc, err := nats.Connect(url)
 	if err != nil {
@@ -115,7 +130,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		return err
 	}
 
-	errCh := make(chan error, 6)
+	errCh := make(chan error, 7)
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
@@ -191,7 +206,26 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		errCh <- nil
 	}()
 
-	for range 6 {
+	go func() {
+		sub, err := nc.Subscribe(subjectTyping, func(msg *nats.Msg) {
+			var event TypingChanged
+			if err := json.Unmarshal(msg.Data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
+				return
+			}
+			handlers.OnTypingChanged(ctx, event)
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer func() { _ = sub.Unsubscribe() }()
+
+		<-ctx.Done()
+		errCh <- nil
+	}()
+
+	for range 7 {
 		if err := <-errCh; err != nil {
 			return err
 		}

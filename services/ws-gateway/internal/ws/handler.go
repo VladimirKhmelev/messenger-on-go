@@ -26,10 +26,12 @@ type ChatClient interface {
 	DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
 	MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error
 	GetReadStatus(ctx context.Context, chatID, userID string) (string, error)
+	SetTyping(ctx context.Context, chatID, userID string) error
 }
 
 type PresencePublisher interface {
 	PublishPresenceChanged(event events.PresenceChanged) error
+	PublishTypingChanged(event events.TypingChanged) error
 }
 
 type Handler struct {
