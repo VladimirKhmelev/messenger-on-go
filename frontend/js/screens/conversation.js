@@ -57,7 +57,7 @@ export function renderConversation(root, handlers) {
               ${escapeHtml(name)}
               <span class="conversation-header-tag">@${escapeHtml(chat.peer.tag)}</span>
             </div>
-            <div class="conversation-header-status">${statusText}</div>
+            <div class="conversation-header-status" data-typing="${!!chat.peerTyping}">${statusText}</div>
           </div>
         </div>
       </div>
@@ -135,6 +135,7 @@ export function renderConversation(root, handlers) {
     // state, so patch that directly instead of re-rendering.
     state.draft = event.target.value;
     sendBtn.setAttribute('data-enabled', String(!!state.draft.trim()));
+    if (state.draft.trim()) handlers.onTyping(chat.id);
   });
   draftInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -261,6 +262,7 @@ function renderDateDivider(label) {
 }
 
 function presenceText(chat) {
+  if (chat.peerTyping) return 'печатает...';
   if (chat.online) return 'В сети';
   if (!chat.lastSeenUnix) return 'Не в сети';
 
