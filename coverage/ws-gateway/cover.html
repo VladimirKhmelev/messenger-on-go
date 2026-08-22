@@ -61,13 +61,13 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (18.2%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (15.1%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (88.2%)</option>
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.1%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (54.8%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (52.3%)</option>
 				
 				</select>
 			</div>
@@ -159,6 +159,7 @@ func main() <span class="cov0" title="0">{
                         OnNotifyPush:      fanout.HandleNotifyPush,
                         OnPresenceChanged: fanout.HandlePresenceChanged,
                         OnProfileUpdated:  fanout.HandleProfileUpdated,
+                        OnTypingChanged:   fanout.HandleTypingChanged,
                 }
                 if err := events.Consume(consumerCtx, natsURL, handlers); err != nil </span><span class="cov0" title="0">{
                         log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
@@ -299,6 +300,13 @@ func (c *Client) SetOffline(ctx context.Context, userID string) error <span clas
         return err
 }</span>
 
+func (c *Client) SetTyping(ctx context.Context, chatID, userID string) error <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        _, err := c.chat.SetTyping(ctx, &amp;chatv1.SetTypingRequest{ChatId: chatID, UserId: userID})
+        return err
+}</span>
+
 func (c *Client) ListContacts(ctx context.Context, userID string) ([]string, error) <span class="cov0" title="0">{
         ctx = c.withInternalSecret(ctx)
 
@@ -403,6 +411,7 @@ const (
         subjectProfileUpdated = "user.profile_updated"
 
         subjectPresence = "user.presence"
+        subjectTyping   = "chat.typing"
 
         pullMaxWait = 5 * time.Second
         pullBatch   = 10
@@ -449,6 +458,11 @@ type ProfileUpdated struct {
         DisplayName string `json:"display_name"`
 }
 
+type TypingChanged struct {
+        ChatID string `json:"chat_id"`
+        UserID string `json:"user_id"`
+}
+
 type Handlers struct {
         OnMessageCreated  func(ctx context.Context, event MessageCreated)
         OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
@@ -456,6 +470,7 @@ type Handlers struct {
         OnNotifyPush      func(ctx context.Context, event NotifyPush)
         OnPresenceChanged func(ctx context.Context, event PresenceChanged)
         OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
+        OnTypingChanged   func(ctx context.Context, event TypingChanged)
 }
 
 type PresencePublisher struct {
@@ -482,6 +497,14 @@ func (p *PresencePublisher) PublishPresenceChanged(event PresenceChanged) error 
         <span class="cov0" title="0">return p.nc.Publish(subjectPresence, payload)</span>
 }
 
+func (p *PresencePublisher) PublishTypingChanged(event TypingChanged) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return p.nc.Publish(subjectTyping, payload)</span>
+}
+
 func Consume(ctx context.Context, url string, handlers Handlers) error <span class="cov0" title="0">{
         nc, err := nats.Connect(url)
         if err != nil </span><span class="cov0" title="0">{
@@ -494,7 +517,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 return err
         }</span>
 
-        <span class="cov0" title="0">errCh := make(chan error, 6)
+        <span class="cov0" title="0">errCh := make(chan error, 7)
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
@@ -570,7 +593,26 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 errCh &lt;- nil</span>
         }()
 
-        <span class="cov0" title="0">for range 6 </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                sub, err := nc.Subscribe(subjectTyping, func(msg *nats.Msg) </span><span class="cov0" title="0">{
+                        var event TypingChanged
+                        if err := json.Unmarshal(msg.Data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnTypingChanged(ctx, event)</span>
+                })
+                <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                        errCh &lt;- err
+                        return
+                }</span>
+                <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = sub.Unsubscribe() }</span>()
+
+                <span class="cov0" title="0">&lt;-ctx.Done()
+                errCh &lt;- nil</span>
+        }()
+
+        <span class="cov0" title="0">for range 7 </span><span class="cov0" title="0">{
                 if err := &lt;-errCh; err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
@@ -744,6 +786,27 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.Presenc
         }</span>
 }
 
+func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingChanged) <span class="cov0" title="0">{
+        userIDs, err := f.members.ListMembers(ctx, event.ChatID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">payload := serverMessage{
+                Type:       "typing_changed",
+                ChatID:     event.ChatID,
+                PeerUserID: event.UserID,
+        }
+
+        for _, userID := range userIDs </span><span class="cov0" title="0">{
+                if userID == event.UserID </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">f.registry.Broadcast(userID, payload)</span>
+        }
+}
+
 func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) <span class="cov0" title="0">{
         contacts, err := f.contacts.ListContacts(ctx, event.UserID)
         if err != nil </span><span class="cov0" title="0">{
@@ -792,10 +855,12 @@ type ChatClient interface {
         DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
         MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error
         GetReadStatus(ctx context.Context, chatID, userID string) (string, error)
+        SetTyping(ctx context.Context, chatID, userID string) error
 }
 
 type PresencePublisher interface {
         PublishPresenceChanged(event events.PresenceChanged) error
+        PublishTypingChanged(event events.TypingChanged) error
 }
 
 type Handler struct {
@@ -1121,6 +1186,15 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         PeerUserID:        msg.PeerUserID,
                         LastReadMessageID: lastReadMessageID,
                 })</span>
+
+        case "start_typing":<span class="cov0" title="0">
+                if err := s.chat.SetTyping(ctx, msg.ChatID, s.userID); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("ws-gateway: failed to set typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
+                        return
+                }</span>
+                <span class="cov0" title="0">if err := s.presence.PublishTypingChanged(events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("ws-gateway: failed to publish typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
+                }</span>
 
         default:<span class="cov0" title="0">
                 s.writeError("unknown message type: " + msg.Type)</span>

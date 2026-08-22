@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.6%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.0%)</option>
 				
 				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -288,6 +288,9 @@ const (
         onlineKeyPrefix   = "chat:online:"
         lastSeenKeyPrefix = "chat:last_seen:"
         onlineTTL         = 30 * time.Second
+
+        typingKeyPrefix = "chat:typing:"
+        typingTTL       = 3 * time.Second
 )
 
 type PresenceStore struct {
@@ -326,6 +329,18 @@ func (s *PresenceStore) LastSeen(ctx context.Context, userID string) (int64, err
                 return 0, err
         }</span>
         <span class="cov0" title="0">return val, nil</span>
+}
+
+func (s *PresenceStore) SetTyping(ctx context.Context, chatID, userID string) error <span class="cov0" title="0">{
+        return s.client.Set(ctx, typingKeyPrefix+chatID+":"+userID, "1", typingTTL).Err()
+}</span>
+
+func (s *PresenceStore) IsTyping(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
+        exists, err := s.client.Exists(ctx, typingKeyPrefix+chatID+":"+userID).Result()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return exists &gt; 0, nil</span>
 }
 </pre>
 		
@@ -786,6 +801,8 @@ type PresenceChecker interface {
         IsOnline(ctx context.Context, userID string) (bool, error)
         LastSeen(ctx context.Context, userID string) (int64, error)
         SetOffline(ctx context.Context, userID string) error
+        SetTyping(ctx context.Context, chatID, userID string) error
+        IsTyping(ctx context.Context, chatID, userID string) (bool, error)
 }
 
 type ChatService struct {
@@ -1183,6 +1200,14 @@ func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bo
 func (s *ChatService) SetOffline(ctx context.Context, userID string) error <span class="cov8" title="1">{
         return s.presence.SetOffline(ctx, userID)
 }</span>
+
+func (s *ChatService) SetTyping(ctx context.Context, chatID, userID string) error <span class="cov0" title="0">{
+        return s.presence.SetTyping(ctx, chatID, userID)
+}</span>
+
+func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
+        return s.presence.IsTyping(ctx, chatID, userID)
+}</span>
 </pre>
 		
 		<pre class="file" id="file8" style="display: none">package grpc
@@ -1464,6 +1489,23 @@ func (s *ChatServer) ListContacts(ctx context.Context, req *chatv1.ListContactsR
         <span class="cov0" title="0">return &amp;chatv1.ListContactsResponse{UserIds: userIDs}, nil</span>
 }
 
+func (s *ChatServer) SetTyping(ctx context.Context, req *chatv1.SetTypingRequest) (*chatv1.SetTypingResponse, error) <span class="cov0" title="0">{
+        if err := s.chat.SetTyping(ctx, req.GetChatId(), req.GetUserId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.SetTypingResponse{}, nil</span>
+}
+
+func (s *ChatServer) GetTyping(ctx context.Context, req *chatv1.GetTypingRequest) (*chatv1.GetTypingResponse, error) <span class="cov0" title="0">{
+        typing, err := s.chat.GetTyping(ctx, req.GetChatId(), req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.GetTypingResponse{Typing: typing}, nil</span>
+}
+
 func toGRPCError(err error) error <span class="cov0" title="0">{
         switch </span>{
         case errors.Is(err, domain.ErrCannotChatWithSelf),
@@ -1524,6 +1566,8 @@ var internalMethods = map[string]bool{
         "/chat.v1.ChatService/SetOffline":    true,
         "/chat.v1.ChatService/ListContacts":  true,
         "/chat.v1.ChatService/GetReadStatus": true,
+        "/chat.v1.ChatService/SetTyping":     true,
+        "/chat.v1.ChatService/GetTyping":     true,
 }
 
 func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
