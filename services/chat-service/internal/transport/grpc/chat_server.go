@@ -277,6 +277,23 @@ func (s *ChatServer) ListContacts(ctx context.Context, req *chatv1.ListContactsR
 	return &chatv1.ListContactsResponse{UserIds: userIDs}, nil
 }
 
+func (s *ChatServer) SetTyping(ctx context.Context, req *chatv1.SetTypingRequest) (*chatv1.SetTypingResponse, error) {
+	if err := s.chat.SetTyping(ctx, req.GetChatId(), req.GetUserId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.SetTypingResponse{}, nil
+}
+
+func (s *ChatServer) GetTyping(ctx context.Context, req *chatv1.GetTypingRequest) (*chatv1.GetTypingResponse, error) {
+	typing, err := s.chat.GetTyping(ctx, req.GetChatId(), req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.GetTypingResponse{Typing: typing}, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrCannotChatWithSelf),

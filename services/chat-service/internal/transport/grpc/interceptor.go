@@ -34,6 +34,8 @@ var internalMethods = map[string]bool{
 	"/chat.v1.ChatService/SetOffline":    true,
 	"/chat.v1.ChatService/ListContacts":  true,
 	"/chat.v1.ChatService/GetReadStatus": true,
+	"/chat.v1.ChatService/SetTyping":     true,
+	"/chat.v1.ChatService/GetTyping":     true,
 }
 
 func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor {

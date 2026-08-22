@@ -29,6 +29,8 @@ type PresenceChecker interface {
 	IsOnline(ctx context.Context, userID string) (bool, error)
 	LastSeen(ctx context.Context, userID string) (int64, error)
 	SetOffline(ctx context.Context, userID string) error
+	SetTyping(ctx context.Context, chatID, userID string) error
+	IsTyping(ctx context.Context, chatID, userID string) (bool, error)
 }
 
 type ChatService struct {
@@ -425,4 +427,12 @@ func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bo
 
 func (s *ChatService) SetOffline(ctx context.Context, userID string) error {
 	return s.presence.SetOffline(ctx, userID)
+}
+
+func (s *ChatService) SetTyping(ctx context.Context, chatID, userID string) error {
+	return s.presence.SetTyping(ctx, chatID, userID)
+}
+
+func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (bool, error) {
+	return s.presence.IsTyping(ctx, chatID, userID)
 }
