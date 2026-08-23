@@ -14,4 +14,6 @@ var (
 	ErrNotMessageSender   = errors.New("only the sender can edit or delete this message for everyone")
 	ErrMessageNotInChat   = errors.New("message does not belong to this chat")
 	ErrMissingChatKey     = errors.New("encrypted chat key must be provided for every participant")
+	ErrMessageTooLarge    = errors.New("message body exceeds maximum allowed size")
+	ErrTooManyMessages    = errors.New("too many messages sent, slow down")
 )

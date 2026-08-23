@@ -298,6 +298,7 @@ func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrCannotChatWithSelf),
 		errors.Is(err, domain.ErrEmptyMessage),
+		errors.Is(err, domain.ErrMessageTooLarge),
 		errors.Is(err, domain.ErrMissingChatKey):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrTargetUserNotFound),
@@ -311,6 +312,8 @@ func toGRPCError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrMessageNotInChat):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrTooManyMessages):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
 		log.Printf("chat-service: internal error: %v", err)
 		return status.Error(codes.Internal, "internal error")
