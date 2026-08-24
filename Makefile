@@ -1,6 +1,6 @@
 SERVICES := auth-service chat-service ws-gateway notification-worker
 
-.PHONY: proto up down build-images logs unit tidy ci integration lint protolint golangci-lint
+.PHONY: proto up down build-images logs gofmt unit tidy ci integration lint protolint golangci-lint
 
 proto:
 	mkdir -p proto/gen/openapi
