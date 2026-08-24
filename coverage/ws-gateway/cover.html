@@ -63,11 +63,11 @@
 				
 				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (15.1%)</option>
 				
-				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (88.2%)</option>
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (80.0%)</option>
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.1%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (52.3%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (53.6%)</option>
 				
 				</select>
 			</div>
@@ -91,6 +91,7 @@ import (
         "net/http"
         "os"
         "os/signal"
+        "strings"
         "syscall"
 
         "google.golang.org/grpc"
@@ -131,6 +132,11 @@ func main() <span class="cov0" title="0">{
         <span class="cov0" title="0">natsURL := os.Getenv("NATS_URL")
         if natsURL == "" </span><span class="cov0" title="0">{
                 log.Fatal("ws-gateway: NATS_URL is required")
+        }</span>
+
+        <span class="cov0" title="0">var allowedOrigins []string
+        if raw := os.Getenv("ALLOWED_ORIGINS"); raw != "" </span><span class="cov0" title="0">{
+                allowedOrigins = strings.Split(raw, ",")
         }</span>
 
         <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
@@ -185,7 +191,7 @@ func main() <span class="cov0" title="0">{
         }()
 
         <span class="cov0" title="0">mux := http.NewServeMux()
-        mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher))
+        mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher, allowedOrigins))
 
         httpServer := &amp;http.Server{
                 Addr:    ":" + httpPort,
@@ -841,10 +847,6 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
-var upgrader = websocket.Upgrader{
-        CheckOrigin: func(r *http.Request) bool <span class="cov8" title="1">{ return true }</span>,
-}
-
 type ChatClient interface {
         SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
         GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
@@ -864,15 +866,33 @@ type PresencePublisher interface {
 }
 
 type Handler struct {
-        jwtSecret string
-        chat      ChatClient
-        registry  *Registry
-        presence  PresencePublisher
+        jwtSecret      string
+        chat           ChatClient
+        registry       *Registry
+        presence       PresencePublisher
+        allowedOrigins map[string]bool
+        upgrader       websocket.Upgrader
 }
 
-func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher) *Handler <span class="cov8" title="1">{
-        return &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence}
-}</span>
+func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher, allowedOrigins []string) *Handler <span class="cov8" title="1">{
+        origins := make(map[string]bool, len(allowedOrigins))
+        for _, o := range allowedOrigins </span><span class="cov0" title="0">{
+                if o != "" </span><span class="cov0" title="0">{
+                        origins[o] = true
+                }</span>
+        }
+
+        <span class="cov8" title="1">h := &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence, allowedOrigins: origins}
+        h.upgrader = websocket.Upgrader{CheckOrigin: h.checkOrigin}
+        return h</span>
+}
+
+func (h *Handler) checkOrigin(r *http.Request) bool <span class="cov8" title="1">{
+        if len(h.allowedOrigins) == 0 </span><span class="cov8" title="1">{
+                return true
+        }</span>
+        <span class="cov0" title="0">return h.allowedOrigins[r.Header.Get("Origin")]</span>
+}
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         token := r.URL.Query().Get("token")
@@ -887,7 +907,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class=
                 return
         }</span>
 
-        <span class="cov8" title="1">conn, err := upgrader.Upgrade(w, r, nil)
+        <span class="cov8" title="1">conn, err := h.upgrader.Upgrade(w, r, nil)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: upgrade failed for user %s: %v", userID, err)
                 return
@@ -960,8 +980,10 @@ import (
 )
 
 const (
-        pongWait   = 60 * time.Second
-        pingPeriod = (pongWait * 9) / 10
+        pongWait      = 60 * time.Second
+        pingPeriod    = (pongWait * 9) / 10
+        maxReadBytes  = 256 * 1024
+        handleTimeout = 10 * time.Second
 )
 
 type clientMessage struct {
@@ -1019,6 +1041,7 @@ func (s *session) run(registry *Registry) <span class="cov8" title="1">{
 
         <span class="cov8" title="1">s.announcePresence(true, 0)
 
+        s.conn.SetReadLimit(maxReadBytes)
         _ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
         s.conn.SetPongHandler(func(string) error </span><span class="cov0" title="0">{
                 return s.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -1085,7 +1108,9 @@ func (s *session) pingLoop(stop &lt;-chan struct{}) <span class="cov8" title="1"
 }
 
 func (s *session) markOffline() <span class="cov8" title="1">{
-        ctx := context.Background()
+        ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+        defer cancel()
+
         if err := s.chat.SetOffline(ctx, s.userID); err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to set user %s offline: %v", s.userID, err)
                 return
@@ -1117,7 +1142,8 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                 return
         }</span>
 
-        <span class="cov8" title="1">ctx := context.Background()
+        <span class="cov8" title="1">ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+        defer cancel()
 
         switch msg.Type </span>{
         case "send_message":<span class="cov8" title="1">

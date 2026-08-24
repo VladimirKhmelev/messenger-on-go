@@ -193,7 +193,12 @@ func main() <span class="cov0" title="0">{
                 log.Fatal("auth-service: SMTP_FROM is required")
         }</span>
 
-        <span class="cov0" title="0">githubClientID := os.Getenv("GITHUB_CLIENT_ID")
+        <span class="cov0" title="0">smtpDisplayName := os.Getenv("SMTP_DISPLAY_NAME")
+
+        smtpUsername := os.Getenv("SMTP_USERNAME")
+        smtpPassword := os.Getenv("SMTP_PASSWORD")
+
+        githubClientID := os.Getenv("GITHUB_CLIENT_ID")
         if githubClientID == "" </span><span class="cov0" title="0">{
                 log.Fatal("auth-service: GITHUB_CLIENT_ID is required")
         }</span>
@@ -226,7 +231,7 @@ func main() <span class="cov0" title="0">{
         emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
         passwordResets := cache.NewPasswordResetStore(redisClient)
         passwordChanges := cache.NewPasswordChangeTracker(redisClient)
-        mailer := mail.NewSender(smtpAddr, smtpFrom)
+        mailer := mail.NewSender(smtpAddr, smtpFrom, smtpDisplayName, smtpUsername, smtpPassword)
         githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
 
         eventPublisher, err := events.Connect(context.Background(), natsURL)
@@ -794,16 +799,27 @@ func (i *Issuer) Parse(tokenString string, wantType TokenType) (*Claims, error) 
 import (
         "fmt"
         "net/smtp"
+        "strings"
 )
 
 type Sender struct {
-        addr string
-        from string
+        addr        string
+        from        string
+        displayName string
+        auth        smtp.Auth
 }
 
-func NewSender(addr, from string) *Sender <span class="cov0" title="0">{
-        return &amp;Sender{addr: addr, from: from}
-}</span>
+func NewSender(addr, from, displayName, username, password string) *Sender <span class="cov0" title="0">{
+        var auth smtp.Auth
+        if username != "" </span><span class="cov0" title="0">{
+                host := addr
+                if i := strings.LastIndex(addr, ":"); i != -1 </span><span class="cov0" title="0">{
+                        host = addr[:i]
+                }</span>
+                <span class="cov0" title="0">auth = smtp.PlainAuth("", username, password, host)</span>
+        }
+        <span class="cov0" title="0">return &amp;Sender{addr: addr, from: from, displayName: displayName, auth: auth}</span>
+}
 
 func (s *Sender) SendVerificationCode(to, code string) error <span class="cov0" title="0">{
         subject := "Your verification code"
@@ -827,10 +843,14 @@ func (s *Sender) SendPasswordChanged(to string) error <span class="cov0" title="
 }</span>
 
 func (s *Sender) send(to, subject, body string) error <span class="cov0" title="0">{
-        msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n", s.from, to, subject, body)
+        fromHeader := s.from
+        if s.displayName != "" </span><span class="cov0" title="0">{
+                fromHeader = fmt.Sprintf("%s &lt;%s&gt;", s.displayName, s.from)
+        }</span>
+        <span class="cov0" title="0">msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n", fromHeader, to, subject, body)
 
-        return smtp.SendMail(s.addr, nil, s.from, []string{to}, []byte(msg))
-}</span>
+        return smtp.SendMail(s.addr, s.auth, s.from, []string{to}, []byte(msg))</span>
+}
 </pre>
 		
 		<pre class="file" id="file11" style="display: none">package oauth
@@ -1038,11 +1058,18 @@ import (
         "database/sql"
         "errors"
         "strings"
+        "time"
 
         _ "github.com/jackc/pgx/v5/stdlib"
         "github.com/jmoiron/sqlx"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const (
+        maxOpenConns    = 20
+        maxIdleConns    = 5
+        connMaxLifetime = 30 * time.Minute
 )
 
 type PostgresUserRepository struct {
@@ -1054,7 +1081,10 @@ func NewPostgresUserRepository(dsn string) (*PostgresUserRepository, error) <spa
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov0" title="0">return &amp;PostgresUserRepository{conn: conn}, nil</span>
+        <span class="cov0" title="0">conn.SetMaxOpenConns(maxOpenConns)
+        conn.SetMaxIdleConns(maxIdleConns)
+        conn.SetConnMaxLifetime(connMaxLifetime)
+        return &amp;PostgresUserRepository{conn: conn}, nil</span>
 }
 
 func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) error <span class="cov0" title="0">{

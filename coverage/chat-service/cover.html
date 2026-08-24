@@ -61,19 +61,21 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache/presence.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache/redis.go (0.0%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache/ratelimit.go (0.0%)</option>
 				
-				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events/events.go (0.0%)</option>
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache/redis.go (0.0%)</option>
 				
-				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/migrations.go (0.0%)</option>
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events/events.go (0.0%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/migrations.go (0.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.0%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.5%)</option>
 				
-				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.9%)</option>
+				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
+				
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.9%)</option>
 				
 				</select>
 			</div>
@@ -113,6 +115,8 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
         transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
 )
+
+const maxGRPCRecvMsgSize = 256 * 1024
 
 func main() <span class="cov0" title="0">{
         port := os.Getenv("GRPC_PORT")
@@ -175,9 +179,11 @@ func main() <span class="cov0" title="0">{
                 log.Fatalf("chat-service: failed to connect to NATS: %v", err)
         }</span>
 
-        <span class="cov0" title="0">presenceStore := cache.NewPresenceStore(cache.NewClient(redisAddr))
+        <span class="cov0" title="0">redisClient := cache.NewClient(redisAddr)
+        presenceStore := cache.NewPresenceStore(redisClient)
+        sendLimiter := cache.NewSendMessageRateLimiter(redisClient)
 
-        chatService := service.NewChatService(chatRepo, authClient, eventPublisher, presenceStore)
+        chatService := service.NewChatService(chatRepo, authClient, eventPublisher, presenceStore, sendLimiter)
 
         lis, err := net.Listen("tcp", ":"+port)
         if err != nil </span><span class="cov0" title="0">{
@@ -186,6 +192,7 @@ func main() <span class="cov0" title="0">{
 
         <span class="cov0" title="0">grpcServer := grpc.NewServer(
                 grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret, presenceStore)),
+                grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
         )
 
         chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))
@@ -347,6 +354,47 @@ func (s *PresenceStore) IsTyping(ctx context.Context, chatID, userID string) (bo
 		<pre class="file" id="file3" style="display: none">package cache
 
 import (
+        "context"
+        "time"
+
+        "github.com/redis/go-redis/v9"
+)
+
+const (
+        sendMessageRateLimitKeyPrefix = "chat:send-attempts:"
+        SendMessageRateLimitMax       = 30
+        SendMessageRateLimitWindow    = time.Minute
+)
+
+type SendMessageRateLimiter struct {
+        client *redis.Client
+}
+
+func NewSendMessageRateLimiter(client *redis.Client) *SendMessageRateLimiter <span class="cov0" title="0">{
+        return &amp;SendMessageRateLimiter{client: client}
+}</span>
+
+func (l *SendMessageRateLimiter) Allow(ctx context.Context, userID string) (bool, error) <span class="cov0" title="0">{
+        redisKey := sendMessageRateLimitKeyPrefix + userID
+
+        count, err := l.client.Incr(ctx, redisKey).Result()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+
+        <span class="cov0" title="0">if count == 1 </span><span class="cov0" title="0">{
+                if err := l.client.Expire(ctx, redisKey, SendMessageRateLimitWindow).Err(); err != nil </span><span class="cov0" title="0">{
+                        return false, err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return count &lt;= SendMessageRateLimitMax, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package cache
+
+import (
         "github.com/redis/go-redis/v9"
 )
 
@@ -355,7 +403,7 @@ func NewClient(addr string) *redis.Client <span class="cov0" title="0">{
 }</span>
 </pre>
 		
-		<pre class="file" id="file4" style="display: none">package events
+		<pre class="file" id="file5" style="display: none">package events
 
 import (
         "context"
@@ -459,7 +507,7 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) e
 }
 </pre>
 		
-		<pre class="file" id="file5" style="display: none">package repository
+		<pre class="file" id="file6" style="display: none">package repository
 
 import (
         "embed"
@@ -497,7 +545,7 @@ func (r *PostgresChatRepository) Migrate() error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file6" style="display: none">package repository
+		<pre class="file" id="file7" style="display: none">package repository
 
 import (
         "context"
@@ -511,6 +559,12 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 )
 
+const (
+        maxOpenConns    = 20
+        maxIdleConns    = 5
+        connMaxLifetime = 30 * time.Minute
+)
+
 type PostgresChatRepository struct {
         conn *sqlx.DB
 }
@@ -520,7 +574,10 @@ func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) <spa
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov0" title="0">return &amp;PostgresChatRepository{conn: conn}, nil</span>
+        <span class="cov0" title="0">conn.SetMaxOpenConns(maxOpenConns)
+        conn.SetMaxIdleConns(maxIdleConns)
+        conn.SetConnMaxLifetime(connMaxLifetime)
+        return &amp;PostgresChatRepository{conn: conn}, nil</span>
 }
 
 func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]MemberChatKey) error <span class="cov0" title="0">{
@@ -770,7 +827,7 @@ func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, message
 }</span>
 </pre>
 		
-		<pre class="file" id="file7" style="display: none">package service
+		<pre class="file" id="file8" style="display: none">package service
 
 import (
         "context"
@@ -785,7 +842,11 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
-const HistoryDefaultLimit = 50
+const (
+        HistoryDefaultLimit = 50
+
+        MaxMessageBodyBytes = 64 * 1024
+)
 
 type AuthClient interface {
         UserExists(ctx context.Context, bearerToken, userID string) (bool, error)
@@ -805,15 +866,20 @@ type PresenceChecker interface {
         IsTyping(ctx context.Context, chatID, userID string) (bool, error)
 }
 
-type ChatService struct {
-        chats    repository.ChatRepository
-        auth     AuthClient
-        events   EventPublisher
-        presence PresenceChecker
+type RateLimiter interface {
+        Allow(ctx context.Context, userID string) (bool, error)
 }
 
-func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker) *ChatService <span class="cov8" title="1">{
-        return &amp;ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence}
+type ChatService struct {
+        chats       repository.ChatRepository
+        auth        AuthClient
+        events      EventPublisher
+        presence    PresenceChecker
+        sendLimiter RateLimiter
+}
+
+func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov8" title="1">{
+        return &amp;ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence, sendLimiter: sendLimiter}
 }</span>
 
 func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov8" title="1">{
@@ -903,6 +969,17 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
         if body == "" </span><span class="cov8" title="1">{
                 return nil, domain.ErrEmptyMessage
         }</span>
+        <span class="cov8" title="1">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov0" title="0">{
+                return nil, domain.ErrMessageTooLarge
+        }</span>
+
+        <span class="cov8" title="1">allowed, err := s.sendLimiter.Allow(ctx, senderID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !allowed </span><span class="cov0" title="0">{
+                return nil, domain.ErrTooManyMessages
+        }</span>
 
         <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, chatID, senderID)
         if err != nil </span><span class="cov0" title="0">{
@@ -958,6 +1035,9 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov8" title="1">{
         if newBody == "" </span><span class="cov0" title="0">{
                 return nil, domain.ErrEmptyMessage
+        }</span>
+        <span class="cov8" title="1">if len(newBody) &gt; MaxMessageBodyBytes </span><span class="cov0" title="0">{
+                return nil, domain.ErrMessageTooLarge
         }</span>
 
         <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
@@ -1210,7 +1290,7 @@ func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (boo
 }</span>
 </pre>
 		
-		<pre class="file" id="file8" style="display: none">package grpc
+		<pre class="file" id="file9" style="display: none">package grpc
 
 import (
         "context"
@@ -1510,6 +1590,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
         switch </span>{
         case errors.Is(err, domain.ErrCannotChatWithSelf),
                 errors.Is(err, domain.ErrEmptyMessage),
+                errors.Is(err, domain.ErrMessageTooLarge),
                 errors.Is(err, domain.ErrMissingChatKey):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrTargetUserNotFound),
@@ -1523,6 +1604,8 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
         case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
+        case errors.Is(err, domain.ErrTooManyMessages):<span class="cov0" title="0">
+                return status.Error(codes.ResourceExhausted, err.Error())</span>
         default:<span class="cov0" title="0">
                 log.Printf("chat-service: internal error: %v", err)
                 return status.Error(codes.Internal, "internal error")</span>
@@ -1530,7 +1613,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file9" style="display: none">package grpc
+		<pre class="file" id="file10" style="display: none">package grpc
 
 import (
         "context"
