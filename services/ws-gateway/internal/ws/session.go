@@ -16,6 +16,8 @@ import (
 const (
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
+	maxReadBytes = 256 * 1024
+	handleTimeout = 10 * time.Second
 )
 
 type clientMessage struct {
@@ -73,6 +75,7 @@ func (s *session) run(registry *Registry) {
 
 	s.announcePresence(true, 0)
 
+	s.conn.SetReadLimit(maxReadBytes)
 	_ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.conn.SetPongHandler(func(string) error {
 		return s.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -139,7 +142,9 @@ func (s *session) pingLoop(stop <-chan struct{}) {
 }
 
 func (s *session) markOffline() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+	defer cancel()
+
 	if err := s.chat.SetOffline(ctx, s.userID); err != nil {
 		log.Printf("ws-gateway: failed to set user %s offline: %v", s.userID, err)
 		return
@@ -171,7 +176,8 @@ func (s *session) handle(data []byte) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+	defer cancel()
 
 	switch msg.Type {
 	case "send_message":
