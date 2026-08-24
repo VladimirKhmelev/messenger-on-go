@@ -24,6 +24,9 @@ build-images:
 logs:
 	docker-compose logs -f
 
+gofmt:
+	gofmt -l -w .
+
 unit:
 	@echo "mode: set" > cover-all.out
 	@for s in $(SERVICES); do \
