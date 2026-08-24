@@ -100,7 +100,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret, presenceStore)),
+		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret)),
 		grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
 	)
 
