@@ -67,7 +67,7 @@
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.1%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (53.6%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (50.9%)</option>
 				
 				</select>
 			</div>
@@ -298,6 +298,13 @@ func (c *Client) GetPresence(ctx context.Context, userID string) (online bool, l
         }</span>
         <span class="cov0" title="0">return resp.GetOnline(), resp.GetLastSeenUnix(), nil</span>
 }
+
+func (c *Client) SetOnline(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        ctx = c.withInternalSecret(ctx)
+
+        _, err := c.chat.SetOnline(ctx, &amp;chatv1.SetOnlineRequest{UserId: userID})
+        return err
+}</span>
 
 func (c *Client) SetOffline(ctx context.Context, userID string) error <span class="cov0" title="0">{
         ctx = c.withInternalSecret(ctx)
@@ -851,6 +858,7 @@ type ChatClient interface {
         SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
         GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
         GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
+        SetOnline(ctx context.Context, userID string) error
         SetOffline(ctx context.Context, userID string) error
         EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
         DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
@@ -1039,9 +1047,7 @@ func (s *session) run(registry *Registry) <span class="cov8" title="1">{
 
         <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{ _ = s.conn.Close() }</span>()
 
-        <span class="cov8" title="1">s.announcePresence(true, 0)
-
-        s.conn.SetReadLimit(maxReadBytes)
+        <span class="cov8" title="1">s.conn.SetReadLimit(maxReadBytes)
         _ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
         s.conn.SetPongHandler(func(string) error </span><span class="cov0" title="0">{
                 return s.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -1212,6 +1218,16 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         PeerUserID:        msg.PeerUserID,
                         LastReadMessageID: lastReadMessageID,
                 })</span>
+
+        case "set_active":<span class="cov0" title="0">
+                if err := s.chat.SetOnline(ctx, s.userID); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("ws-gateway: failed to set user %s online: %v", s.userID, err)
+                        return
+                }</span>
+                <span class="cov0" title="0">s.announcePresence(true, 0)</span>
+
+        case "set_inactive":<span class="cov0" title="0">
+                s.markOffline()</span>
 
         case "start_typing":<span class="cov0" title="0">
                 if err := s.chat.SetTyping(ctx, msg.ChatID, s.userID); err != nil </span><span class="cov0" title="0">{

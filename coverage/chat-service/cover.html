@@ -71,11 +71,11 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.5%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.2%)</option>
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.9%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
 				</select>
 			</div>
@@ -191,7 +191,7 @@ func main() <span class="cov0" title="0">{
         }</span>
 
         <span class="cov0" title="0">grpcServer := grpc.NewServer(
-                grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret, presenceStore)),
+                grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret)),
                 grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
         )
 
@@ -861,6 +861,7 @@ type EventPublisher interface {
 type PresenceChecker interface {
         IsOnline(ctx context.Context, userID string) (bool, error)
         LastSeen(ctx context.Context, userID string) (int64, error)
+        SetOnline(ctx context.Context, userID string) error
         SetOffline(ctx context.Context, userID string) error
         SetTyping(ctx context.Context, chatID, userID string) error
         IsTyping(ctx context.Context, chatID, userID string) (bool, error)
@@ -1277,6 +1278,10 @@ func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bo
         <span class="cov8" title="1">return online, lastSeenUnix, nil</span>
 }
 
+func (s *ChatService) SetOnline(ctx context.Context, userID string) error <span class="cov0" title="0">{
+        return s.presence.SetOnline(ctx, userID)
+}</span>
+
 func (s *ChatService) SetOffline(ctx context.Context, userID string) error <span class="cov8" title="1">{
         return s.presence.SetOffline(ctx, userID)
 }</span>
@@ -1552,6 +1557,14 @@ func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceReq
         <span class="cov0" title="0">return &amp;chatv1.GetPresenceResponse{Online: online, LastSeenUnix: lastSeenUnix}, nil</span>
 }
 
+func (s *ChatServer) SetOnline(ctx context.Context, req *chatv1.SetOnlineRequest) (*chatv1.SetOnlineResponse, error) <span class="cov0" title="0">{
+        if err := s.chat.SetOnline(ctx, req.GetUserId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.SetOnlineResponse{}, nil</span>
+}
+
 func (s *ChatServer) SetOffline(ctx context.Context, req *chatv1.SetOfflineRequest) (*chatv1.SetOfflineResponse, error) <span class="cov0" title="0">{
         if err := s.chat.SetOffline(ctx, req.GetUserId()); err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
@@ -1617,7 +1630,6 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 
 import (
         "context"
-        "log"
         "strings"
 
         "google.golang.org/grpc"
@@ -1627,10 +1639,6 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
 )
-
-type PresenceMarker interface {
-        SetOnline(ctx context.Context, userID string) error
-}
 
 type contextKey string
 
@@ -1646,6 +1654,7 @@ var internalMethods = map[string]bool{
         "/chat.v1.ChatService/ListMembers":   true,
         "/chat.v1.ChatService/GetMessage":    true,
         "/chat.v1.ChatService/GetPresence":   true,
+        "/chat.v1.ChatService/SetOnline":     true,
         "/chat.v1.ChatService/SetOffline":    true,
         "/chat.v1.ChatService/ListContacts":  true,
         "/chat.v1.ChatService/GetReadStatus": true,
@@ -1653,7 +1662,7 @@ var internalMethods = map[string]bool{
         "/chat.v1.ChatService/GetTyping":     true,
 }
 
-func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
+func AuthInterceptor(jwtSecret, internalSecret string) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
         return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
                 if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
                         return handler(ctx, req)
@@ -1674,10 +1683,6 @@ func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) 
                 <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
                 if err != nil </span><span class="cov8" title="1">{
                         return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
-                }</span>
-
-                <span class="cov8" title="1">if err := presence.SetOnline(ctx, userID); err != nil </span><span class="cov8" title="1">{
-                        log.Printf("chat-service: failed to mark user %s online: %v", userID, err)
                 }</span>
 
                 <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
