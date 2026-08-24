@@ -14,8 +14,12 @@ RUN CGO_ENABLED=0 go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.34
 
 FROM alpine:3.20
 
+RUN addgroup -S app && adduser -S -G app app
+
 COPY --from=builder /out/server /server
 COPY --from=builder /go/bin/grpc-health-probe /grpc-health-probe
+
+USER app
 
 HEALTHCHECK --interval=5s --timeout=5s --retries=5 \
     CMD ["/grpc-health-probe", "-addr=:50051"]
