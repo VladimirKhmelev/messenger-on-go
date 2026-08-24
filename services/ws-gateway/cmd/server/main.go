@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -48,6 +49,11 @@ func main() {
 	natsURL := os.Getenv("NATS_URL")
 	if natsURL == "" {
 		log.Fatal("ws-gateway: NATS_URL is required")
+	}
+
+	var allowedOrigins []string
+	if raw := os.Getenv("ALLOWED_ORIGINS"); raw != "" {
+		allowedOrigins = strings.Split(raw, ",")
 	}
 
 	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
@@ -102,7 +108,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher))
+	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher, allowedOrigins))
 
 	httpServer := &http.Server{
 		Addr:    ":" + httpPort,

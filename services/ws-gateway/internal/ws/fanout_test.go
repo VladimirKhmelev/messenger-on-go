@@ -56,7 +56,7 @@ func connectSession(t *testing.T, server *httptest.Server, userID string) *webso
 
 func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 	registry := NewRegistry()
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, registry, fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, registry, fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	memberConn := connectSession(t, server, "member-1")

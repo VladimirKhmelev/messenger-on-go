@@ -25,6 +25,8 @@ import (
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
 )
 
+const maxGRPCRecvMsgSize = 256 * 1024
+
 func main() {
 	port := os.Getenv("GRPC_PORT")
 	if port == "" {
@@ -86,9 +88,11 @@ func main() {
 		log.Fatalf("chat-service: failed to connect to NATS: %v", err)
 	}
 
-	presenceStore := cache.NewPresenceStore(cache.NewClient(redisAddr))
+	redisClient := cache.NewClient(redisAddr)
+	presenceStore := cache.NewPresenceStore(redisClient)
+	sendLimiter := cache.NewSendMessageRateLimiter(redisClient)
 
-	chatService := service.NewChatService(chatRepo, authClient, eventPublisher, presenceStore)
+	chatService := service.NewChatService(chatRepo, authClient, eventPublisher, presenceStore, sendLimiter)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -97,6 +101,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret, presenceStore)),
+		grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
 	)
 
 	chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))

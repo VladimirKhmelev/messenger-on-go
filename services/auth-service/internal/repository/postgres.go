@@ -5,11 +5,18 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+const (
+	maxOpenConns    = 20
+	maxIdleConns    = 5
+	connMaxLifetime = 30 * time.Minute
 )
 
 type PostgresUserRepository struct {
@@ -21,6 +28,9 @@ func NewPostgresUserRepository(dsn string) (*PostgresUserRepository, error) {
 	if err != nil {
 		return nil, err
 	}
+	conn.SetMaxOpenConns(maxOpenConns)
+	conn.SetMaxIdleConns(maxIdleConns)
+	conn.SetConnMaxLifetime(connMaxLifetime)
 	return &PostgresUserRepository{conn: conn}, nil
 }
 

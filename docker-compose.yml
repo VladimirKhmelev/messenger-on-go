@@ -76,8 +76,13 @@ services:
       NATS_URL: nats://nats:4222
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      SMTP_ADDR: mailhog:1025
-      SMTP_FROM: noreply@messenger-on-go.local
+      # Локально используем MailHog, в проде - реальный SMTP сервер
+      ## Переопредите переменные окружения в .env файле для прода
+      SMTP_ADDR: ${SMTP_ADDR:-mailhog:1025}
+      SMTP_FROM: ${SMTP_FROM:-noreply@messenger-on-go.local}
+      SMTP_DISPLAY_NAME: ${SMTP_DISPLAY_NAME:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
     depends_on:
@@ -131,6 +136,8 @@ services:
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
+      # Пустое значение позволяет любому Origin (локальная разработка). Установите для продакшена, например https://wisply.site
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     depends_on:
       nats:
         condition: service_started
@@ -151,6 +158,8 @@ services:
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
+      # Empty allows any Origin (local dev). Set for prod, e.g. https://wisply.site
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     depends_on:
       nats:
         condition: service_started

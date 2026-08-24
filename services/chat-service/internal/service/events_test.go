@@ -20,7 +20,7 @@ func TestChatService_SendMessage_PublishesMessageCreated(t *testing.T) {
 	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
 	publisher := newFakeEventPublisher()
-	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker())
+	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker(), newFakeRateLimiter())
 
 	message, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
 	if err != nil {
@@ -41,7 +41,7 @@ func TestChatService_SendMessage_EventPublishFailureDoesNotFailSend(t *testing.T
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
 
-	svc := NewChatService(repo, newFakeAuthClient(), &failingEventPublisher{}, newFakePresenceChecker())
+	svc := NewChatService(repo, newFakeAuthClient(), &failingEventPublisher{}, newFakePresenceChecker(), newFakeRateLimiter())
 
 	_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
 	if err != nil {

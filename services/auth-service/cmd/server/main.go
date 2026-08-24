@@ -64,6 +64,11 @@ func main() {
 		log.Fatal("auth-service: SMTP_FROM is required")
 	}
 
+	smtpDisplayName := os.Getenv("SMTP_DISPLAY_NAME")
+
+	smtpUsername := os.Getenv("SMTP_USERNAME")
+	smtpPassword := os.Getenv("SMTP_PASSWORD")
+
 	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
 	if githubClientID == "" {
 		log.Fatal("auth-service: GITHUB_CLIENT_ID is required")
@@ -97,7 +102,7 @@ func main() {
 	emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
 	passwordResets := cache.NewPasswordResetStore(redisClient)
 	passwordChanges := cache.NewPasswordChangeTracker(redisClient)
-	mailer := mail.NewSender(smtpAddr, smtpFrom)
+	mailer := mail.NewSender(smtpAddr, smtpFrom, smtpDisplayName, smtpUsername, smtpPassword)
 	githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
 
 	eventPublisher, err := events.Connect(context.Background(), natsURL)
