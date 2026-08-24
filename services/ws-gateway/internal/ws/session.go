@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	pongWait   = 60 * time.Second
-	pingPeriod = (pongWait * 9) / 10
-	maxReadBytes = 256 * 1024
+	pongWait      = 60 * time.Second
+	pingPeriod    = (pongWait * 9) / 10
+	maxReadBytes  = 256 * 1024
 	handleTimeout = 10 * time.Second
 )
 

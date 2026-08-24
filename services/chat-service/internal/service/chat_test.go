@@ -421,7 +421,6 @@ func TestChatService_SendMessage_Empty(t *testing.T) {
 	}
 }
 
-
 func TestChatService_GetHistory_Success(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
