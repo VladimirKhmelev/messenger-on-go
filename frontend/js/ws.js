@@ -176,6 +176,14 @@ export class WsClient {
     this.send({ type: 'get_presence', peer_user_id: peerUserId });
   }
 
+  setActive() {
+    this.send({ type: 'set_active' });
+  }
+
+  setInactive() {
+    this.send({ type: 'set_inactive' });
+  }
+
   editMessage(chatId, messageId, text) {
     this.send({ type: 'edit_message', chat_id: chatId, message_id: messageId, text });
   }

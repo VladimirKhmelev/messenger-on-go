@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"log"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -12,10 +11,6 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
 )
-
-type PresenceMarker interface {
-	SetOnline(ctx context.Context, userID string) error
-}
 
 type contextKey string
 
@@ -31,6 +26,7 @@ var internalMethods = map[string]bool{
 	"/chat.v1.ChatService/ListMembers":   true,
 	"/chat.v1.ChatService/GetMessage":    true,
 	"/chat.v1.ChatService/GetPresence":   true,
+	"/chat.v1.ChatService/SetOnline":     true,
 	"/chat.v1.ChatService/SetOffline":    true,
 	"/chat.v1.ChatService/ListContacts":  true,
 	"/chat.v1.ChatService/GetReadStatus": true,
@@ -38,7 +34,7 @@ var internalMethods = map[string]bool{
 	"/chat.v1.ChatService/GetTyping":     true,
 }
 
-func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) grpc.UnaryServerInterceptor {
+func AuthInterceptor(jwtSecret, internalSecret string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if publicMethods[info.FullMethod] {
 			return handler(ctx, req)
@@ -59,10 +55,6 @@ func AuthInterceptor(jwtSecret, internalSecret string, presence PresenceMarker) 
 		userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
 		if err != nil {
 			return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
-		}
-
-		if err := presence.SetOnline(ctx, userID); err != nil {
-			log.Printf("chat-service: failed to mark user %s online: %v", userID, err)
 		}
 
 		ctx = context.WithValue(ctx, userIDContextKey, userID)

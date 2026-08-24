@@ -32,7 +32,7 @@ import { renderSettings } from './screens/settings.js';
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
 const HISTORY_PAGE_SIZE = 50;
-const PRESENCE_REFRESH_INTERVAL_MS = 15_000;
+const PRESENCE_REFRESH_INTERVAL_MS = 5_000;
 const MAX_CACHED_MESSAGES_PER_CHAT = 200;
 // Mirrors chat-service's own typing TTL (services/chat-service/internal/cache/presence.go) —
 // the indicator self-clears if a further start_typing (sent every couple keystrokes while
@@ -1040,6 +1040,7 @@ function connectWs() {
   ws.connect(getAccessToken());
   refreshAfterReconnect();
   startPresenceRefresh();
+  updateOwnActivity();
 }
 
 function refreshAfterReconnect() {
@@ -1066,11 +1067,42 @@ function refreshAllPresence() {
 
 function startPresenceRefresh() {
   clearInterval(presenceRefreshTimer);
-  presenceRefreshTimer = setInterval(refreshAllPresence, PRESENCE_REFRESH_INTERVAL_MS);
+  presenceRefreshTimer = setInterval(() => {
+    refreshAllPresence();
+    if (isTabActive()) ws?.setActive();
+  }, PRESENCE_REFRESH_INTERVAL_MS);
+}
+
+// Our own online status is server-side TTL-based (chat-service, ~30s) and only
+// renewed by an explicit set_active — not by mere connectivity. Re-send on the
+// same cadence as the presence poll so it doesn't expire while the tab is
+// visible, and immediately on visibilitychange/blur/focus so switching away/back
+// reflects right away rather than waiting for the next tick.
+//
+// visibilitychange alone isn't enough: it reliably fires for tab-switching, but
+// whether it fires when the whole browser window loses focus (alt-tab, another
+// window covering it, switching virtual desktops) is inconsistent across window
+// managers/platforms — window.blur/focus catch that case regardless.
+function isTabActive() {
+  return !document.hidden && document.hasFocus();
+}
+
+function updateOwnActivity() {
+  if (isTabActive()) {
+    ws?.setActive();
+  } else {
+    ws?.setInactive();
+  }
 }
 
 document.addEventListener('visibilitychange', () => {
+  updateOwnActivity();
   if (!document.hidden) refreshAllPresence();
+});
+window.addEventListener('blur', updateOwnActivity);
+window.addEventListener('focus', () => {
+  updateOwnActivity();
+  refreshAllPresence();
 });
 
 async function appendMessage(chatId, message) {

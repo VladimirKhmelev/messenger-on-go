@@ -296,6 +296,11 @@ func (c *fakePresenceChecker) LastSeen(_ context.Context, userID string) (int64,
 	return c.lastSeen[userID], nil
 }
 
+func (c *fakePresenceChecker) SetOnline(_ context.Context, userID string) error {
+	c.onlineUserIDs[userID] = true
+	return nil
+}
+
 func (c *fakePresenceChecker) SetOffline(_ context.Context, userID string) error {
 	delete(c.onlineUserIDs, userID)
 	return nil

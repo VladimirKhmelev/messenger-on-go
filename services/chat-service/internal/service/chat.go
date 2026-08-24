@@ -32,6 +32,7 @@ type EventPublisher interface {
 type PresenceChecker interface {
 	IsOnline(ctx context.Context, userID string) (bool, error)
 	LastSeen(ctx context.Context, userID string) (int64, error)
+	SetOnline(ctx context.Context, userID string) error
 	SetOffline(ctx context.Context, userID string) error
 	SetTyping(ctx context.Context, chatID, userID string) error
 	IsTyping(ctx context.Context, chatID, userID string) (bool, error)
@@ -446,6 +447,10 @@ func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bo
 	}
 
 	return online, lastSeenUnix, nil
+}
+
+func (s *ChatService) SetOnline(ctx context.Context, userID string) error {
+	return s.presence.SetOnline(ctx, userID)
 }
 
 func (s *ChatService) SetOffline(ctx context.Context, userID string) error {

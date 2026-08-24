@@ -82,6 +82,13 @@ func (c *Client) GetPresence(ctx context.Context, userID string) (online bool, l
 	return resp.GetOnline(), resp.GetLastSeenUnix(), nil
 }
 
+func (c *Client) SetOnline(ctx context.Context, userID string) error {
+	ctx = c.withInternalSecret(ctx)
+
+	_, err := c.chat.SetOnline(ctx, &chatv1.SetOnlineRequest{UserId: userID})
+	return err
+}
+
 func (c *Client) SetOffline(ctx context.Context, userID string) error {
 	ctx = c.withInternalSecret(ctx)
 

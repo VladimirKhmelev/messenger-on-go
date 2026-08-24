@@ -30,7 +30,10 @@ type fakeChatClient struct {
 	presenceOnline       bool
 	presenceLastSeenUnix int64
 	presenceErr          error
+	setOnlineErr         error
+	setOnlineCalled      bool
 	setOfflineErr        error
+	setOfflineCalled     bool
 
 	editMessageErr         error
 	deleteForAllErr        error
@@ -69,7 +72,13 @@ func (c *fakeChatClient) GetPresence(_ context.Context, _ string) (bool, int64, 
 	return c.presenceOnline, c.presenceLastSeenUnix, nil
 }
 
+func (c *fakeChatClient) SetOnline(_ context.Context, _ string) error {
+	c.setOnlineCalled = true
+	return c.setOnlineErr
+}
+
 func (c *fakeChatClient) SetOffline(_ context.Context, _ string) error {
+	c.setOfflineCalled = true
 	return c.setOfflineErr
 }
 
