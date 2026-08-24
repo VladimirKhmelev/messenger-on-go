@@ -73,8 +73,6 @@ func (s *session) run(registry *Registry) {
 
 	defer func() { _ = s.conn.Close() }()
 
-	s.announcePresence(true, 0)
-
 	s.conn.SetReadLimit(maxReadBytes)
 	_ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.conn.SetPongHandler(func(string) error {
@@ -246,6 +244,16 @@ func (s *session) handle(data []byte) {
 			PeerUserID:        msg.PeerUserID,
 			LastReadMessageID: lastReadMessageID,
 		})
+
+	case "set_active":
+		if err := s.chat.SetOnline(ctx, s.userID); err != nil {
+			log.Printf("ws-gateway: failed to set user %s online: %v", s.userID, err)
+			return
+		}
+		s.announcePresence(true, 0)
+
+	case "set_inactive":
+		s.markOffline()
 
 	case "start_typing":
 		if err := s.chat.SetTyping(ctx, msg.ChatID, s.userID); err != nil {

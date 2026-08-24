@@ -16,6 +16,7 @@ type ChatClient interface {
 	SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
 	GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
 	GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
+	SetOnline(ctx context.Context, userID string) error
 	SetOffline(ctx context.Context, userID string) error
 	EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
 	DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
