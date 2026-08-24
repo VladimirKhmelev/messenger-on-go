@@ -260,6 +260,14 @@ func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceReq
 	return &chatv1.GetPresenceResponse{Online: online, LastSeenUnix: lastSeenUnix}, nil
 }
 
+func (s *ChatServer) SetOnline(ctx context.Context, req *chatv1.SetOnlineRequest) (*chatv1.SetOnlineResponse, error) {
+	if err := s.chat.SetOnline(ctx, req.GetUserId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.SetOnlineResponse{}, nil
+}
+
 func (s *ChatServer) SetOffline(ctx context.Context, req *chatv1.SetOfflineRequest) (*chatv1.SetOfflineResponse, error) {
 	if err := s.chat.SetOffline(ctx, req.GetUserId()); err != nil {
 		return nil, toGRPCError(err)
