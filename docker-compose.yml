@@ -190,7 +190,10 @@ services:
     volumes:
       - ${NGINX_CONF:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro
       - ./frontend:/usr/share/nginx/html:ro
-      - ${NGINX_CERTS_DIR:-./nginx/certs}:/etc/nginx/certs:ro
+      # Локально используем самоподписанные сертификаты, в проде - реальные сертификаты от Let's Encrypt
+      # Продакшен: установите certbot и запустите его в контейнере nginx, чтобы получить сертификаты для вашего домена.
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ${LETSENCRYPT_DIR:-./nginx/certs}:/etc/letsencrypt:ro
     depends_on:
       auth-service:
         condition: service_healthy
