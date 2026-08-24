@@ -13,7 +13,11 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
-const HistoryDefaultLimit = 50
+const (
+	HistoryDefaultLimit = 50
+
+	MaxMessageBodyBytes = 64 * 1024
+)
 
 type AuthClient interface {
 	UserExists(ctx context.Context, bearerToken, userID string) (bool, error)
@@ -33,15 +37,20 @@ type PresenceChecker interface {
 	IsTyping(ctx context.Context, chatID, userID string) (bool, error)
 }
 
-type ChatService struct {
-	chats    repository.ChatRepository
-	auth     AuthClient
-	events   EventPublisher
-	presence PresenceChecker
+type RateLimiter interface {
+	Allow(ctx context.Context, userID string) (bool, error)
 }
 
-func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker) *ChatService {
-	return &ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence}
+type ChatService struct {
+	chats       repository.ChatRepository
+	auth        AuthClient
+	events      EventPublisher
+	presence    PresenceChecker
+	sendLimiter RateLimiter
+}
+
+func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService {
+	return &ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence, sendLimiter: sendLimiter}
 }
 
 func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) {
@@ -131,6 +140,17 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 	if body == "" {
 		return nil, domain.ErrEmptyMessage
 	}
+	if len(body) > MaxMessageBodyBytes {
+		return nil, domain.ErrMessageTooLarge
+	}
+
+	allowed, err := s.sendLimiter.Allow(ctx, senderID)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, domain.ErrTooManyMessages
+	}
 
 	isMember, err := s.chats.IsMember(ctx, chatID, senderID)
 	if err != nil {
@@ -186,6 +206,9 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) {
 	if newBody == "" {
 		return nil, domain.ErrEmptyMessage
+	}
+	if len(newBody) > MaxMessageBodyBytes {
+		return nil, domain.ErrMessageTooLarge
 	}
 
 	message, err := s.chats.GetMessage(ctx, messageID)
