@@ -64,6 +64,7 @@ service ChatService {
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
   rpc GetPresence(GetPresenceRequest) returns (GetPresenceResponse);
+  rpc SetOnline(SetOnlineRequest) returns (SetOnlineResponse);
   rpc SetOffline(SetOfflineRequest) returns (SetOfflineResponse);
   rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
   rpc SetTyping(SetTypingRequest) returns (SetTypingResponse);
@@ -204,6 +205,13 @@ message GetPresenceRequest {
 message GetPresenceResponse {
   bool online = 1;
   int64 last_seen_unix = 2;
+}
+
+message SetOnlineRequest {
+  string user_id = 1;
+}
+
+message SetOnlineResponse {
 }
 
 message SetOfflineRequest {

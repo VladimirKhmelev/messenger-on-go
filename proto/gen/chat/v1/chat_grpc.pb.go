@@ -30,6 +30,7 @@ const (
 	ChatService_ListMembers_FullMethodName         = "/chat.v1.ChatService/ListMembers"
 	ChatService_GetMessage_FullMethodName          = "/chat.v1.ChatService/GetMessage"
 	ChatService_GetPresence_FullMethodName         = "/chat.v1.ChatService/GetPresence"
+	ChatService_SetOnline_FullMethodName           = "/chat.v1.ChatService/SetOnline"
 	ChatService_SetOffline_FullMethodName          = "/chat.v1.ChatService/SetOffline"
 	ChatService_ListContacts_FullMethodName        = "/chat.v1.ChatService/ListContacts"
 	ChatService_SetTyping_FullMethodName           = "/chat.v1.ChatService/SetTyping"
@@ -56,6 +57,7 @@ type ChatServiceClient interface {
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*GetPresenceResponse, error)
+	SetOnline(ctx context.Context, in *SetOnlineRequest, opts ...grpc.CallOption) (*SetOnlineResponse, error)
 	SetOffline(ctx context.Context, in *SetOfflineRequest, opts ...grpc.CallOption) (*SetOfflineResponse, error)
 	ListContacts(ctx context.Context, in *ListContactsRequest, opts ...grpc.CallOption) (*ListContactsResponse, error)
 	SetTyping(ctx context.Context, in *SetTypingRequest, opts ...grpc.CallOption) (*SetTypingResponse, error)
@@ -185,6 +187,16 @@ func (c *chatServiceClient) GetPresence(ctx context.Context, in *GetPresenceRequ
 	return out, nil
 }
 
+func (c *chatServiceClient) SetOnline(ctx context.Context, in *SetOnlineRequest, opts ...grpc.CallOption) (*SetOnlineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetOnlineResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetOnline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) SetOffline(ctx context.Context, in *SetOfflineRequest, opts ...grpc.CallOption) (*SetOfflineResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetOfflineResponse)
@@ -290,6 +302,7 @@ type ChatServiceServer interface {
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
 	GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error)
+	SetOnline(context.Context, *SetOnlineRequest) (*SetOnlineResponse, error)
 	SetOffline(context.Context, *SetOfflineRequest) (*SetOfflineResponse, error)
 	ListContacts(context.Context, *ListContactsRequest) (*ListContactsResponse, error)
 	SetTyping(context.Context, *SetTypingRequest) (*SetTypingResponse, error)
@@ -341,6 +354,9 @@ func (UnimplementedChatServiceServer) GetMessage(context.Context, *GetMessageReq
 }
 func (UnimplementedChatServiceServer) GetPresence(context.Context, *GetPresenceRequest) (*GetPresenceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPresence not implemented")
+}
+func (UnimplementedChatServiceServer) SetOnline(context.Context, *SetOnlineRequest) (*SetOnlineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetOnline not implemented")
 }
 func (UnimplementedChatServiceServer) SetOffline(context.Context, *SetOfflineRequest) (*SetOfflineResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetOffline not implemented")
@@ -588,6 +604,24 @@ func _ChatService_GetPresence_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_SetOnline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetOnlineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetOnline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetOnline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetOnline(ctx, req.(*SetOnlineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_SetOffline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetOfflineRequest)
 	if err := dec(in); err != nil {
@@ -800,6 +834,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPresence",
 			Handler:    _ChatService_GetPresence_Handler,
+		},
+		{
+			MethodName: "SetOnline",
+			Handler:    _ChatService_SetOnline_Handler,
 		},
 		{
 			MethodName: "SetOffline",
