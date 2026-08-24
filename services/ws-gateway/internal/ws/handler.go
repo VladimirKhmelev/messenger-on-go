@@ -12,10 +12,6 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
 type ChatClient interface {
 	SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
 	GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
@@ -35,14 +31,32 @@ type PresencePublisher interface {
 }
 
 type Handler struct {
-	jwtSecret string
-	chat      ChatClient
-	registry  *Registry
-	presence  PresencePublisher
+	jwtSecret      string
+	chat           ChatClient
+	registry       *Registry
+	presence       PresencePublisher
+	allowedOrigins map[string]bool
+	upgrader       websocket.Upgrader
 }
 
-func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher) *Handler {
-	return &Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence}
+func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher, allowedOrigins []string) *Handler {
+	origins := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		if o != "" {
+			origins[o] = true
+		}
+	}
+
+	h := &Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence, allowedOrigins: origins}
+	h.upgrader = websocket.Upgrader{CheckOrigin: h.checkOrigin}
+	return h
+}
+
+func (h *Handler) checkOrigin(r *http.Request) bool {
+	if len(h.allowedOrigins) == 0 {
+		return true
+	}
+	return h.allowedOrigins[r.Header.Get("Origin")]
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +72,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("ws-gateway: upgrade failed for user %s: %v", userID, err)
 		return

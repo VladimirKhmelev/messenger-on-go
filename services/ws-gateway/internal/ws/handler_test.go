@@ -152,7 +152,7 @@ func issueTestAccessToken(t *testing.T, userID string) string {
 }
 
 func TestHandler_MissingToken_Rejected(t *testing.T) {
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
@@ -167,7 +167,7 @@ func TestHandler_MissingToken_Rejected(t *testing.T) {
 }
 
 func TestHandler_InvalidToken_Rejected(t *testing.T) {
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?token=not-a-real-token"
@@ -182,7 +182,7 @@ func TestHandler_InvalidToken_Rejected(t *testing.T) {
 }
 
 func TestHandler_ValidToken_UpgradesConnection(t *testing.T) {
-	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")
@@ -201,7 +201,7 @@ func TestHandler_ValidToken_UpgradesConnection(t *testing.T) {
 
 func TestHandler_SendMessage_ForwardsToChatClient(t *testing.T) {
 	chat := &fakeChatClient{}
-	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")
@@ -238,7 +238,7 @@ func TestHandler_SendMessage_ForwardsToChatClient(t *testing.T) {
 
 func TestHandler_GetHistory_ForwardsToChatClient(t *testing.T) {
 	chat := &fakeChatClient{getHistoryMessages: []chatclient.Message{{MessageID: "m1", Text: "hi"}}}
-	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")
@@ -272,7 +272,7 @@ func TestHandler_GetHistory_ForwardsToChatClient(t *testing.T) {
 
 func TestHandler_EditMessage_ForwardsToChatClient(t *testing.T) {
 	chat := &fakeChatClient{}
-	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")
@@ -298,7 +298,7 @@ func TestHandler_EditMessage_ForwardsToChatClient(t *testing.T) {
 
 func TestHandler_MarkRead_ForwardsToChatClient(t *testing.T) {
 	chat := &fakeChatClient{}
-	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}))
+	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 
 	token := issueTestAccessToken(t, "user-1")

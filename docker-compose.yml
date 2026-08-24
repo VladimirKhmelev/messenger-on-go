@@ -136,7 +136,7 @@ services:
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
-      # Empty allows any Origin (local dev). Set for prod, e.g. https://wisp.space
+      # Пустое значение позволяет любому Origin (локальная разработка). Установите для продакшена, например https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     depends_on:
       nats:
@@ -158,7 +158,7 @@ services:
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
-      # Empty allows any Origin (local dev). Set for prod, e.g. https://wisp.space
+      # Empty allows any Origin (local dev). Set for prod, e.g. https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     depends_on:
       nats:
