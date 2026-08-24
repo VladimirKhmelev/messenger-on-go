@@ -12,6 +12,12 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 )
 
+const (
+	maxOpenConns    = 20
+	maxIdleConns    = 5
+	connMaxLifetime = 30 * time.Minute
+)
+
 type PostgresChatRepository struct {
 	conn *sqlx.DB
 }
@@ -21,6 +27,9 @@ func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) {
 	if err != nil {
 		return nil, err
 	}
+	conn.SetMaxOpenConns(maxOpenConns)
+	conn.SetMaxIdleConns(maxIdleConns)
+	conn.SetConnMaxLifetime(connMaxLifetime)
 	return &PostgresChatRepository{conn: conn}, nil
 }
 
