@@ -44,7 +44,7 @@ export function renderAuth(root, handlers) {
         <div class="auth-header">
           <div class="brand">
             <div class="brand-mark"></div>
-            <div class="brand-name">Wisp</div>
+            <div class="brand-name">Wisply</div>
           </div>
           <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
             <span class="knob"></span>
@@ -222,7 +222,7 @@ function renderUnlock(root, handlers) {
         <div class="auth-header">
           <div class="brand">
             <div class="brand-mark"></div>
-            <div class="brand-name">Wisp</div>
+            <div class="brand-name">Wisply</div>
           </div>
           <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
             <span class="knob"></span>
@@ -287,7 +287,7 @@ function renderVerify(root, handlers) {
         <div class="auth-header">
           <div class="brand">
             <div class="brand-mark"></div>
-            <div class="brand-name">Wisp</div>
+            <div class="brand-name">Wisply</div>
           </div>
           <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
             <span class="knob"></span>
@@ -349,7 +349,7 @@ function renderForgotPassword(root, handlers) {
         <div class="auth-header">
           <div class="brand">
             <div class="brand-mark"></div>
-            <div class="brand-name">Wisp</div>
+            <div class="brand-name">Wisply</div>
           </div>
           <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
             <span class="knob"></span>
@@ -409,7 +409,7 @@ function renderResetPassword(root, handlers) {
         <div class="auth-header">
           <div class="brand">
             <div class="brand-mark"></div>
-            <div class="brand-name">Wisp</div>
+            <div class="brand-name">Wisply</div>
           </div>
           <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
             <span class="knob"></span>

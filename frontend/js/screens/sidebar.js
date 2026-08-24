@@ -25,7 +25,7 @@ export function renderSidebar(root, handlers) {
         <div class="sidebar-top-row">
           <div class="brand">
             <div class="brand-mark brand-mark--sm"></div>
-            <div class="brand-name brand-name--sm">Wisp</div>
+            <div class="brand-name brand-name--sm">Wisply</div>
           </div>
           <div class="sidebar-top-actions">
             <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
