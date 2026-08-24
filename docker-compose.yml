@@ -185,12 +185,12 @@ services:
   nginx:
     image: nginx:1.27-alpine
     ports:
-      - "8090:80"
-      - "8443:443"
+      - "${NGINX_HTTP_PORT:-8090}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${NGINX_CONF:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro
       - ./frontend:/usr/share/nginx/html:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - ${NGINX_CERTS_DIR:-./nginx/certs}:/etc/nginx/certs:ro
     depends_on:
       auth-service:
         condition: service_healthy
