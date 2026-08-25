@@ -75,7 +75,7 @@ func TestAuthService_LoginWithGitHub_PublishesUserOAuthLinkedForNewUser(t *testi
 	publisher := newFakeEventPublisher()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker())
 
-	_, err := svc.LoginWithGitHub(context.Background(), "some-code")
+	_, err := svc.LoginWithGitHub(context.Background(), "some-code", "pub-key", "wrapped-priv-key", "salt")
 	if err != nil {
 		t.Fatalf("LoginWithGitHub() unexpected error: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestAuthService_LoginWithGitHub_NoEventForExistingUser(t *testing.T) {
 	publisher := newFakeEventPublisher()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker())
 
-	_, err := svc.LoginWithGitHub(context.Background(), "some-code")
+	_, err := svc.LoginWithGitHub(context.Background(), "some-code", "", "", "")
 	if err != nil {
 		t.Fatalf("LoginWithGitHub() unexpected error: %v", err)
 	}

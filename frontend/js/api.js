@@ -59,8 +59,12 @@ export const authApi = {
   login: (email, password) =>
     request('/v1/auth/login', { method: 'POST', body: { email, password }, auth: false }),
 
-  loginWithGitHub: (code) =>
-    request('/v1/auth/github', { method: 'POST', body: { code }, auth: false }),
+  loginWithGitHub: (code, publicKey, wrappedPrivateKey, keyWrapSalt) =>
+    request('/v1/auth/github', {
+      method: 'POST',
+      body: { code, publicKey, wrappedPrivateKey, keyWrapSalt },
+      auth: false,
+    }),
 
   refresh: () => request('/v1/auth/refresh', { method: 'POST', body: {}, auth: false }),
 

@@ -1195,10 +1195,15 @@ func (*ResetPasswordResponse) Descriptor() ([]byte, []int) {
 }
 
 type LoginWithGitHubRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Code  string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	// Only used if this GitHub account has no messenger account yet — ignored
+	// (and harmless to send) when logging into an existing one.
+	PublicKey         string `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string `protobuf:"bytes,3,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string `protobuf:"bytes,4,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *LoginWithGitHubRequest) Reset() {
@@ -1238,10 +1243,35 @@ func (x *LoginWithGitHubRequest) GetCode() string {
 	return ""
 }
 
+func (x *LoginWithGitHubRequest) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *LoginWithGitHubRequest) GetWrappedPrivateKey() string {
+	if x != nil {
+		return x.WrappedPrivateKey
+	}
+	return ""
+}
+
+func (x *LoginWithGitHubRequest) GetKeyWrapSalt() string {
+	if x != nil {
+		return x.KeyWrapSalt
+	}
+	return ""
+}
+
 type LoginWithGitHubResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken  string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	// True the first time this GitHub account logs in (a messenger account was
+	// just created) — tells the client whether to keep the key pair it just
+	// generated and sent, or discard it and unwrap the existing one instead.
+	IsNewUser     bool `protobuf:"varint,3,opt,name=is_new_user,json=isNewUser,proto3" json:"is_new_user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1288,6 +1318,13 @@ func (x *LoginWithGitHubResponse) GetRefreshToken() string {
 		return x.RefreshToken
 	}
 	return ""
+}
+
+func (x *LoginWithGitHubResponse) GetIsNewUser() bool {
+	if x != nil {
+		return x.IsNewUser
+	}
+	return false
 }
 
 type UpdateTagRequest struct {
@@ -1919,12 +1956,17 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"public_key\x18\x03 \x01(\tR\tpublicKey\x12.\n" +
 	"\x13wrapped_private_key\x18\x04 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
 	"\rkey_wrap_salt\x18\x05 \x01(\tR\vkeyWrapSalt\"\x17\n" +
-	"\x15ResetPasswordResponse\",\n" +
+	"\x15ResetPasswordResponse\"\x9f\x01\n" +
 	"\x16LoginWithGitHubRequest\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code\"a\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x02 \x01(\tR\tpublicKey\x12.\n" +
+	"\x13wrapped_private_key\x18\x03 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
+	"\rkey_wrap_salt\x18\x04 \x01(\tR\vkeyWrapSalt\"\x81\x01\n" +
 	"\x17LoginWithGitHubResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"$\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x1e\n" +
+	"\vis_new_user\x18\x03 \x01(\bR\tisNewUser\"$\n" +
 	"\x10UpdateTagRequest\x12\x10\n" +
 	"\x03tag\x18\x01 \x01(\tR\x03tag\"%\n" +
 	"\x11UpdateTagResponse\x12\x10\n" +

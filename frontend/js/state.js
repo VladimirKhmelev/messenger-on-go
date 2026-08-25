@@ -1,10 +1,11 @@
 export const state = {
   view: 'login', // 'login' | 'app'
-  authMode: 'login', // 'login' | 'register' | 'verify' | 'forgot-password' | 'reset-password'
+  authMode: 'login', // 'login' | 'register' | 'verify' | 'forgot-password' | 'reset-password' | 'github-passphrase'
   authError: '',
   authSuccess: '',
   authBusy: false,
   pendingVerifyEmail: '', // email awaiting a confirmation code, set when authMode === 'verify'
+  pendingGitHubCode: '', // GitHub OAuth code awaiting the encryption passphrase, set when authMode === 'github-passphrase'
   tagCheck: null, // { tag, available, suggestedTag } — result of the last debounced tag-availability check
 
   currentUser: null, // { id, email, tag, displayName }

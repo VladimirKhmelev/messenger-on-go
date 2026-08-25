@@ -160,18 +160,19 @@ func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswor
 }
 
 func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithGitHubRequest) (*authv1.LoginWithGitHubResponse, error) {
-	tokens, err := s.auth.LoginWithGitHub(ctx, req.GetCode())
+	result, err := s.auth.LoginWithGitHub(ctx, req.GetCode(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil {
+	if err := setRefreshCookie(ctx, result.Tokens.RefreshToken, s.cookieSecure); err != nil {
 		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
 	return &authv1.LoginWithGitHubResponse{
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
+		AccessToken:  result.Tokens.AccessToken,
+		RefreshToken: result.Tokens.RefreshToken,
+		IsNewUser:    result.IsNewUser,
 	}, nil
 }
 
