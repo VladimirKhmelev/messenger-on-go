@@ -16,6 +16,46 @@ export class ApiError extends Error {
   }
 }
 
+const ERROR_TRANSLATIONS = {
+  'invalid email': 'Некорректный email',
+  'invalid tag': 'Тег должен быть на латинице в нижнем регистре, от 3 до 20 символов',
+  'invalid display name': 'Некорректное имя',
+  'password does not meet complexity requirements': 'Пароль не соответствует требованиям',
+  'email already registered': 'Этот email уже зарегистрирован',
+  'tag already taken': 'Тег уже занят',
+  'user not found': 'Пользователь не найден',
+  'invalid or expired token': 'Ссылка недействительна или истекла',
+  'invalid email or password': 'Неверный email или пароль',
+  'search query must be at least 3 characters': 'Введите минимум 3 символа для поиска',
+  'too many login attempts, try again later': 'Слишком много попыток входа, попробуйте позже',
+  'invalid or expired verification code': 'Код неверный или устарел',
+  'email not verified': 'Email не подтверждён',
+  'oauth provider account has no verified email': 'У аккаунта OAuth-провайдера нет подтверждённого email',
+  'new password must be different from the current password': 'Новый пароль должен отличаться от текущего',
+  'avatar not found': 'Аватар не найден',
+  'avatar must be a JPEG, PNG, GIF, or WebP image': 'Аватар должен быть в формате JPEG, PNG, GIF или WebP',
+  'avatar must be smaller than 2MB': 'Аватар должен быть меньше 2 МБ',
+  'invalid public key': 'Не удалось сгенерировать ключ шифрования, попробуйте снова',
+  'user has not uploaded an encryption public key': 'У пользователя нет ключа шифрования',
+  'chat not found': 'Чат не найден',
+  'user is not a member of this chat': 'Вы не участник этого чата',
+  'message body must not be empty': 'Сообщение не может быть пустым',
+  'private chat between these users already exists': 'Чат с этим пользователем уже существует',
+  'cannot create a chat with yourself': 'Нельзя создать чат с самим собой',
+  'target user not found': 'Пользователь не найден',
+  'message not found': 'Сообщение не найдено',
+  'message has been deleted': 'Сообщение удалено',
+  'only the sender can edit or delete this message for everyone': 'Только автор может редактировать или удалить сообщение для всех',
+  'message does not belong to this chat': 'Сообщение не принадлежит этому чату',
+  'message body exceeds maximum allowed size': 'Сообщение слишком длинное',
+  'too many messages sent, slow down': 'Слишком много сообщений, помедленнее',
+};
+
+export function translateApiError(err) {
+  if (!(err instanceof ApiError)) return null;
+  return ERROR_TRANSLATIONS[err.message] || err.message;
+}
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth && accessToken) {
