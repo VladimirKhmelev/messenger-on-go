@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,22 +19,33 @@ import (
 
 const maxTagGenerationAttempts = 5
 
-func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenPair, error) {
+type GitHubLoginResult struct {
+	Tokens    *TokenPair
+	IsNewUser bool
+}
+
+func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrappedPrivateKey, keyWrapSalt string) (*GitHubLoginResult, error) {
 	profile, err := s.github.FetchProfile(code)
 	if err != nil {
 		return nil, err
 	}
 
+	isNewUser := false
 	user, err := s.users.GetByEmail(ctx, profile.Email)
 	if err != nil {
 		if !errors.Is(err, domain.ErrUserNotFound) {
 			return nil, err
 		}
 
-		user, err = s.createUserFromGitHub(ctx, profile)
+		if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" {
+			return nil, domain.ErrInvalidPublicKey
+		}
+
+		user, err = s.createUserFromGitHub(ctx, profile, publicKey, wrappedPrivateKey, keyWrapSalt)
 		if err != nil {
 			return nil, err
 		}
+		isNewUser = true
 	}
 
 	accessToken, err := s.tokens.IssueAccessToken(user.ID)
@@ -46,23 +58,29 @@ func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenP
 		return nil, err
 	}
 
-	return &TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+	return &GitHubLoginResult{
+		Tokens:    &TokenPair{AccessToken: accessToken, RefreshToken: refreshToken},
+		IsNewUser: isNewUser,
+	}, nil
 }
 
-func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile) (*domain.User, error) {
+func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) {
 	tag, err := s.generateUniqueTag(ctx, "id")
 	if err != nil {
 		return nil, err
 	}
 
 	user := &domain.User{
-		ID:            uuid.NewString(),
-		Email:         profile.Email,
-		Tag:           tag,
-		DisplayName:   profile.Login,
-		PasswordHash:  oauthPasswordPlaceholder,
-		EmailVerified: true,
-		CreatedAt:     time.Now(),
+		ID:                uuid.NewString(),
+		Email:             profile.Email,
+		Tag:               tag,
+		DisplayName:       profile.Login,
+		PasswordHash:      oauthPasswordPlaceholder,
+		EmailVerified:     true,
+		CreatedAt:         time.Now(),
+		PublicKey:         publicKey,
+		WrappedPrivateKey: wrappedPrivateKey,
+		KeyWrapSalt:       keyWrapSalt,
 	}
 
 	if err := s.users.Create(ctx, user); err != nil {
