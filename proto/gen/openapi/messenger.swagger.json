@@ -1277,6 +1277,16 @@
       "properties": {
         "code": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string",
+          "description": "Only used if this GitHub account has no messenger account yet — ignored\n(and harmless to send) when logging into an existing one."
+        },
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
+          "type": "string"
         }
       }
     },
@@ -1288,6 +1298,10 @@
         },
         "refreshToken": {
           "type": "string"
+        },
+        "isNewUser": {
+          "type": "boolean",
+          "description": "True the first time this GitHub account logs in (a messenger account was\njust created) — tells the client whether to keep the key pair it just\ngenerated and sent, or discard it and unwrap the existing one instead."
         }
       }
     },

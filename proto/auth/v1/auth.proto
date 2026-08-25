@@ -248,11 +248,15 @@ message ResetPasswordResponse {
 
 message LoginWithGitHubRequest {
   string code = 1;
+  string public_key = 2;
+  string wrapped_private_key = 3;
+  string key_wrap_salt = 4;
 }
 
 message LoginWithGitHubResponse {
   string access_token = 1;
   string refresh_token = 2;
+  bool is_new_user = 3;
 }
 
 message UpdateTagRequest {
