@@ -1277,6 +1277,15 @@
       "properties": {
         "code": {
           "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
+        },
+        "wrappedPrivateKey": {
+          "type": "string"
+        },
+        "keyWrapSalt": {
+          "type": "string"
         }
       }
     },
@@ -1288,6 +1297,9 @@
         },
         "refreshToken": {
           "type": "string"
+        },
+        "isNewUser": {
+          "type": "boolean"
         }
       }
     },

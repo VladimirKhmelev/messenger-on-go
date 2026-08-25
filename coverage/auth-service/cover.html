@@ -91,7 +91,7 @@
 				
 				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
 				
-				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.7%)</option>
+				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.9%)</option>
 				
 				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/password.go (100.0%)</option>
 				
@@ -1491,6 +1491,7 @@ import (
         "fmt"
         "log"
         "math/big"
+        "strings"
         "time"
 
         "github.com/google/uuid"
@@ -1502,22 +1503,33 @@ import (
 
 const maxTagGenerationAttempts = 5
 
-func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenPair, error) <span class="cov8" title="1">{
+type GitHubLoginResult struct {
+        Tokens    *TokenPair
+        IsNewUser bool
+}
+
+func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrappedPrivateKey, keyWrapSalt string) (*GitHubLoginResult, error) <span class="cov8" title="1">{
         profile, err := s.github.FetchProfile(code)
         if err != nil </span><span class="cov8" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, profile.Email)
+        <span class="cov8" title="1">isNewUser := false
+        user, err := s.users.GetByEmail(ctx, profile.Email)
         if err != nil </span><span class="cov8" title="1">{
                 if !errors.Is(err, domain.ErrUserNotFound) </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
 
-                <span class="cov8" title="1">user, err = s.createUserFromGitHub(ctx, profile)
+                <span class="cov8" title="1">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+                        return nil, domain.ErrInvalidPublicKey
+                }</span>
+
+                <span class="cov8" title="1">user, err = s.createUserFromGitHub(ctx, profile, publicKey, wrappedPrivateKey, keyWrapSalt)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
+                <span class="cov8" title="1">isNewUser = true</span>
         }
 
         <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(user.ID)
@@ -1530,23 +1542,29 @@ func (s *AuthService) LoginWithGitHub(ctx context.Context, code string) (*TokenP
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil</span>
+        <span class="cov8" title="1">return &amp;GitHubLoginResult{
+                Tokens:    &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken},
+                IsNewUser: isNewUser,
+        }, nil</span>
 }
 
-func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="1">{
         tag, err := s.generateUniqueTag(ctx, "id")
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
         <span class="cov8" title="1">user := &amp;domain.User{
-                ID:            uuid.NewString(),
-                Email:         profile.Email,
-                Tag:           tag,
-                DisplayName:   profile.Login,
-                PasswordHash:  oauthPasswordPlaceholder,
-                EmailVerified: true,
-                CreatedAt:     time.Now(),
+                ID:                uuid.NewString(),
+                Email:             profile.Email,
+                Tag:               tag,
+                DisplayName:       profile.Login,
+                PasswordHash:      oauthPasswordPlaceholder,
+                EmailVerified:     true,
+                CreatedAt:         time.Now(),
+                PublicKey:         publicKey,
+                WrappedPrivateKey: wrappedPrivateKey,
+                KeyWrapSalt:       keyWrapSalt,
         }
 
         if err := s.users.Create(ctx, user); err != nil </span><span class="cov0" title="0">{
@@ -2379,18 +2397,19 @@ func (s *AuthServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswor
 }
 
 func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithGitHubRequest) (*authv1.LoginWithGitHubResponse, error) <span class="cov0" title="0">{
-        tokens, err := s.auth.LoginWithGitHub(ctx, req.GetCode())
+        result, err := s.auth.LoginWithGitHub(ctx, req.GetCode(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt())
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
 
-        <span class="cov0" title="0">if err := setRefreshCookie(ctx, tokens.RefreshToken, s.cookieSecure); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := setRefreshCookie(ctx, result.Tokens.RefreshToken, s.cookieSecure); err != nil </span><span class="cov0" title="0">{
                 return nil, status.Error(codes.Internal, "failed to set refresh cookie")
         }</span>
 
         <span class="cov0" title="0">return &amp;authv1.LoginWithGitHubResponse{
-                AccessToken:  tokens.AccessToken,
-                RefreshToken: tokens.RefreshToken,
+                AccessToken:  result.Tokens.AccessToken,
+                RefreshToken: result.Tokens.RefreshToken,
+                IsNewUser:    result.IsNewUser,
         }, nil</span>
 }
 
