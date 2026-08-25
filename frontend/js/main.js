@@ -39,6 +39,7 @@ const MAX_CACHED_MESSAGES_PER_CHAT = 200;
 // composing) never arrives, so a dropped "stop" signal can't leave it stuck.
 const TYPING_INDICATOR_TTL_MS = 3_000;
 const TYPING_SEND_THROTTLE_MS = 2_000;
+const YANDEX_METRIKA_COUNTER_ID = 111937141;
 
 const app = document.getElementById('app');
 let ws = null;
@@ -828,6 +829,7 @@ async function handleLogout() {
   registered.toast = false;
   registered.settings = false;
   renderRoot();
+  trackLoginPageView();
 }
 
 function handleOpenSettings() {
@@ -1310,7 +1312,18 @@ async function bootstrap() {
   } else {
     state.view = 'login';
     renderRoot();
+    trackLoginPageView();
   }
+}
+
+// Analytics only ever sees the logged-out door (login/register), never what
+// happens inside a chat. GA/Metrika's automatic pageview is disabled in
+// index.html — this fires it by hand, only from the two places a new,
+// unauthenticated visit to that door actually happens: first load with no
+// valid session, and returning here after logging out.
+function trackLoginPageView() {
+  window.gtag?.('event', 'page_view');
+  window.ym?.(YANDEX_METRIKA_COUNTER_ID, 'hit', window.location.href);
 }
 
 bootstrap();
