@@ -18,8 +18,9 @@ func TestValidatePassword(t *testing.T) {
 		{"no digit", "abcdefgh", domain.ErrWeakPassword},
 		{"no letter", "52675267", domain.ErrWeakPassword},
 		{"empty", "", domain.ErrWeakPassword},
-		{"cyrillic too short (byte length would pass)", "аааа1", domain.ErrWeakPassword},
-		{"cyrillic valid", "пароль12", nil},
+		{"cyrillic rejected (ASCII-only, non-ASCII bytes could normalize differently across devices)", "пароль12", domain.ErrWeakPassword},
+		{"symbols allowed", "abcd!234", nil},
+		{"space allowed (still printable ASCII)", "abcd 1234", nil},
 	}
 
 	for _, tc := range cases {

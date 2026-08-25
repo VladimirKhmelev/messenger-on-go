@@ -2,11 +2,15 @@ import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
 
 // Mirrors auth-service's own rule (services/auth-service/internal/service/password.go):
-// 8+ chars, at least one letter, at least one digit.
+// 8+ chars, ASCII-only, at least one letter, at least one digit. ASCII-only
+// isn't just style — the password wraps the user's RSA private key, and
+// non-ASCII input is subject to Unicode normalization that can differ across
+// devices/keyboards, silently locking a user out of their own key elsewhere.
 export const PASSWORD_RULES = [
   { key: 'length', label: 'Минимум 8 символов', test: (pw) => pw.length >= 8 },
-  { key: 'letter', label: 'Хотя бы одна буква', test: (pw) => /\p{L}/u.test(pw) },
+  { key: 'letter', label: 'Хотя бы одна буква', test: (pw) => /[a-zA-Z]/.test(pw) },
   { key: 'digit', label: 'Хотя бы одна цифра', test: (pw) => /\d/.test(pw) },
+  { key: 'ascii', label: 'Только латиница и цифры', test: (pw) => /^[\x20-\x7e]*$/.test(pw) },
 ];
 
 export function passwordMeetsRules(password) {

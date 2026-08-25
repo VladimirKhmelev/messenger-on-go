@@ -1,7 +1,6 @@
 package service
 
 import (
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
@@ -17,9 +16,11 @@ func ValidatePassword(password string) error {
 	var hasDigit, hasLetter bool
 	for _, r := range password {
 		switch {
-		case unicode.IsDigit(r):
+		case r < 0x20 || r > 0x7e:
+			return domain.ErrWeakPassword
+		case r >= '0' && r <= '9':
 			hasDigit = true
-		case unicode.IsLetter(r):
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
 			hasLetter = true
 		}
 	}
