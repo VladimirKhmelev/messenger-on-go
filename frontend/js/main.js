@@ -1038,6 +1038,11 @@ function connectWs() {
     onPresenceChanged: ({ peerUserId, online, lastSeenUnix }) => {
       const chat = state.chats.find((c) => c.peer.id === peerUserId);
       if (!chat) return;
+      // The 5s presence poll re-asks every open chat's status even when nothing
+      // changed — a full sidebar re-render on every reply would recreate every
+      // avatar <img>, triggering a fresh HTTP request each time. Skip the
+      // re-render when the values are actually unchanged.
+      if (chat.online === online && chat.lastSeenUnix === lastSeenUnix) return;
       chat.online = online;
       chat.lastSeenUnix = lastSeenUnix;
       notify('sidebar');
