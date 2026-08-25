@@ -1,6 +1,18 @@
 import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
 
+// Mirrors auth-service's own rule (services/auth-service/internal/service/password.go):
+// 8+ chars, at least one letter, at least one digit.
+export const PASSWORD_RULES = [
+  { key: 'length', label: 'Минимум 8 символов', test: (pw) => pw.length >= 8 },
+  { key: 'letter', label: 'Хотя бы одна буква', test: (pw) => /\p{L}/u.test(pw) },
+  { key: 'digit', label: 'Хотя бы одна цифра', test: (pw) => /\d/.test(pw) },
+];
+
+export function passwordMeetsRules(password) {
+  return PASSWORD_RULES.every((rule) => rule.test(password));
+}
+
 export function renderAuth(root, handlers) {
   if (state.authMode === 'unlock') {
     renderUnlock(root, handlers);
@@ -84,6 +96,7 @@ export function renderAuth(root, handlers) {
               false
             )}</button>
           </div>
+          ${isRegister ? `<div class="password-rules" data-password-rules>${renderPasswordRules(passwordValue)}</div>` : ''}
           ${
             !isRegister
               ? `<div class="auth-forgot-password">
@@ -98,6 +111,7 @@ export function renderAuth(root, handlers) {
                    <span class="at-prefix">@</span>
                    <input type="text" name="tag" placeholder="username" required data-input="tag" value="${escapeHtml(tagValue)}" />
                  </div>
+                 <div class="field-hint">Только строчные латинские буквы, цифры и _, от 3 до 20 символов</div>
                  <div class="tag-availability" data-tag-availability>${renderTagAvailability()}</div>`
               : ''
           }
@@ -155,7 +169,13 @@ export function renderAuth(root, handlers) {
   if (isRegister) {
     const tagInput = root.querySelector('[data-input="tag"]');
     tagInput.addEventListener('input', (event) => {
-      handlers.onTagInput(event.target.value);
+      const lower = event.target.value.toLowerCase();
+      if (lower !== event.target.value) {
+        const pos = event.target.selectionStart;
+        event.target.value = lower;
+        event.target.setSelectionRange(pos, pos);
+      }
+      handlers.onTagInput(lower);
     });
 
     root.querySelector('[data-tag-availability]')?.addEventListener('click', (event) => {
@@ -185,12 +205,28 @@ export function renderAuth(root, handlers) {
     passwordToggle.innerHTML = eyeIcon(!showing);
     passwordToggle.title = showing ? 'Показать пароль' : 'Скрыть пароль';
   });
+
+  if (isRegister) {
+    const rulesEl = root.querySelector('[data-password-rules]');
+    passwordInput.addEventListener('input', (event) => {
+      rulesEl.innerHTML = renderPasswordRules(event.target.value);
+    });
+  }
 }
 
 function eyeIcon(open) {
   return open
     ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
     : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+function renderPasswordRules(password) {
+  return PASSWORD_RULES.map((rule) => {
+    const ok = password.length > 0 && rule.test(password);
+    const cls = password.length === 0 ? 'pending' : ok ? 'ok' : 'fail';
+    const icon = password.length === 0 ? '•' : ok ? '✓' : '✕';
+    return `<span class="password-rule password-rule--${cls}"><span class="password-rule-icon">${icon}</span>${escapeHtml(rule.label)}</span>`;
+  }).join('');
 }
 
 function renderTagAvailability() {

@@ -94,7 +94,13 @@ export function renderSettings(root, handlers) {
 
   const tagInput = root.querySelector('[data-input="settings-tag"]');
   tagInput.addEventListener('input', (event) => {
-    handlers.onTagInput(event.target.value);
+    const lower = event.target.value.toLowerCase();
+    if (lower !== event.target.value) {
+      const pos = event.target.selectionStart;
+      event.target.value = lower;
+      event.target.setSelectionRange(pos, pos);
+    }
+    handlers.onTagInput(lower);
   });
 
   root.querySelector('[data-tag-availability]')?.addEventListener('click', (event) => {

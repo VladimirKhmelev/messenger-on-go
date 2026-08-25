@@ -7,7 +7,7 @@ import {
   getAccessToken,
   setAccessToken,
   currentUserIdFromToken,
-  ApiError,
+  translateApiError,
 } from './api.js';
 import { WsClient } from './ws.js';
 import { bumpAvatarCacheVersion } from './avatar.js';
@@ -24,7 +24,7 @@ import {
   encryptMessage,
   decryptMessage,
 } from './crypto.js';
-import { renderAuth } from './screens/auth.js';
+import { renderAuth, passwordMeetsRules } from './screens/auth.js';
 import { renderSidebar } from './screens/sidebar.js';
 import { renderConversation } from './screens/conversation.js';
 import { renderToast } from './screens/toast.js';
@@ -220,6 +220,13 @@ async function handleAuthSubmit({ email, password, tag, displayName, isRegister 
   state.authBusy = true;
   notify('auth');
 
+  if (isRegister && !passwordMeetsRules(password)) {
+    state.authError = 'Пароль не соответствует требованиям ниже';
+    state.authBusy = false;
+    notify('auth');
+    return;
+  }
+
   try {
     if (isRegister) {
       const { publicKeySpkiBase64, wrappedPrivateKeyBase64, keyWrapSaltBase64 } =
@@ -253,7 +260,7 @@ async function handleAuthSubmit({ email, password, tag, displayName, isRegister 
     await enterApp();
   } catch (err) {
     console.error('login failed:', err);
-    state.authError = err instanceof ApiError ? err.message : `Что-то пошло не так: ${err?.message || err}`;
+    state.authError = translateApiError(err) ?? `Что-то пошло не так: ${err?.message || err}`;
     state.authBusy = false;
     notify('auth');
   }
@@ -272,7 +279,7 @@ async function handleVerifyEmail({ email, code }) {
     state.authBusy = false;
     notify('auth');
   } catch (err) {
-    state.authError = err instanceof ApiError ? err.message : 'Не удалось подтвердить код';
+    state.authError = translateApiError(err) ?? 'Не удалось подтвердить код';
     state.authBusy = false;
     notify('auth');
   }
@@ -290,7 +297,7 @@ async function handleRequestPasswordReset(email) {
     state.authBusy = false;
     notify('auth');
   } catch (err) {
-    state.authError = err instanceof ApiError ? err.message : 'Не удалось отправить код';
+    state.authError = translateApiError(err) ?? 'Не удалось отправить код';
     state.authBusy = false;
     notify('auth');
   }
@@ -323,7 +330,7 @@ async function handleResetPassword({ token, newPassword }) {
     state.authBusy = false;
     notify('auth');
   } catch (err) {
-    state.authError = err instanceof ApiError ? err.message : 'Не удалось изменить пароль';
+    state.authError = translateApiError(err) ?? 'Не удалось изменить пароль';
     state.authBusy = false;
     notify('auth');
   }
@@ -419,7 +426,7 @@ async function handleUnlock(password) {
     await unwrapPrivateKey(userId, password, wrappedKeyData.wrappedPrivateKey, wrappedKeyData.keyWrapSalt);
     await enterApp();
   } catch (err) {
-    state.authError = err instanceof ApiError ? err.message : 'Неверный пароль';
+    state.authError = translateApiError(err) ?? 'Неверный пароль';
     state.authBusy = false;
     notify('auth');
   }
@@ -479,7 +486,7 @@ async function handleGitHubPassphrase(password) {
     await enterApp();
   } catch (err) {
     console.error('GitHub login failed:', err);
-    state.authError = err instanceof ApiError ? err.message : 'Не удалось войти через GitHub';
+    state.authError = translateApiError(err) ?? 'Не удалось войти через GitHub';
     state.authBusy = false;
     notify('auth');
   }
@@ -864,7 +871,7 @@ async function handleSaveTag(tag) {
     notify('settings');
     notify('sidebar');
   } catch (err) {
-    state.settingsError = err instanceof ApiError ? err.message : 'Не удалось изменить тег';
+    state.settingsError = translateApiError(err) ?? 'Не удалось изменить тег';
     state.settingsBusy = false;
     notify('settings');
   }
@@ -883,7 +890,7 @@ async function handleSaveDisplayName(displayName) {
     notify('sidebar');
     if (state.selectedChatId) notify('conversation');
   } catch (err) {
-    state.settingsNameError = err instanceof ApiError ? err.message : 'Не удалось изменить имя';
+    state.settingsNameError = translateApiError(err) ?? 'Не удалось изменить имя';
     state.settingsNameBusy = false;
     notify('settings');
   }
@@ -918,7 +925,7 @@ async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
     state.settingsPasswordSuccess = 'Пароль изменён';
     notify('settings');
   } catch (err) {
-    state.settingsPasswordError = err instanceof ApiError ? err.message : 'Не удалось изменить пароль';
+    state.settingsPasswordError = translateApiError(err) ?? 'Не удалось изменить пароль';
     state.settingsPasswordBusy = false;
     notify('settings');
   }
@@ -946,7 +953,7 @@ async function handleUploadAvatar(file) {
     notify('sidebar');
     if (state.selectedChatId) notify('conversation');
   } catch (err) {
-    state.settingsAvatarError = err instanceof ApiError ? err.message : 'Не удалось загрузить фото';
+    state.settingsAvatarError = translateApiError(err) ?? 'Не удалось загрузить фото';
     state.settingsAvatarBusy = false;
     notify('settings');
   }
