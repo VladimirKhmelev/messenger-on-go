@@ -141,6 +141,8 @@ function wireZones() {
         onResetPassword: handleResetPassword,
         onUnlock: handleUnlock,
         onLogout: handleLogout,
+        onGitHubPassphrase: handleGitHubPassphrase,
+        onCancelGitHub: handleCancelGitHub,
       })
     );
   }
@@ -417,6 +419,66 @@ async function handleUnlock(password) {
     await enterApp();
   } catch (err) {
     state.authError = err instanceof ApiError ? err.message : 'Неверный пароль';
+    state.authBusy = false;
+    notify('auth');
+  }
+}
+
+// Reached when the page loads on /auth/github/callback?code=... — GitHub's
+// code is single-use, so we can't first ask "does this account exist yet" and
+// then separately register: we only get one shot at exchanging it. Instead we
+// stash the code and ask for the encryption passphrase up front; the actual
+// exchange (and the decision of whether this is a new account) happens in
+// handleGitHubPassphrase once we have it.
+function handleGitHubCallback(code) {
+  window.history.replaceState(null, '', '/');
+  state.pendingGitHubCode = code;
+  state.authMode = 'github-passphrase';
+  state.authError = '';
+  state.view = 'login';
+  renderRoot();
+}
+
+function handleCancelGitHub() {
+  state.pendingGitHubCode = '';
+  state.authMode = 'login';
+  state.authError = '';
+  notify('auth');
+}
+
+async function handleGitHubPassphrase(password) {
+  state.authError = '';
+  state.authBusy = true;
+  notify('auth');
+
+  const code = state.pendingGitHubCode;
+
+  try {
+    // Generated speculatively — only kept if the server confirms this is a
+    // brand-new account (see below). Wasted work for a returning user, but
+    // the code is one-shot, so there's no way to check first without
+    // spending it.
+    const { publicKeySpkiBase64, wrappedPrivateKeyBase64, keyWrapSaltBase64 } =
+      await generateAndWrapKeyPair(password);
+
+    const data = await authApi.loginWithGitHub(code, publicKeySpkiBase64, wrappedPrivateKeyBase64, keyWrapSaltBase64);
+    setAccessToken(data.accessToken);
+    state.pendingGitHubCode = '';
+
+    const userId = currentUserIdFromToken();
+    if (data.isNewUser) {
+      await unwrapPrivateKey(userId, password, wrappedPrivateKeyBase64, keyWrapSaltBase64);
+    } else {
+      // Existing account — the keys we just generated were never stored server-side
+      // (the backend ignores them for a login). Fetch the real ones and unwrap those.
+      const wrappedKeyData = await authApi.getWrappedPrivateKey();
+      await unwrapPrivateKey(userId, password, wrappedKeyData.wrappedPrivateKey, wrappedKeyData.keyWrapSalt);
+    }
+
+    await enterApp();
+  } catch (err) {
+    console.error('GitHub login failed:', err);
+    state.authError = err instanceof ApiError ? err.message : 'Не удалось войти через GitHub';
     state.authBusy = false;
     notify('auth');
   }
@@ -1226,6 +1288,17 @@ function playNotificationSound() {
 }
 
 async function bootstrap() {
+  if (window.location.pathname === '/auth/github/callback') {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) {
+      handleGitHubCallback(code);
+      return;
+    }
+    // Missing code (denied consent, or a stray hit on this path) — fall through
+    // to the normal boot flow instead of getting stuck on a dead-end URL.
+    window.history.replaceState(null, '', '/');
+  }
+
   const restored = await refreshAccessToken();
   if (restored) {
     await enterAppOrPromptUnlock();

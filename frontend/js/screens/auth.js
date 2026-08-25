@@ -18,6 +18,10 @@ export function renderAuth(root, handlers) {
     renderResetPassword(root, handlers);
     return;
   }
+  if (state.authMode === 'github-passphrase') {
+    renderGitHubPassphrase(root, handlers);
+    return;
+  }
 
   const isRegister = state.authMode === 'register';
   const isDark = getTheme() === 'dark';
@@ -265,6 +269,77 @@ function renderUnlock(root, handlers) {
     const formData = new FormData(event.target);
     const password = formData.get('password');
     handlers.onUnlock(password);
+  });
+
+  const passwordInput = root.querySelector('[data-input="password"]');
+  passwordInput.focus();
+  const passwordToggle = root.querySelector('[data-action="toggle-password"]');
+  passwordToggle.addEventListener('click', () => {
+    const showing = passwordInput.type === 'text';
+    passwordInput.type = showing ? 'password' : 'text';
+    passwordToggle.innerHTML = eyeIcon(!showing);
+    passwordToggle.title = showing ? 'Показать пароль' : 'Скрыть пароль';
+  });
+}
+
+// GitHub OAuth confirms identity but carries no secret we can derive an
+// encryption key from — so a first-time GitHub login still needs a password
+// from the user, used only to wrap/unwrap this device's E2E private key
+// (never sent to GitHub or checked against anything server-side beyond the
+// wrapped blob). Returning GitHub users are prompted for the same password
+// they set the first time — get it wrong and messages just won't decrypt.
+function renderGitHubPassphrase(root, handlers) {
+  const isDark = getTheme() === 'dark';
+
+  root.innerHTML = `
+    <div class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="brand">
+            <div class="brand-mark"></div>
+            <div class="brand-name">Wisply</div>
+          </div>
+          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
+            <span class="knob"></span>
+          </button>
+        </div>
+
+        <div class="auth-title">Пароль для шифрования</div>
+        <div class="auth-subtitle">GitHub подтвердил вашу личность, но для сквозного шифрования сообщений нужен отдельный пароль — придумайте его сейчас, если входите впервые, или введите тот же, что и раньше</div>
+
+        <form class="field-list" data-form="github-passphrase">
+          <div class="field field--password">
+            <label>Пароль</label>
+            <input type="password" name="password" placeholder="••••••••" required autocomplete="new-password" data-input="password" minlength="8" />
+            <button type="button" class="password-toggle" data-action="toggle-password" title="Показать пароль">${eyeIcon(
+              false
+            )}</button>
+          </div>
+          <div class="form-error">${state.authError || ''}</div>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Продолжить</button>
+        </form>
+
+        <div class="auth-toggle">
+          <span class="action" data-action="cancel-github">Отменить вход</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
+    toggleTheme();
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-action="cancel-github"]').addEventListener('click', () => {
+    handlers.onCancelGitHub();
+  });
+
+  root.querySelector('[data-form="github-passphrase"]').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const password = formData.get('password');
+    handlers.onGitHubPassphrase(password);
   });
 
   const passwordInput = root.querySelector('[data-input="password"]');
