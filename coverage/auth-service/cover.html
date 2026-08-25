@@ -1621,7 +1621,6 @@ func randomTag(base string) (string, error) <span class="cov8" title="1">{
 		<pre class="file" id="file19" style="display: none">package service
 
 import (
-        "unicode"
         "unicode/utf8"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
@@ -1637,9 +1636,11 @@ func ValidatePassword(password string) error <span class="cov8" title="1">{
         <span class="cov8" title="1">var hasDigit, hasLetter bool
         for _, r := range password </span><span class="cov8" title="1">{
                 switch </span>{
-                case unicode.IsDigit(r):<span class="cov8" title="1">
+                case r &lt; 0x20 || r &gt; 0x7e:<span class="cov8" title="1">
+                        return domain.ErrWeakPassword</span>
+                case r &gt;= '0' &amp;&amp; r &lt;= '9':<span class="cov8" title="1">
                         hasDigit = true</span>
-                case unicode.IsLetter(r):<span class="cov8" title="1">
+                case r &gt;= 'a' &amp;&amp; r &lt;= 'z', r &gt;= 'A' &amp;&amp; r &lt;= 'Z':<span class="cov8" title="1">
                         hasLetter = true</span>
                 }
         }
