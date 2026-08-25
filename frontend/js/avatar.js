@@ -43,6 +43,39 @@ export function renderAvatar(userId, seed, name, { sizeClass = '', extraHtml = '
   `;
 }
 
+// A full `root.innerHTML = ...` re-render (the whole app's rendering model —
+// no virtual DOM) always creates a fresh <img> for every avatar, even when
+// nothing about that avatar changed. A brand-new <img> briefly shows the
+// fallback initials before the browser's cache resolves the load, so on a
+// chatty screen (presence/read-receipts/new messages all trigger a
+// re-render) every avatar visibly flickers on each update.
+//
+// snapshotAvatarImages/restoreAvatarImages bracket the innerHTML swap: grab
+// the already-loaded <img> elements beforehand by their data-avatar-for
+// container, then splice them back in afterwards in place of the freshly
+// created ones with the same src — same pixels stay on screen, no flicker.
+export function snapshotAvatarImages(root) {
+  const snapshot = new Map();
+  root.querySelectorAll('[data-avatar-for] > img.avatar-img').forEach((img) => {
+    const container = img.parentElement;
+    const userId = container.getAttribute('data-avatar-for');
+    if (userId) snapshot.set(userId, img);
+  });
+  return snapshot;
+}
+
+export function restoreAvatarImages(root, snapshot) {
+  if (snapshot.size === 0) return;
+  root.querySelectorAll('[data-avatar-for] > img.avatar-img').forEach((freshImg) => {
+    const container = freshImg.parentElement;
+    const userId = container.getAttribute('data-avatar-for');
+    const oldImg = snapshot.get(userId);
+    if (oldImg && oldImg.src === freshImg.src) {
+      freshImg.replaceWith(oldImg);
+    }
+  });
+}
+
 function escapeAttr(str) {
   return String(str).replace(/"/g, '&quot;');
 }

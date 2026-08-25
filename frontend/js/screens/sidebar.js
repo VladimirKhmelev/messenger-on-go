@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
-import { renderAvatar } from '../avatar.js';
+import { renderAvatar, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
 
 export function renderSidebar(root, handlers) {
   const isDark = getTheme() === 'dark';
@@ -18,6 +18,7 @@ export function renderSidebar(root, handlers) {
   const hadFocus = document.activeElement === prevInput;
   const selectionStart = prevInput?.selectionStart;
   const selectionEnd = prevInput?.selectionEnd;
+  const avatarSnapshot = snapshotAvatarImages(root);
 
   root.innerHTML = `
     <div class="sidebar">
@@ -53,6 +54,7 @@ export function renderSidebar(root, handlers) {
       </div>
     </div>
   `;
+  restoreAvatarImages(root, avatarSnapshot);
 
   root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
     toggleTheme();

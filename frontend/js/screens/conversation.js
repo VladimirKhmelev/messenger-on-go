@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { renderAvatar, avatarUrl } from '../avatar.js';
+import { renderAvatar, avatarUrl, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
 import { formatTime, formatDateLabel, escapeHtml } from './sidebar.js';
 
 document.addEventListener('click', () => {
@@ -43,6 +43,7 @@ export function renderConversation(root, handlers) {
   const prevScrollTop = prevList?.scrollTop ?? 0;
   const wasNearBottom = prevList ? prevScrollHeight - prevScrollTop - prevList.clientHeight < 80 : true;
   const isSameChat = prevList?.getAttribute('data-chat-id') === chat.id;
+  const avatarSnapshot = snapshotAvatarImages(root);
 
   root.innerHTML = `
     <div class="conversation">
@@ -88,6 +89,7 @@ export function renderConversation(root, handlers) {
     </div>
     ${renderAvatarPreview()}
   `;
+  restoreAvatarImages(root, avatarSnapshot);
 
   const list = root.querySelector('[data-list="messages"]');
   if (list) {
