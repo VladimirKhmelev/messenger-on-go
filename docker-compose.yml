@@ -2,6 +2,7 @@ volumes:
   auth-db-data:
   chat-db-data:
   redis-data:
+  nats-data:
 
 services:
   auth-db:
@@ -54,7 +55,9 @@ services:
   nats:
     image: nats:2.10
     restart: unless-stopped
-    command: ["-js"]
+    command: ["-js", "-sd", "/data"]
+    volumes:
+      - nats-data:/data
     ports:
       - "4222:4222"
 
