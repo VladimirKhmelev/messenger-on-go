@@ -17,8 +17,8 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
-	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
