@@ -9,10 +9,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
@@ -38,6 +40,16 @@ func main() {
 	if internalSecret == "" {
 		log.Fatal("notification-worker: INTERNAL_SECRET is required")
 	}
+
+	tracingShutdown, err := tracing.Setup(context.Background(), "notification-worker", os.Getenv("JAEGER_ENDPOINT"))
+	if err != nil {
+		log.Fatalf("notification-worker: failed to set up tracing: %v", err)
+	}
+	defer func() {
+		if err := tracingShutdown(context.Background()); err != nil {
+			log.Printf("notification-worker: tracing shutdown failed: %v", err)
+		}
+	}()
 
 	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
 	if err != nil {
@@ -81,7 +93,7 @@ func main() {
 		log.Fatalf("notification-worker: failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)

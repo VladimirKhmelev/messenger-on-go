@@ -5,6 +5,7 @@ ENV GODEBUG=netdns=go+4
 WORKDIR /src
 
 COPY proto/gen proto/gen
+COPY pkg/tracing pkg/tracing
 COPY services/notification-worker services/notification-worker
 
 WORKDIR /src/services/notification-worker

@@ -6,6 +6,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -46,6 +48,9 @@ func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) err
 		return err
 	}
 
-	_, err = p.js.Publish(ctx, SubjectNotifyPush, payload)
+	ctx, header, span := tracing.StartPublishSpan(ctx, SubjectNotifyPush)
+	defer span.End()
+
+	_, err = p.js.PublishMsg(ctx, &nats.Msg{Subject: SubjectNotifyPush, Data: payload, Header: header})
 	return err
 }

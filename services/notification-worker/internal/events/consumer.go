@@ -7,6 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -77,7 +79,9 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
 		}
 
 		for msg := range msgs.Messages() {
-			sub.Handle(ctx, msg.Subject(), msg.Data())
+			msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
+			sub.Handle(msgCtx, msg.Subject(), msg.Data())
+			span.End()
 			if err := msg.Ack(); err != nil {
 				log.Printf("notification-worker: failed to ack %s message: %v", sub.FilterSubject, err)
 			}
