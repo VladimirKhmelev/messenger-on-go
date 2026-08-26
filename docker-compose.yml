@@ -68,6 +68,15 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317:4317"   # OTLP/gRPC
+
   auth-service:
     build:
       context: .
@@ -94,6 +103,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     depends_on:
       auth-db:
         condition: service_healthy
@@ -102,6 +112,8 @@ services:
       nats:
         condition: service_started
       mailhog:
+        condition: service_started
+      jaeger:
         condition: service_started
 
   chat-service:
@@ -122,6 +134,7 @@ services:
       AUTH_SERVICE_ADDR: auth-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     depends_on:
       chat-db:
         condition: service_healthy
@@ -131,6 +144,8 @@ services:
         condition: service_started
       auth-service:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   ws-gateway-1:
     build:
@@ -149,11 +164,14 @@ services:
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       # Пустое значение позволяет любому Origin (локальная разработка). Установите для продакшена, например https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     depends_on:
       nats:
         condition: service_started
       chat-service:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   ws-gateway-2:
     build:
@@ -172,11 +190,14 @@ services:
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       # Empty allows any Origin (local dev). Set for prod, e.g. https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     depends_on:
       nats:
         condition: service_started
       chat-service:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   notification-worker:
     build:
@@ -189,11 +210,14 @@ services:
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     depends_on:
       nats:
         condition: service_started
       chat-service:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   nginx:
     image: nginx:1.27-alpine
