@@ -102,11 +102,13 @@ import (
         "syscall"
 
         "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/credentials/insecure"
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache"
@@ -159,6 +161,16 @@ func main() <span class="cov0" title="0">{
                 log.Fatal("chat-service: INTERNAL_SECRET is required")
         }</span>
 
+        <span class="cov0" title="0">tracingShutdown, err := tracing.Setup(context.Background(), "chat-service", os.Getenv("JAEGER_ENDPOINT"))
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to set up tracing: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err := tracingShutdown(context.Background()); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("chat-service: tracing shutdown failed: %v", err)
+                }</span>
+        }()
+
         <span class="cov0" title="0">chatRepo, err := repository.NewPostgresChatRepository(dsn)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("chat-service: failed to connect to postgres: %v", err)
@@ -191,6 +203,7 @@ func main() <span class="cov0" title="0">{
         }</span>
 
         <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.StatsHandler(otelgrpc.NewServerHandler()),
                 grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret)),
                 grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
         )
@@ -209,7 +222,10 @@ func main() <span class="cov0" title="0">{
         }()
 
         <span class="cov0" title="0">gwMux := runtime.NewServeMux()
-        gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+        gwOpts := []grpc.DialOption{
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+        }
         if err := chatv1.RegisterChatServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("chat-service: failed to register HTTP gateway: %v", err)
         }</span>
@@ -241,6 +257,7 @@ func main() <span class="cov0" title="0">{
 import (
         "context"
 
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/codes"
         "google.golang.org/grpc/credentials/insecure"
@@ -256,7 +273,10 @@ type Client struct {
 }
 
 func Dial(addr string) (*Client, error) <span class="cov0" title="0">{
-        conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+        conn, err := grpc.NewClient(addr,
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+        )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -412,6 +432,8 @@ import (
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -476,9 +498,7 @@ func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCrea
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-
-        <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectMessageCreated, payload)
-        return err</span>
+        <span class="cov0" title="0">return p.publish(ctx, SubjectMessageCreated, payload)</span>
 }
 
 func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpdated) error <span class="cov0" title="0">{
@@ -491,9 +511,7 @@ func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpda
         if event.Deleted </span><span class="cov0" title="0">{
                 subject = SubjectMessageDeleted
         }</span>
-
-        <span class="cov0" title="0">_, err = p.js.Publish(ctx, subject, payload)
-        return err</span>
+        <span class="cov0" title="0">return p.publish(ctx, subject, payload)</span>
 }
 
 func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) error <span class="cov0" title="0">{
@@ -501,10 +519,16 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) e
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-
-        <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectMessageRead, payload)
-        return err</span>
+        <span class="cov0" title="0">return p.publish(ctx, SubjectMessageRead, payload)</span>
 }
+
+func (p *Publisher) publish(ctx context.Context, subject string, payload []byte) error <span class="cov0" title="0">{
+        ctx, header, span := tracing.StartPublishSpan(ctx, subject)
+        defer span.End()
+
+        _, err := p.js.PublishMsg(ctx, &amp;nats.Msg{Subject: subject, Data: payload, Header: header})
+        return err
+}</span>
 </pre>
 		
 		<pre class="file" id="file6" style="display: none">package repository

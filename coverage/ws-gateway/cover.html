@@ -94,10 +94,12 @@ import (
         "strings"
         "syscall"
 
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws"
@@ -139,6 +141,16 @@ func main() <span class="cov0" title="0">{
                 allowedOrigins = strings.Split(raw, ",")
         }</span>
 
+        <span class="cov0" title="0">tracingShutdown, err := tracing.Setup(context.Background(), "ws-gateway", os.Getenv("JAEGER_ENDPOINT"))
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("ws-gateway: failed to set up tracing: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err := tracingShutdown(context.Background()); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("ws-gateway: tracing shutdown failed: %v", err)
+                }</span>
+        }()
+
         <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
@@ -177,7 +189,7 @@ func main() <span class="cov0" title="0">{
                 log.Fatalf("ws-gateway: failed to listen: %v", err)
         }</span>
 
-        <span class="cov0" title="0">grpcServer := grpc.NewServer()
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
         healthServer := health.NewServer()
         healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -220,6 +232,7 @@ func main() <span class="cov0" title="0">{
 import (
         "context"
 
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/credentials/insecure"
         "google.golang.org/grpc/metadata"
@@ -243,7 +256,10 @@ type Client struct {
 }
 
 func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
-        conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+        conn, err := grpc.NewClient(addr,
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+        )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -408,6 +424,8 @@ import (
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -502,20 +520,28 @@ func (p *PresencePublisher) Close() <span class="cov0" title="0">{
         p.nc.Close()
 }</span>
 
-func (p *PresencePublisher) PublishPresenceChanged(event PresenceChanged) error <span class="cov0" title="0">{
+func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event PresenceChanged) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov0" title="0">return p.nc.Publish(subjectPresence, payload)</span>
+
+        <span class="cov0" title="0">_, header, span := tracing.StartPublishSpan(ctx, subjectPresence)
+        defer span.End()
+
+        return p.nc.PublishMsg(&amp;nats.Msg{Subject: subjectPresence, Data: payload, Header: header})</span>
 }
 
-func (p *PresencePublisher) PublishTypingChanged(event TypingChanged) error <span class="cov0" title="0">{
+func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event TypingChanged) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov0" title="0">return p.nc.Publish(subjectTyping, payload)</span>
+
+        <span class="cov0" title="0">_, header, span := tracing.StartPublishSpan(ctx, subjectTyping)
+        defer span.End()
+
+        return p.nc.PublishMsg(&amp;nats.Msg{Subject: subjectTyping, Data: payload, Header: header})</span>
 }
 
 func Consume(ctx context.Context, url string, handlers Handlers) error <span class="cov0" title="0">{
@@ -594,7 +620,9 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                                 log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
                                 return
                         }</span>
-                        <span class="cov0" title="0">handlers.OnPresenceChanged(ctx, event)</span>
+                        <span class="cov0" title="0">msgCtx, span := tracing.StartConsumeSpan(ctx, subjectPresence, msg.Header)
+                        handlers.OnPresenceChanged(msgCtx, event)
+                        span.End()</span>
                 })
                 <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
                         errCh &lt;- err
@@ -613,7 +641,9 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                                 log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
                                 return
                         }</span>
-                        <span class="cov0" title="0">handlers.OnTypingChanged(ctx, event)</span>
+                        <span class="cov0" title="0">msgCtx, span := tracing.StartConsumeSpan(ctx, subjectTyping, msg.Header)
+                        handlers.OnTypingChanged(msgCtx, event)
+                        span.End()</span>
                 })
                 <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
                         errCh &lt;- err
@@ -665,7 +695,9 @@ func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string
                 }
 
                 <span class="cov0" title="0">for msg := range msgs.Messages() </span><span class="cov0" title="0">{
-                        handle(ctx, msg.Data())
+                        msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
+                        handle(msgCtx, msg.Data())
+                        span.End()
                 }</span>
         }
 }
@@ -869,8 +901,8 @@ type ChatClient interface {
 }
 
 type PresencePublisher interface {
-        PublishPresenceChanged(event events.PresenceChanged) error
-        PublishTypingChanged(event events.TypingChanged) error
+        PublishPresenceChanged(ctx context.Context, event events.PresenceChanged) error
+        PublishTypingChanged(ctx context.Context, event events.TypingChanged) error
 }
 
 type Handler struct {
@@ -1128,11 +1160,11 @@ func (s *session) markOffline() <span class="cov8" title="1">{
                 return
         }</span>
 
-        <span class="cov8" title="1">s.announcePresence(false, lastSeenUnix)</span>
+        <span class="cov8" title="1">s.announcePresence(ctx, false, lastSeenUnix)</span>
 }
 
-func (s *session) announcePresence(online bool, lastSeenUnix int64) <span class="cov8" title="1">{
-        if err := s.presence.PublishPresenceChanged(events.PresenceChanged{
+func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUnix int64) <span class="cov8" title="1">{
+        if err := s.presence.PublishPresenceChanged(ctx, events.PresenceChanged{
                 UserID:       s.userID,
                 Online:       online,
                 LastSeenUnix: lastSeenUnix,
@@ -1224,7 +1256,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         log.Printf("ws-gateway: failed to set user %s online: %v", s.userID, err)
                         return
                 }</span>
-                <span class="cov0" title="0">s.announcePresence(true, 0)</span>
+                <span class="cov0" title="0">s.announcePresence(ctx, true, 0)</span>
 
         case "set_inactive":<span class="cov0" title="0">
                 s.markOffline()</span>
@@ -1234,7 +1266,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         log.Printf("ws-gateway: failed to set typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
                         return
                 }</span>
-                <span class="cov0" title="0">if err := s.presence.PublishTypingChanged(events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil </span><span class="cov0" title="0">{
+                <span class="cov0" title="0">if err := s.presence.PublishTypingChanged(ctx, events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil </span><span class="cov0" title="0">{
                         log.Printf("ws-gateway: failed to publish typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
                 }</span>
 

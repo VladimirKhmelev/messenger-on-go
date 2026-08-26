@@ -140,11 +140,13 @@ import (
         "syscall"
 
         "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/credentials/insecure"
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
@@ -215,7 +217,17 @@ func main() <span class="cov0" title="0">{
 
         <span class="cov0" title="0">cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
 
-        userRepo, err := repository.NewPostgresUserRepository(dsn)
+        tracingShutdown, err := tracing.Setup(context.Background(), "auth-service", os.Getenv("JAEGER_ENDPOINT"))
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to set up tracing: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err := tracingShutdown(context.Background()); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("auth-service: tracing shutdown failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">userRepo, err := repository.NewPostgresUserRepository(dsn)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to connect to postgres: %v", err)
         }</span>
@@ -248,6 +260,7 @@ func main() <span class="cov0" title="0">{
         }</span>
 
         <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.StatsHandler(otelgrpc.NewServerHandler()),
                 grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer, authService)),
         )
 
@@ -272,7 +285,10 @@ func main() <span class="cov0" title="0">{
                         <span class="cov0" title="0">return fmt.Sprintf("%s%s", runtime.MetadataHeaderPrefix, key), true</span>
                 }),
         )
-        <span class="cov0" title="0">gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+        <span class="cov0" title="0">gwOpts := []grpc.DialOption{
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+        }
         if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
         }</span>
@@ -624,6 +640,8 @@ import (
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -709,7 +727,10 @@ func (p *Publisher) publish(ctx context.Context, subject string, event any) erro
                 return err
         }</span>
 
-        <span class="cov0" title="0">_, err = p.js.Publish(ctx, subject, payload)
+        <span class="cov0" title="0">ctx, header, span := tracing.StartPublishSpan(ctx, subject)
+        defer span.End()
+
+        _, err = p.js.PublishMsg(ctx, &amp;nats.Msg{Subject: subject, Data: payload, Header: header})
         return err</span>
 }
 </pre>

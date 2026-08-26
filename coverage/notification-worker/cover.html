@@ -88,10 +88,12 @@ import (
         "os/signal"
         "syscall"
 
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
@@ -117,6 +119,16 @@ func main() <span class="cov0" title="0">{
         if internalSecret == "" </span><span class="cov0" title="0">{
                 log.Fatal("notification-worker: INTERNAL_SECRET is required")
         }</span>
+
+        <span class="cov0" title="0">tracingShutdown, err := tracing.Setup(context.Background(), "notification-worker", os.Getenv("JAEGER_ENDPOINT"))
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("notification-worker: failed to set up tracing: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err := tracingShutdown(context.Background()); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("notification-worker: tracing shutdown failed: %v", err)
+                }</span>
+        }()
 
         <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
         if err != nil </span><span class="cov0" title="0">{
@@ -160,7 +172,7 @@ func main() <span class="cov0" title="0">{
                 log.Fatalf("notification-worker: failed to listen: %v", err)
         }</span>
 
-        <span class="cov0" title="0">grpcServer := grpc.NewServer()
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
         healthServer := health.NewServer()
         healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -187,6 +199,7 @@ func main() <span class="cov0" title="0">{
 import (
         "context"
 
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
         "google.golang.org/grpc"
         "google.golang.org/grpc/credentials/insecure"
         "google.golang.org/grpc/metadata"
@@ -201,7 +214,10 @@ type Client struct {
 }
 
 func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
-        conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+        conn, err := grpc.NewClient(addr,
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+        )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -246,6 +262,8 @@ import (
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -316,7 +334,9 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
                 }
 
                 <span class="cov0" title="0">for msg := range msgs.Messages() </span><span class="cov0" title="0">{
-                        sub.Handle(ctx, msg.Subject(), msg.Data())
+                        msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
+                        sub.Handle(msgCtx, msg.Subject(), msg.Data())
+                        span.End()
                         if err := msg.Ack(); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("notification-worker: failed to ack %s message: %v", sub.FilterSubject, err)
                         }</span>
@@ -333,6 +353,8 @@ import (
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -373,7 +395,10 @@ func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) err
                 return err
         }</span>
 
-        <span class="cov0" title="0">_, err = p.js.Publish(ctx, SubjectNotifyPush, payload)
+        <span class="cov0" title="0">ctx, header, span := tracing.StartPublishSpan(ctx, SubjectNotifyPush)
+        defer span.End()
+
+        _, err = p.js.PublishMsg(ctx, &amp;nats.Msg{Subject: SubjectNotifyPush, Data: payload, Header: header})
         return err</span>
 }
 </pre>
