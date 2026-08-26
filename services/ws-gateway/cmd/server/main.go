@@ -11,10 +11,12 @@ import (
 	"strings"
 	"syscall"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws"
@@ -56,6 +58,16 @@ func main() {
 		allowedOrigins = strings.Split(raw, ",")
 	}
 
+	tracingShutdown, err := tracing.Setup(context.Background(), "ws-gateway", os.Getenv("JAEGER_ENDPOINT"))
+	if err != nil {
+		log.Fatalf("ws-gateway: failed to set up tracing: %v", err)
+	}
+	defer func() {
+		if err := tracingShutdown(context.Background()); err != nil {
+			log.Printf("ws-gateway: tracing shutdown failed: %v", err)
+		}
+	}()
+
 	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
 	if err != nil {
 		log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
@@ -94,7 +106,7 @@ func main() {
 		log.Fatalf("ws-gateway: failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
