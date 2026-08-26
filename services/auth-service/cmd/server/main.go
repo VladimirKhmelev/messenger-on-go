@@ -11,12 +11,14 @@ import (
 	"syscall"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
@@ -86,6 +88,16 @@ func main() {
 
 	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
 
+	tracingShutdown, err := tracing.Setup(context.Background(), "auth-service", os.Getenv("JAEGER_ENDPOINT"))
+	if err != nil {
+		log.Fatalf("auth-service: failed to set up tracing: %v", err)
+	}
+	defer func() {
+		if err := tracingShutdown(context.Background()); err != nil {
+			log.Printf("auth-service: tracing shutdown failed: %v", err)
+		}
+	}()
+
 	userRepo, err := repository.NewPostgresUserRepository(dsn)
 	if err != nil {
 		log.Fatalf("auth-service: failed to connect to postgres: %v", err)
@@ -119,6 +131,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer, authService)),
 	)
 
@@ -143,7 +156,10 @@ func main() {
 			return fmt.Sprintf("%s%s", runtime.MetadataHeaderPrefix, key), true
 		}),
 	)
-	gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	gwOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	}
 	if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
 		log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
 	}
