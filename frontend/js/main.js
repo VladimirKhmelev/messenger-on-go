@@ -506,37 +506,34 @@ async function resolvePeer(userId) {
   }
 }
 
+async function chatSummaryToChat(summary, myUserId) {
+  const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId);
+  const peer = await resolvePeer(peerId);
+
+  const lastMessage = summary.lastMessage
+    ? { ...summary.lastMessage, mine: summary.lastMessage.senderUserId === myUserId }
+    : null;
+  if (lastMessage) await decryptMessageInPlace(summary.chatId, lastMessage);
+
+  return {
+    id: summary.chatId,
+    peer,
+    messages: lastMessage ? [lastMessage] : [],
+    historyLoaded: false,
+    hasMoreHistory: true,
+    loadingMoreHistory: false,
+    online: false,
+    lastSeenUnix: 0,
+    peerLastReadMessageId: null,
+    unreadCount: 0,
+  };
+}
+
 async function loadChats(myUserId) {
   try {
     const data = await chatApi.listChats();
     const summaries = data?.chats || [];
-
-    const chats = await Promise.all(
-      summaries.map(async (summary) => {
-        const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId);
-        const peer = await resolvePeer(peerId);
-
-        const lastMessage = summary.lastMessage
-          ? { ...summary.lastMessage, mine: summary.lastMessage.senderUserId === myUserId }
-          : null;
-        if (lastMessage) await decryptMessageInPlace(summary.chatId, lastMessage);
-
-        return {
-          id: summary.chatId,
-          peer,
-          messages: lastMessage ? [lastMessage] : [],
-          historyLoaded: false,
-          hasMoreHistory: true,
-          loadingMoreHistory: false,
-          online: false,
-          lastSeenUnix: 0,
-          peerLastReadMessageId: null,
-          unreadCount: 0,
-        };
-      })
-    );
-
-    return chats;
+    return await Promise.all(summaries.map((summary) => chatSummaryToChat(summary, myUserId)));
   } catch (err) {
     console.error('failed to load chats:', err);
     return [];
@@ -1119,7 +1116,29 @@ function connectWs() {
   updateOwnActivity();
 }
 
-function refreshAfterReconnect() {
+// A chat created entirely while our socket was down (e.g. a brand new chat
+// from someone we've never talked to, opened right after our tab woke from
+// sleep) has no entry in state.chats yet — the per-chat refresh below only
+// knows about chats it already has, so it can never surface one that's
+// missing. Pull the chat list fresh on every reconnect and splice in
+// whatever's new before doing the normal per-chat refresh.
+async function syncNewChatsAfterReconnect() {
+  const data = await chatApi.listChats().catch(() => null);
+  const summaries = data?.chats || [];
+  const knownIds = new Set(state.chats.map((c) => c.id));
+  const myUserId = state.currentUser?.id;
+
+  const missing = summaries.filter((s) => !knownIds.has(s.chatId));
+  if (missing.length === 0) return;
+
+  const newChats = await Promise.all(missing.map((summary) => chatSummaryToChat(summary, myUserId)));
+  state.chats.unshift(...newChats);
+  notify('sidebar');
+}
+
+async function refreshAfterReconnect() {
+  await syncNewChatsAfterReconnect();
+
   for (const chat of state.chats) {
     ws.getPresence(chat.peer.id);
     if (chat.historyLoaded) {
