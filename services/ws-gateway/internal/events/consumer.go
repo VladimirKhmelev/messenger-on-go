@@ -8,6 +8,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -102,20 +104,28 @@ func (p *PresencePublisher) Close() {
 	p.nc.Close()
 }
 
-func (p *PresencePublisher) PublishPresenceChanged(event PresenceChanged) error {
+func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event PresenceChanged) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	return p.nc.Publish(subjectPresence, payload)
+
+	_, header, span := tracing.StartPublishSpan(ctx, subjectPresence)
+	defer span.End()
+
+	return p.nc.PublishMsg(&nats.Msg{Subject: subjectPresence, Data: payload, Header: header})
 }
 
-func (p *PresencePublisher) PublishTypingChanged(event TypingChanged) error {
+func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event TypingChanged) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	return p.nc.Publish(subjectTyping, payload)
+
+	_, header, span := tracing.StartPublishSpan(ctx, subjectTyping)
+	defer span.End()
+
+	return p.nc.PublishMsg(&nats.Msg{Subject: subjectTyping, Data: payload, Header: header})
 }
 
 func Consume(ctx context.Context, url string, handlers Handlers) error {
@@ -194,7 +204,9 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 				log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
 				return
 			}
-			handlers.OnPresenceChanged(ctx, event)
+			msgCtx, span := tracing.StartConsumeSpan(ctx, subjectPresence, msg.Header)
+			handlers.OnPresenceChanged(msgCtx, event)
+			span.End()
 		})
 		if err != nil {
 			errCh <- err
@@ -213,7 +225,9 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 				log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
 				return
 			}
-			handlers.OnTypingChanged(ctx, event)
+			msgCtx, span := tracing.StartConsumeSpan(ctx, subjectTyping, msg.Header)
+			handlers.OnTypingChanged(msgCtx, event)
+			span.End()
 		})
 		if err != nil {
 			errCh <- err
@@ -265,7 +279,9 @@ func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string
 		}
 
 		for msg := range msgs.Messages() {
-			handle(ctx, msg.Data())
+			msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
+			handle(msgCtx, msg.Data())
+			span.End()
 		}
 	}
 }

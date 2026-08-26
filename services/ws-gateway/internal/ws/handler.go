@@ -27,8 +27,8 @@ type ChatClient interface {
 }
 
 type PresencePublisher interface {
-	PublishPresenceChanged(event events.PresenceChanged) error
-	PublishTypingChanged(event events.TypingChanged) error
+	PublishPresenceChanged(ctx context.Context, event events.PresenceChanged) error
+	PublishTypingChanged(ctx context.Context, event events.TypingChanged) error
 }
 
 type Handler struct {

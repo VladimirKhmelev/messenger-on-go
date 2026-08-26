@@ -154,11 +154,11 @@ func (s *session) markOffline() {
 		return
 	}
 
-	s.announcePresence(false, lastSeenUnix)
+	s.announcePresence(ctx, false, lastSeenUnix)
 }
 
-func (s *session) announcePresence(online bool, lastSeenUnix int64) {
-	if err := s.presence.PublishPresenceChanged(events.PresenceChanged{
+func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUnix int64) {
+	if err := s.presence.PublishPresenceChanged(ctx, events.PresenceChanged{
 		UserID:       s.userID,
 		Online:       online,
 		LastSeenUnix: lastSeenUnix,
@@ -250,7 +250,7 @@ func (s *session) handle(data []byte) {
 			log.Printf("ws-gateway: failed to set user %s online: %v", s.userID, err)
 			return
 		}
-		s.announcePresence(true, 0)
+		s.announcePresence(ctx, true, 0)
 
 	case "set_inactive":
 		s.markOffline()
@@ -260,7 +260,7 @@ func (s *session) handle(data []byte) {
 			log.Printf("ws-gateway: failed to set typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
 			return
 		}
-		if err := s.presence.PublishTypingChanged(events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil {
+		if err := s.presence.PublishTypingChanged(ctx, events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil {
 			log.Printf("ws-gateway: failed to publish typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
 		}
 

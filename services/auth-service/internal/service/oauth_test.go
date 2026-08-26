@@ -30,6 +30,7 @@ func TestAuthService_LoginWithGitHub_NewUser(t *testing.T) {
 	created := repo.users["octocat@example.com"]
 	if created == nil {
 		t.Fatal("LoginWithGitHub() did not create a user")
+		return
 	}
 	if !created.EmailVerified {
 		t.Error("LoginWithGitHub() created a user with EmailVerified = false, want true (GitHub already verified it)")

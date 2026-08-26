@@ -127,11 +127,11 @@ func (c *fakeChatClient) SetTyping(_ context.Context, _, _ string) error {
 
 type fakePresencePublisher struct{}
 
-func (fakePresencePublisher) PublishPresenceChanged(_ events.PresenceChanged) error {
+func (fakePresencePublisher) PublishPresenceChanged(_ context.Context, _ events.PresenceChanged) error {
 	return nil
 }
 
-func (fakePresencePublisher) PublishTypingChanged(_ events.TypingChanged) error {
+func (fakePresencePublisher) PublishTypingChanged(_ context.Context, _ events.TypingChanged) error {
 	return nil
 }
 
