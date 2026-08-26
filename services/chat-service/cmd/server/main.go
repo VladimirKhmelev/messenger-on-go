@@ -11,11 +11,13 @@ import (
 	"syscall"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/cache"
@@ -68,6 +70,16 @@ func main() {
 		log.Fatal("chat-service: INTERNAL_SECRET is required")
 	}
 
+	tracingShutdown, err := tracing.Setup(context.Background(), "chat-service", os.Getenv("JAEGER_ENDPOINT"))
+	if err != nil {
+		log.Fatalf("chat-service: failed to set up tracing: %v", err)
+	}
+	defer func() {
+		if err := tracingShutdown(context.Background()); err != nil {
+			log.Printf("chat-service: tracing shutdown failed: %v", err)
+		}
+	}()
+
 	chatRepo, err := repository.NewPostgresChatRepository(dsn)
 	if err != nil {
 		log.Fatalf("chat-service: failed to connect to postgres: %v", err)
@@ -100,6 +112,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret)),
 		grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
 	)
@@ -118,7 +131,10 @@ func main() {
 	}()
 
 	gwMux := runtime.NewServeMux()
-	gwOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	gwOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	}
 	if err := chatv1.RegisterChatServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
 		log.Fatalf("chat-service: failed to register HTTP gateway: %v", err)
 	}

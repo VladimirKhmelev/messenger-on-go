@@ -7,6 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
 const (
@@ -71,9 +73,7 @@ func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCrea
 	if err != nil {
 		return err
 	}
-
-	_, err = p.js.Publish(ctx, SubjectMessageCreated, payload)
-	return err
+	return p.publish(ctx, SubjectMessageCreated, payload)
 }
 
 func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpdated) error {
@@ -86,9 +86,7 @@ func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpda
 	if event.Deleted {
 		subject = SubjectMessageDeleted
 	}
-
-	_, err = p.js.Publish(ctx, subject, payload)
-	return err
+	return p.publish(ctx, subject, payload)
 }
 
 func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) error {
@@ -96,7 +94,13 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) e
 	if err != nil {
 		return err
 	}
+	return p.publish(ctx, SubjectMessageRead, payload)
+}
 
-	_, err = p.js.Publish(ctx, SubjectMessageRead, payload)
+func (p *Publisher) publish(ctx context.Context, subject string, payload []byte) error {
+	ctx, header, span := tracing.StartPublishSpan(ctx, subject)
+	defer span.End()
+
+	_, err := p.js.PublishMsg(ctx, &nats.Msg{Subject: subject, Data: payload, Header: header})
 	return err
 }
