@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
@@ -106,7 +107,10 @@ func main() {
 		log.Fatalf("ws-gateway: failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor("ws-gateway")),
+	)
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -121,6 +125,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher, allowedOrigins))
+	mux.HandleFunc("/metrics", metrics.Handler)
 
 	httpServer := &http.Server{
 		Addr:    ":" + httpPort,
