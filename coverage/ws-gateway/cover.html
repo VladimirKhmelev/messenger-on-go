@@ -65,7 +65,7 @@
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (80.0%)</option>
 				
-				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.1%)</option>
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.7%)</option>
 				
 				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (50.9%)</option>
 				
@@ -99,6 +99,7 @@ import (
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
@@ -189,7 +190,10 @@ func main() <span class="cov0" title="0">{
                 log.Fatalf("ws-gateway: failed to listen: %v", err)
         }</span>
 
-        <span class="cov0" title="0">grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.StatsHandler(otelgrpc.NewServerHandler()),
+                grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor("ws-gateway")),
+        )
 
         healthServer := health.NewServer()
         healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -204,6 +208,7 @@ func main() <span class="cov0" title="0">{
 
         <span class="cov0" title="0">mux := http.NewServeMux()
         mux.Handle("/ws", ws.NewHandler(jwtSecret, chatClient, registry, presencePublisher, allowedOrigins))
+        mux.HandleFunc("/metrics", metrics.Handler)
 
         httpServer := &amp;http.Server{
                 Addr:    ":" + httpPort,
@@ -237,6 +242,7 @@ import (
         "google.golang.org/grpc/credentials/insecure"
         "google.golang.org/grpc/metadata"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
@@ -259,6 +265,7 @@ func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("ws-gateway")),
         )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -961,7 +968,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class=
 		
 		<pre class="file" id="file5" style="display: none">package ws
 
-import "sync"
+import (
+        "sync"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+)
 
 type Registry struct {
         mu       sync.RWMutex
@@ -979,7 +990,8 @@ func (r *Registry) add(s *session) <span class="cov8" title="1">{
         if r.sessions[s.userID] == nil </span><span class="cov8" title="1">{
                 r.sessions[s.userID] = make(map[*session]struct{})
         }</span>
-        <span class="cov8" title="1">r.sessions[s.userID][s] = struct{}{}</span>
+        <span class="cov8" title="1">r.sessions[s.userID][s] = struct{}{}
+        metrics.WSConnectionOpened()</span>
 }
 
 func (r *Registry) remove(s *session) (hasOtherSessions bool) <span class="cov8" title="1">{
@@ -987,6 +999,7 @@ func (r *Registry) remove(s *session) (hasOtherSessions bool) <span class="cov8"
         defer r.mu.Unlock()
 
         delete(r.sessions[s.userID], s)
+        metrics.WSConnectionClosed()
         if len(r.sessions[s.userID]) == 0 </span><span class="cov8" title="1">{
                 delete(r.sessions, s.userID)
                 return false

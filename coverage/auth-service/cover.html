@@ -89,7 +89,7 @@
 				
 				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/display_name.go (85.7%)</option>
 				
-				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (81.4%)</option>
+				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/login.go (82.2%)</option>
 				
 				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/oauth.go (72.9%)</option>
 				
@@ -146,6 +146,7 @@ import (
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
@@ -261,7 +262,10 @@ func main() <span class="cov0" title="0">{
 
         <span class="cov0" title="0">grpcServer := grpc.NewServer(
                 grpc.StatsHandler(otelgrpc.NewServerHandler()),
-                grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer, authService)),
+                grpc.ChainUnaryInterceptor(
+                        metrics.UnaryServerInterceptor("auth-service"),
+                        transportgrpc.AuthInterceptor(tokenIssuer, authService),
+                ),
         )
 
         authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService, cookieSecure))
@@ -288,6 +292,7 @@ func main() <span class="cov0" title="0">{
         <span class="cov0" title="0">gwOpts := []grpc.DialOption{
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("auth-service")),
         }
         if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
@@ -299,6 +304,11 @@ func main() <span class="cov0" title="0">{
         }</span>
         <span class="cov0" title="0">if err := gwMux.HandlePath(http.MethodPost, "/v1/users/me/avatar", avatarHandler.Upload); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("auth-service: failed to register avatar POST route: %v", err)
+        }</span>
+        <span class="cov0" title="0">if err := gwMux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, _ map[string]string) </span><span class="cov0" title="0">{
+                metrics.Handler(w, r)
+        }</span>); err != nil <span class="cov0" title="0">{
+                log.Fatalf("auth-service: failed to register /metrics route: %v", err)
         }</span>
 
         <span class="cov0" title="0">httpServer := &amp;http.Server{
@@ -1414,6 +1424,7 @@ import (
 
         "golang.org/x/crypto/bcrypt"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
@@ -1435,12 +1446,14 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Token
         <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
         if err != nil </span><span class="cov8" title="1">{
                 if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov8" title="1">{
+                        metrics.FailedLoginsTotal.Inc()
                         return nil, domain.ErrInvalidCredentials
                 }</span>
                 <span class="cov0" title="0">return nil, err</span>
         }
 
         <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil </span><span class="cov8" title="1">{
+                metrics.FailedLoginsTotal.Inc()
                 return nil, domain.ErrInvalidCredentials
         }</span>
 

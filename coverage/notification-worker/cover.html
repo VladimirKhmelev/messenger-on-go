@@ -84,6 +84,7 @@ import (
         "fmt"
         "log"
         "net"
+        "net/http"
         "os"
         "os/signal"
         "syscall"
@@ -93,6 +94,7 @@ import (
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
@@ -103,6 +105,11 @@ func main() <span class="cov0" title="0">{
         port := os.Getenv("GRPC_PORT")
         if port == "" </span><span class="cov0" title="0">{
                 port = "50051"
+        }</span>
+
+        <span class="cov0" title="0">metricsPort := os.Getenv("METRICS_PORT")
+        if metricsPort == "" </span><span class="cov0" title="0">{
+                metricsPort = "9090"
         }</span>
 
         <span class="cov0" title="0">natsURL := os.Getenv("NATS_URL")
@@ -172,7 +179,10 @@ func main() <span class="cov0" title="0">{
                 log.Fatalf("notification-worker: failed to listen: %v", err)
         }</span>
 
-        <span class="cov0" title="0">grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.StatsHandler(otelgrpc.NewServerHandler()),
+                grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor("notification-worker")),
+        )
 
         healthServer := health.NewServer()
         healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -185,12 +195,24 @@ func main() <span class="cov0" title="0">{
                 }</span>
         }()
 
+        <span class="cov0" title="0">metricsMux := http.NewServeMux()
+        metricsMux.HandleFunc("/metrics", metrics.Handler)
+        metricsServer := &amp;http.Server{Addr: ":" + metricsPort, Handler: metricsMux}
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("notification-worker: metrics listening on :%s\n", metricsPort)
+                if err := metricsServer.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("notification-worker: metrics serve failed: %v", err)
+                }</span>
+        }()
+
         <span class="cov0" title="0">stop := make(chan os.Signal, 1)
         signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
         &lt;-stop
 
         fmt.Println("notification-worker: shutting down")
-        grpcServer.GracefulStop()</span>
+        grpcServer.GracefulStop()
+        _ = metricsServer.Close()</span>
 }
 </pre>
 		
@@ -204,6 +226,7 @@ import (
         "google.golang.org/grpc/credentials/insecure"
         "google.golang.org/grpc/metadata"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
@@ -217,6 +240,7 @@ func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("notification-worker")),
         )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -354,6 +378,7 @@ import (
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
@@ -399,7 +424,11 @@ func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) err
         defer span.End()
 
         _, err = p.js.PublishMsg(ctx, &amp;nats.Msg{Subject: SubjectNotifyPush, Data: payload, Header: header})
-        return err</span>
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">metrics.NotifyPushTotal.Inc()
+        return nil</span>
 }
 </pre>
 		
@@ -410,6 +439,7 @@ import (
         "encoding/json"
         "log"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
 )
 
@@ -435,12 +465,14 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
         var event events.MessageCreated
         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                 log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
+                metrics.NATSConsumeErrorsTotal.Inc()
                 return
         }</span>
 
         <span class="cov0" title="0">recipients, err := h.recipientsNeedingNotification(ctx, event)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("notification-worker: failed to resolve recipients for message %s: %v", event.MessageID, err)
+                metrics.NATSConsumeErrorsTotal.Inc()
                 return
         }</span>
 
@@ -452,6 +484,7 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
                         CreatedAt: event.CreatedAt,
                 }); err != nil </span><span class="cov0" title="0">{
                         log.Printf("notification-worker: failed to publish notify.push for user %s: %v", userID, err)
+                        metrics.NATSConsumeErrorsTotal.Inc()
                 }</span>
         }
 }

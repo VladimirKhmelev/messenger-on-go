@@ -71,7 +71,7 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.2%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.5%)</option>
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -108,6 +108,7 @@ import (
         "google.golang.org/grpc/health"
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
@@ -204,7 +205,10 @@ func main() <span class="cov0" title="0">{
 
         <span class="cov0" title="0">grpcServer := grpc.NewServer(
                 grpc.StatsHandler(otelgrpc.NewServerHandler()),
-                grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret)),
+                grpc.ChainUnaryInterceptor(
+                        metrics.UnaryServerInterceptor("chat-service"),
+                        transportgrpc.AuthInterceptor(jwtSecret, internalSecret),
+                ),
                 grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
         )
 
@@ -225,9 +229,15 @@ func main() <span class="cov0" title="0">{
         gwOpts := []grpc.DialOption{
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("chat-service")),
         }
         if err := chatv1.RegisterChatServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("chat-service: failed to register HTTP gateway: %v", err)
+        }</span>
+        <span class="cov0" title="0">if err := gwMux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, _ map[string]string) </span><span class="cov0" title="0">{
+                metrics.Handler(w, r)
+        }</span>); err != nil <span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to register /metrics route: %v", err)
         }</span>
 
         <span class="cov0" title="0">httpServer := &amp;http.Server{
@@ -264,6 +274,7 @@ import (
         "google.golang.org/grpc/metadata"
         "google.golang.org/grpc/status"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 )
 
@@ -276,6 +287,7 @@ func Dial(addr string) (*Client, error) <span class="cov0" title="0">{
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("chat-service")),
         )
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -861,6 +873,7 @@ import (
 
         "github.com/google/uuid"
 
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
@@ -1025,8 +1038,9 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
         if err := s.chats.CreateMessage(ctx, message); err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
+        <span class="cov8" title="1">metrics.MessagesSentTotal.Inc()
 
-        <span class="cov8" title="1">if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
+        if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
                 MessageID: message.ID,
                 ChatID:    message.ChatID,
                 SenderID:  message.SenderID,
