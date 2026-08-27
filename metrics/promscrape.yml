@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:8080"]
+
+  - job_name: "chat-service"
+    static_configs:
+      - targets: ["chat-service:8080"]
+
+  - job_name: "ws-gateway"
+    static_configs:
+      - targets: ["ws-gateway-1:8080", "ws-gateway-2:8080"]
+
+  - job_name: "notification-worker"
+    static_configs:
+      - targets: ["notification-worker:9090"]
