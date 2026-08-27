@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
@@ -172,6 +173,7 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 	if err := s.chats.CreateMessage(ctx, message); err != nil {
 		return nil, err
 	}
+	metrics.MessagesSentTotal.Inc()
 
 	if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
 		MessageID: message.ID,

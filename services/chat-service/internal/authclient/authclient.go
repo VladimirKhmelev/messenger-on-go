@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 )
 
@@ -22,6 +23,7 @@ func Dial(addr string) (*Client, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("chat-service")),
 	)
 	if err != nil {
 		return nil, err
