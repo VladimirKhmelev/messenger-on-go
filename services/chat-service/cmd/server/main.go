@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
@@ -113,7 +114,10 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(jwtSecret, internalSecret)),
+		grpc.ChainUnaryInterceptor(
+			metrics.UnaryServerInterceptor("chat-service"),
+			transportgrpc.AuthInterceptor(jwtSecret, internalSecret),
+		),
 		grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
 	)
 
@@ -134,9 +138,15 @@ func main() {
 	gwOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("chat-service")),
 	}
 	if err := chatv1.RegisterChatServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
 		log.Fatalf("chat-service: failed to register HTTP gateway: %v", err)
+	}
+	if err := gwMux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		metrics.Handler(w, r)
+	}); err != nil {
+		log.Fatalf("chat-service: failed to register /metrics route: %v", err)
 	}
 
 	httpServer := &http.Server{

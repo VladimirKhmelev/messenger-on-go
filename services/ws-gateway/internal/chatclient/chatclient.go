@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
@@ -30,6 +31,7 @@ func Dial(addr, internalSecret string) (*Client, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("ws-gateway")),
 	)
 	if err != nil {
 		return nil, err

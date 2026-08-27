@@ -142,6 +142,10 @@ proto/
 pkg/
   jwtutil/                       офлайн-валидация JWT без похода в auth-service —
                                   используется chat-service и ws-gateway
+  tracing/                       OpenTelemetry: TracerProvider (OTLP/gRPC → Jaeger),
+                                  NATS producer/consumer спаны с trace context в headers
+  metrics/                       Prometheus-метрики: gRPC interceptor'ы (RPS/latency
+                                  по методу), /metrics-хендлер, бизнес-счётчики
 
 frontend/                       ванильный JS без сборки, раздаётся nginx напрямую
   index.html
@@ -159,6 +163,15 @@ nginx/
   nginx.conf                     dev-конфиг, самоподписанный сертификат, порты 8090/8443
   nginx.prod.conf                прод-конфиг, Let's Encrypt, стандартные порты 80/443
   certs/                         самоподписанные dev-сертификаты (не в репозитории)
+
+metrics/
+  promscrape.yml                 scrape-таргеты VictoriaMetrics (все 4 сервиса)
+  grafana_*.png                  скриншоты дашборда для README (Monitoring)
+
+grafana/
+  dashboards/messenger.json      сам дашборд (gRPC RPS/latency по методам + бизнес-метрики)
+  provisioning/                  datasource (VictoriaMetrics) + автозагрузка дашборда —
+                                  поднимается сразу при старте, без ручной настройки
 
 .github/workflows/
   ci.yml                        сборка + тесты каждого сервиса отдельно (матрица)
@@ -229,6 +242,35 @@ make ci            # полный набор проверок, как в GitHub 
 
 Автопродление Let's Encrypt настраивается certbot'ом автоматически
 (systemd timer), никаких дополнительных действий не требуется.
+
+## Monitoring & Observability
+
+- **Трейсинг** — OpenTelemetry во всех 4 сервисах: gRPC (клиент+сервер через
+  `otelgrpc.StatsHandler`) и NATS publish/consume (ручные producer/consumer
+  спаны, trace context прокидывается через NATS message headers). Экспорт
+  в Jaeger (`jaegertracing/all-in-one`), UI — `http://localhost:16686`.
+- **Метрики** — Prometheus-формат (`github.com/VictoriaMetrics/metrics`) на
+  каждом сервисе: per-method gRPC RPS/latency (interceptor, аналогично
+  трейсингу) + бизнес-метрики (failed logins, messages sent, notify.push,
+  NATS consume errors, активные WS-соединения). VictoriaMetrics
+  (single-node, встроенный `promscrape.config` — `metrics/promscrape.yml`)
+  собирает `/metrics` со всех сервисов, Grafana поднимается с готовым
+  дашбордом и датасорсом через provisioning — ничего не нужно настраивать
+  руками, `http://localhost:3000` (admin/admin при первом входе).
+- И Jaeger, и VictoriaMetrics, и Grafana привязаны к `127.0.0.1` в
+  `docker-compose.yml` — ни один не имеет собственной аутентификации.
+
+<p align="center">
+  <img src="metrics/grafana_auth-service.png" width="49%" alt="Grafana: auth-service" />
+  <img src="metrics/grafana_chat-service.png" width="49%" alt="Grafana: chat-service" />
+</p>
+<p align="center">
+  <img src="metrics/grafana_ws-gateway.png" width="49%" alt="Grafana: ws-gateway" />
+  <img src="metrics/grafana_notification-worker.png" width="49%" alt="Grafana: notification-worker" />
+</p>
+<p align="center">
+  <img src="metrics/grafana_business-metrics.png" width="70%" alt="Grafana: business metrics" />
+</p>
 
 ## Тестовая инфраструктура
 

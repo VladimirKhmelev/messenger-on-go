@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
 )
 
@@ -30,12 +31,14 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
 	var event events.MessageCreated
 	if err := json.Unmarshal(data, &event); err != nil {
 		log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
+		metrics.NATSConsumeErrorsTotal.Inc()
 		return
 	}
 
 	recipients, err := h.recipientsNeedingNotification(ctx, event)
 	if err != nil {
 		log.Printf("notification-worker: failed to resolve recipients for message %s: %v", event.MessageID, err)
+		metrics.NATSConsumeErrorsTotal.Inc()
 		return
 	}
 
@@ -47,6 +50,7 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
 			CreatedAt: event.CreatedAt,
 		}); err != nil {
 			log.Printf("notification-worker: failed to publish notify.push for user %s: %v", userID, err)
+			metrics.NATSConsumeErrorsTotal.Inc()
 		}
 	}
 }

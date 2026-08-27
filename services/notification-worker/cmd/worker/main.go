@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
@@ -24,6 +26,11 @@ func main() {
 	port := os.Getenv("GRPC_PORT")
 	if port == "" {
 		port = "50051"
+	}
+
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "9090"
 	}
 
 	natsURL := os.Getenv("NATS_URL")
@@ -93,7 +100,10 @@ func main() {
 		log.Fatalf("notification-worker: failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(metrics.UnaryServerInterceptor("notification-worker")),
+	)
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -106,10 +116,22 @@ func main() {
 		}
 	}()
 
+	metricsMux := http.NewServeMux()
+	metricsMux.HandleFunc("/metrics", metrics.Handler)
+	metricsServer := &http.Server{Addr: ":" + metricsPort, Handler: metricsMux}
+
+	go func() {
+		fmt.Printf("notification-worker: metrics listening on :%s\n", metricsPort)
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("notification-worker: metrics serve failed: %v", err)
+		}
+	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
 	fmt.Println("notification-worker: shutting down")
 	grpcServer.GracefulStop()
+	_ = metricsServer.Close()
 }

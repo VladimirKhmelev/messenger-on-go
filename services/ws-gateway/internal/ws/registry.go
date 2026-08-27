@@ -1,6 +1,10 @@
 package ws
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+)
 
 type Registry struct {
 	mu       sync.RWMutex
@@ -19,6 +23,7 @@ func (r *Registry) add(s *session) {
 		r.sessions[s.userID] = make(map[*session]struct{})
 	}
 	r.sessions[s.userID][s] = struct{}{}
+	metrics.WSConnectionOpened()
 }
 
 func (r *Registry) remove(s *session) (hasOtherSessions bool) {
@@ -26,6 +31,7 @@ func (r *Registry) remove(s *session) (hasOtherSessions bool) {
 	defer r.mu.Unlock()
 
 	delete(r.sessions[s.userID], s)
+	metrics.WSConnectionClosed()
 	if len(r.sessions[s.userID]) == 0 {
 		delete(r.sessions, s.userID)
 		return false

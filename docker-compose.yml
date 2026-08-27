@@ -3,6 +3,8 @@ volumes:
   chat-db-data:
   redis-data:
   nats-data:
+  vmdata:
+  grafanadata:
 
 services:
   auth-db:
@@ -75,6 +77,31 @@ services:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "127.0.0.1:16686:16686" # Jaeger UI
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.125.0
+    restart: unless-stopped
+    volumes:
+      - vmdata:/storage
+      - ./metrics/promscrape.yml:/etc/promscrape.yml:ro
+    command:
+      - "--storageDataPath=/storage"
+      - "--httpListenAddr=:8428"
+      - "--promscrape.config=/etc/promscrape.yml"
+    ports:
+      - "127.0.0.1:8428:8428"
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    restart: unless-stopped
+    depends_on:
+      - victoriametrics
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
 
   auth-service:
     build:
@@ -206,6 +233,7 @@ services:
     restart: unless-stopped
     environment:
       GRPC_PORT: "50051"
+      METRICS_PORT: "9090"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
