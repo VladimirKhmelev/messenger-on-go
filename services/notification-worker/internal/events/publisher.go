@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
@@ -52,5 +53,9 @@ func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) err
 	defer span.End()
 
 	_, err = p.js.PublishMsg(ctx, &nats.Msg{Subject: SubjectNotifyPush, Data: payload, Header: header})
-	return err
+	if err != nil {
+		return err
+	}
+	metrics.NotifyPushTotal.Inc()
+	return nil
 }
