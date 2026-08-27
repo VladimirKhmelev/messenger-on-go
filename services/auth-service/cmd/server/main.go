@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/cache"
@@ -132,7 +133,10 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.UnaryInterceptor(transportgrpc.AuthInterceptor(tokenIssuer, authService)),
+		grpc.ChainUnaryInterceptor(
+			metrics.UnaryServerInterceptor("auth-service"),
+			transportgrpc.AuthInterceptor(tokenIssuer, authService),
+		),
 	)
 
 	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService, cookieSecure))
@@ -159,6 +163,7 @@ func main() {
 	gwOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("auth-service")),
 	}
 	if err := authv1.RegisterAuthServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil {
 		log.Fatalf("auth-service: failed to register HTTP gateway: %v", err)
@@ -170,6 +175,11 @@ func main() {
 	}
 	if err := gwMux.HandlePath(http.MethodPost, "/v1/users/me/avatar", avatarHandler.Upload); err != nil {
 		log.Fatalf("auth-service: failed to register avatar POST route: %v", err)
+	}
+	if err := gwMux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		metrics.Handler(w, r)
+	}); err != nil {
+		log.Fatalf("auth-service: failed to register /metrics route: %v", err)
 	}
 
 	httpServer := &http.Server{
