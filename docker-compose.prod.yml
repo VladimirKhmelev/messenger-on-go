@@ -1,0 +1,20 @@
+services:
+  auth-service:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/auth-service:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  chat-service:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/chat-service:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  ws-gateway-1:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/ws-gateway:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  ws-gateway-2:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/ws-gateway:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  notification-worker:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/notification-worker:${IMAGE_TAG:-latest}
+    build: !reset null
