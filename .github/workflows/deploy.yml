@@ -58,6 +58,8 @@ jobs:
           script: |
             set -euo pipefail
             cd ~/messenger-on-go
+            git fetch origin main
+            git checkout main
             git pull --ff-only
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
