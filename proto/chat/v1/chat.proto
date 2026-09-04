@@ -21,7 +21,8 @@ service ChatService {
     };
   }
 
-  rpc CreateGroupChat(CreateGroupChatRequest) returns (CreateGroupChatResponse) {
+  rpc CreateGroupChat(CreateGroupChatRequest)
+      returns (CreateGroupChatResponse) {
     option (google.api.http) = {
       post: "/v1/chats/group"
       body: "*"
