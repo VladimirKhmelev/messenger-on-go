@@ -17,6 +17,12 @@ type ChatRepository interface {
 	GetChat(ctx context.Context, chatID string) (*domain.Chat, error)
 	FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error)
 	IsMember(ctx context.Context, chatID, userID string) (bool, error)
+	IsAdmin(ctx context.Context, chatID, userID string) (bool, error)
+	GetMember(ctx context.Context, chatID, userID string) (*domain.ChatMember, error)
+	MemberCount(ctx context.Context, chatID string) (int, error)
+	AddMember(ctx context.Context, chatID, userID string, key MemberChatKey) error
+	RemoveMember(ctx context.Context, chatID, userID string) error
+	SetRole(ctx context.Context, chatID, userID string, role domain.MemberRole) error
 	ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error)
 	ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error)
 	MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error
