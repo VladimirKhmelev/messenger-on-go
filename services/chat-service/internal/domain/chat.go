@@ -2,10 +2,29 @@ package domain
 
 import "time"
 
+type ChatType string
+
+const (
+	ChatTypePrivate ChatType = "private"
+	ChatTypeGroup   ChatType = "group"
+)
+
+const MaxGroupChatMembers = 50
+
 type Chat struct {
 	ID        string    `db:"id"`
 	CreatedAt time.Time `db:"created_at"`
+	ChatType  ChatType  `db:"chat_type"`
+	Name      *string   `db:"name"`
+	CreatedBy *string   `db:"created_by"`
 }
+
+type MemberRole string
+
+const (
+	MemberRoleAdmin  MemberRole = "admin"
+	MemberRoleMember MemberRole = "member"
+)
 
 type ChatMember struct {
 	ChatID              string     `db:"chat_id"`
@@ -15,6 +34,7 @@ type ChatMember struct {
 	LastReadAt          *time.Time `db:"last_read_at"`
 	EncryptedChatKey    string     `db:"encrypted_chat_key"`
 	WrappedForPublicKey string     `db:"wrapped_for_public_key"`
+	Role                MemberRole `db:"role"`
 }
 
 type Message struct {
