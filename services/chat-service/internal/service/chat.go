@@ -84,6 +84,7 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
 	chat := &domain.Chat{
 		ID:        uuid.NewString(),
 		CreatedAt: time.Now(),
+		ChatType:  domain.ChatTypePrivate,
 	}
 
 	chatKeyByUserID := map[string]repository.MemberChatKey{
@@ -96,6 +97,196 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
 	}
 
 	return chat, nil
+}
+
+func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requesterID, name string, targetUserIDs []string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) {
+	if name == "" {
+		return nil, domain.ErrGroupNameRequired
+	}
+	if len(targetUserIDs) < 2 {
+		return nil, domain.ErrTooFewMembers
+	}
+
+	allMemberIDs := make([]string, 0, len(targetUserIDs)+1)
+	allMemberIDs = append(allMemberIDs, requesterID)
+	seen := map[string]bool{requesterID: true}
+	for _, targetID := range targetUserIDs {
+		if targetID == requesterID || seen[targetID] {
+			continue
+		}
+		seen[targetID] = true
+
+		exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, domain.ErrTargetUserNotFound
+		}
+		allMemberIDs = append(allMemberIDs, targetID)
+	}
+
+	if len(allMemberIDs) < 3 {
+		return nil, domain.ErrTooFewMembers
+	}
+	if len(allMemberIDs) > domain.MaxGroupChatMembers {
+		return nil, domain.ErrTooManyMembers
+	}
+
+	chatKeyByUserID := make(map[string]repository.MemberChatKey, len(allMemberIDs))
+	for _, memberID := range allMemberIDs {
+		encryptedKey := encryptedChatKeyByUserID[memberID]
+		wrappedKey := wrappedForPublicKeyByUserID[memberID]
+		if encryptedKey == "" || wrappedKey == "" {
+			return nil, domain.ErrMissingChatKey
+		}
+		chatKeyByUserID[memberID] = repository.MemberChatKey{EncryptedChatKey: encryptedKey, WrappedForPublicKey: wrappedKey}
+	}
+
+	chat := &domain.Chat{
+		ID:        uuid.NewString(),
+		CreatedAt: time.Now(),
+		ChatType:  domain.ChatTypeGroup,
+		Name:      &name,
+		CreatedBy: &requesterID,
+	}
+
+	if err := s.chats.CreateChat(ctx, chat, chatKeyByUserID); err != nil {
+		return nil, err
+	}
+
+	return chat, nil
+}
+
+func (s *ChatService) AddMember(ctx context.Context, bearerToken, chatID, requesterID, newMemberID, encryptedChatKey, wrappedForPublicKey string) error {
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypeGroup {
+		return domain.ErrNotGroupChat
+	}
+
+	isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+	if err != nil {
+		return err
+	}
+	if !isAdmin {
+		return domain.ErrNotChatAdmin
+	}
+
+	isMember, err := s.chats.IsMember(ctx, chatID, newMemberID)
+	if err != nil {
+		return err
+	}
+	if isMember {
+		return domain.ErrAlreadyMember
+	}
+
+	count, err := s.chats.MemberCount(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if count >= domain.MaxGroupChatMembers {
+		return domain.ErrTooManyMembers
+	}
+
+	exists, err := s.auth.UserExists(ctx, bearerToken, newMemberID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return domain.ErrTargetUserNotFound
+	}
+
+	if encryptedChatKey == "" || wrappedForPublicKey == "" {
+		return domain.ErrMissingChatKey
+	}
+
+	return s.chats.AddMember(ctx, chatID, newMemberID, repository.MemberChatKey{
+		EncryptedChatKey:    encryptedChatKey,
+		WrappedForPublicKey: wrappedForPublicKey,
+	})
+}
+
+func (s *ChatService) RemoveMember(ctx context.Context, chatID, requesterID, targetUserID string) error {
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypeGroup {
+		return domain.ErrNotGroupChat
+	}
+
+	requesterIsAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+	if err != nil {
+		return err
+	}
+	if !requesterIsAdmin {
+		return domain.ErrNotChatAdmin
+	}
+
+	if isCreator(chat, targetUserID) {
+		return domain.ErrCannotRemoveCreator
+	}
+
+	target, err := s.chats.GetMember(ctx, chatID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if target.Role == domain.MemberRoleAdmin && !isCreator(chat, requesterID) {
+		return domain.ErrOnlyCreatorCanManageAdmins
+	}
+
+	return s.chats.RemoveMember(ctx, chatID, targetUserID)
+}
+
+func (s *ChatService) SetMemberRole(ctx context.Context, chatID, requesterID, targetUserID string, role domain.MemberRole) error {
+	if role != domain.MemberRoleAdmin && role != domain.MemberRoleMember {
+		return domain.ErrInvalidRole
+	}
+
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypeGroup {
+		return domain.ErrNotGroupChat
+	}
+
+	if !isCreator(chat, requesterID) {
+		return domain.ErrOnlyCreatorCanManageAdmins
+	}
+
+	if isCreator(chat, targetUserID) {
+		return domain.ErrCannotRemoveCreator
+	}
+
+	if _, err := s.chats.GetMember(ctx, chatID, targetUserID); err != nil {
+		return err
+	}
+
+	return s.chats.SetRole(ctx, chatID, targetUserID, role)
+}
+
+func (s *ChatService) LeaveChat(ctx context.Context, chatID, requesterID string) error {
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypeGroup {
+		return domain.ErrNotGroupChat
+	}
+
+	if isCreator(chat, requesterID) {
+		return domain.ErrCannotRemoveCreator
+	}
+
+	return s.chats.RemoveMember(ctx, chatID, requesterID)
+}
+
+func isCreator(chat *domain.Chat, userID string) bool {
+	return chat.CreatedBy != nil && *chat.CreatedBy == userID
 }
 
 func (s *ChatService) GetChatKey(ctx context.Context, chatID, requesterID string) (string, error) {
@@ -261,7 +452,13 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
 		return nil
 	}
 	if message.SenderID != requesterID {
-		return domain.ErrNotMessageSender
+		isAdmin, err := s.chats.IsAdmin(ctx, message.ChatID, requesterID)
+		if err != nil {
+			return err
+		}
+		if !isAdmin {
+			return domain.ErrNotMessageSender
+		}
 	}
 
 	now := time.Now()
@@ -361,6 +558,8 @@ type ChatSummary struct {
 	ChatID        string
 	MemberUserIDs []string
 	LastMessage   *domain.Message
+	ChatType      domain.ChatType
+	Name          string
 }
 
 func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSummary, error) {
@@ -385,10 +584,17 @@ func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSumm
 			return nil, err
 		}
 
+		name := ""
+		if chat.Name != nil {
+			name = *chat.Name
+		}
+
 		summaries = append(summaries, &ChatSummary{
 			ChatID:        chat.ID,
 			MemberUserIDs: memberIDs,
 			LastMessage:   lastMessage,
+			ChatType:      chat.ChatType,
+			Name:          name,
 		})
 	}
 
@@ -418,6 +624,10 @@ func (s *ChatService) ListContacts(ctx context.Context, userID string) ([]string
 	}
 
 	return contacts, nil
+}
+
+func (s *ChatService) ListChatMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) {
+	return s.chats.ListMembers(ctx, chatID)
 }
 
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) {
