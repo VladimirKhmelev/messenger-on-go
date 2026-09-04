@@ -46,6 +46,82 @@ func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatReque
 	return &chatv1.CreateChatResponse{ChatId: chat.ID}, nil
 }
 
+func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGroupChatRequest) (*chatv1.CreateGroupChatResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	bearerToken, err := BearerTokenFromIncomingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	chat, err := s.chat.CreateGroupChat(ctx, bearerToken, requesterID, req.GetName(), req.GetTargetUserIds(), req.GetEncryptedChatKey(), req.GetWrappedForPublicKey())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.CreateGroupChatResponse{ChatId: chat.ID}, nil
+}
+
+func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest) (*chatv1.AddMemberResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	bearerToken, err := BearerTokenFromIncomingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.chat.AddMember(ctx, bearerToken, req.GetChatId(), requesterID, req.GetUserId(), req.GetEncryptedChatKey(), req.GetWrappedForPublicKey()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.AddMemberResponse{}, nil
+}
+
+func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberRequest) (*chatv1.RemoveMemberResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.RemoveMember(ctx, req.GetChatId(), requesterID, req.GetUserId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.RemoveMemberResponse{}, nil
+}
+
+func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRoleRequest) (*chatv1.SetMemberRoleResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.SetMemberRole(ctx, req.GetChatId(), requesterID, req.GetUserId(), domain.MemberRole(req.GetRole())); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.SetMemberRoleResponse{}, nil
+}
+
+func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest) (*chatv1.LeaveChatResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.LeaveChat(ctx, req.GetChatId(), requesterID); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.LeaveChatResponse{}, nil
+}
+
 func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
 	senderID, ok := UserIDFromContext(ctx)
 	if !ok {
@@ -101,6 +177,8 @@ func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest
 			ChatId:        summary.ChatID,
 			MemberUserIds: summary.MemberUserIDs,
 			LastMessage:   lastMessage,
+			ChatType:      string(summary.ChatType),
+			Name:          summary.Name,
 		})
 	}
 
@@ -108,12 +186,19 @@ func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest
 }
 
 func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) {
-	userIDs, err := s.chat.ListMembers(ctx, req.GetChatId())
+	members, err := s.chat.ListChatMembers(ctx, req.GetChatId())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return &chatv1.ListMembersResponse{UserIds: userIDs}, nil
+	userIDs := make([]string, 0, len(members))
+	memberInfos := make([]*chatv1.ChatMemberInfo, 0, len(members))
+	for _, m := range members {
+		userIDs = append(userIDs, m.UserID)
+		memberInfos = append(memberInfos, &chatv1.ChatMemberInfo{UserId: m.UserID, Role: string(m.Role)})
+	}
+
+	return &chatv1.ListMembersResponse{UserIds: userIDs, Members: memberInfos}, nil
 }
 
 func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageRequest) (*chatv1.GetMessageResponse, error) {
@@ -307,14 +392,23 @@ func toGRPCError(err error) error {
 	case errors.Is(err, domain.ErrCannotChatWithSelf),
 		errors.Is(err, domain.ErrEmptyMessage),
 		errors.Is(err, domain.ErrMessageTooLarge),
-		errors.Is(err, domain.ErrMissingChatKey):
+		errors.Is(err, domain.ErrMissingChatKey),
+		errors.Is(err, domain.ErrTooFewMembers),
+		errors.Is(err, domain.ErrTooManyMembers),
+		errors.Is(err, domain.ErrGroupNameRequired),
+		errors.Is(err, domain.ErrAlreadyMember),
+		errors.Is(err, domain.ErrNotGroupChat),
+		errors.Is(err, domain.ErrInvalidRole):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrTargetUserNotFound),
 		errors.Is(err, domain.ErrChatNotFound),
 		errors.Is(err, domain.ErrMessageNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrNotChatMember),
-		errors.Is(err, domain.ErrNotMessageSender):
+		errors.Is(err, domain.ErrNotMessageSender),
+		errors.Is(err, domain.ErrNotChatAdmin),
+		errors.Is(err, domain.ErrCannotRemoveCreator),
+		errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, domain.ErrMessageDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())

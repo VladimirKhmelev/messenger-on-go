@@ -21,6 +21,41 @@ service ChatService {
     };
   }
 
+  rpc CreateGroupChat(CreateGroupChatRequest)
+      returns (CreateGroupChatResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats/group"
+      body: "*"
+    };
+  }
+
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats/{chat_id}/members"
+      body: "*"
+    };
+  }
+
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse) {
+    option (google.api.http) = {
+      delete: "/v1/chats/{chat_id}/members/{user_id}"
+    };
+  }
+
+  rpc SetMemberRole(SetMemberRoleRequest) returns (SetMemberRoleResponse) {
+    option (google.api.http) = {
+      put: "/v1/chats/{chat_id}/members/{user_id}/role"
+      body: "*"
+    };
+  }
+
+  rpc LeaveChat(LeaveChatRequest) returns (LeaveChatResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats/{chat_id}/leave"
+      body: "*"
+    };
+  }
+
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
     option (google.api.http) = {
       post: "/v1/chats/{chat_id}/messages"
@@ -115,6 +150,51 @@ message CreateChatResponse {
   string chat_id = 1;
 }
 
+message CreateGroupChatRequest {
+  string name = 1;
+  repeated string target_user_ids = 2;
+  map<string, string> encrypted_chat_key = 3;
+  map<string, string> wrapped_for_public_key = 4;
+}
+
+message CreateGroupChatResponse {
+  string chat_id = 1;
+}
+
+message AddMemberRequest {
+  string chat_id = 1;
+  string user_id = 2;
+  string encrypted_chat_key = 3;
+  string wrapped_for_public_key = 4;
+}
+
+message AddMemberResponse {
+}
+
+message RemoveMemberRequest {
+  string chat_id = 1;
+  string user_id = 2;
+}
+
+message RemoveMemberResponse {
+}
+
+message SetMemberRoleRequest {
+  string chat_id = 1;
+  string user_id = 2;
+  string role = 3;
+}
+
+message SetMemberRoleResponse {
+}
+
+message LeaveChatRequest {
+  string chat_id = 1;
+}
+
+message LeaveChatResponse {
+}
+
 message SendMessageRequest {
   string chat_id = 1;
   string text = 2;
@@ -180,6 +260,8 @@ message ChatSummary {
   string chat_id = 1;
   repeated string member_user_ids = 2;
   Message last_message = 3;
+  string chat_type = 4;
+  string name = 5;
 }
 
 message ListMembersRequest {
@@ -188,6 +270,12 @@ message ListMembersRequest {
 
 message ListMembersResponse {
   repeated string user_ids = 1;
+  repeated ChatMemberInfo members = 2;
+}
+
+message ChatMemberInfo {
+  string user_id = 1;
+  string role = 2;
 }
 
 message GetMessageRequest {

@@ -40,15 +40,22 @@ func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Ch
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, `INSERT INTO chats (id, created_at) VALUES ($1, $2)`, chat.ID, chat.CreatedAt); err != nil {
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO chats (id, created_at, chat_type, name, created_by) VALUES ($1, $2, $3, $4, $5)`,
+		chat.ID, chat.CreatedAt, chat.ChatType, chat.Name, chat.CreatedBy,
+	); err != nil {
 		return err
 	}
 
 	for memberID, key := range chatKeyByUserID {
+		role := domain.MemberRoleMember
+		if chat.CreatedBy != nil && memberID == *chat.CreatedBy {
+			role = domain.MemberRoleAdmin
+		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key)
-			VALUES ($1, $2, $3, $4, $5)`,
-			chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey,
+			INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey, role,
 		); err != nil {
 			return err
 		}
@@ -59,7 +66,8 @@ func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Ch
 
 func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*domain.Chat, error) {
 	var chat domain.Chat
-	err := r.conn.GetContext(ctx, &chat, `SELECT id, created_at FROM chats WHERE id = $1`, chatID)
+	err := r.conn.GetContext(ctx, &chat, `
+		SELECT id, created_at, chat_type, name, created_by FROM chats WHERE id = $1`, chatID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrChatNotFound
 	}
@@ -72,8 +80,9 @@ func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*d
 func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) {
 	var chat domain.Chat
 	err := r.conn.GetContext(ctx, &chat, `
-		SELECT c.id, c.created_at FROM chats c
-		WHERE EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
+		SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
+		WHERE c.chat_type = 'private'
+		  AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
 		  AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $2)
 		  AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = 2`,
 		userA, userB,
@@ -96,10 +105,85 @@ func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID st
 	return exists, err
 }
 
+func (r *PostgresChatRepository) IsAdmin(ctx context.Context, chatID, userID string) (bool, error) {
+	var exists bool
+	err := r.conn.GetContext(ctx, &exists, `
+		SELECT EXISTS(SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2 AND role = 'admin')`,
+		chatID, userID,
+	)
+	return exists, err
+}
+
+func (r *PostgresChatRepository) GetMember(ctx context.Context, chatID, userID string) (*domain.ChatMember, error) {
+	var member domain.ChatMember
+	err := r.conn.GetContext(ctx, &member, `
+		SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at,
+		       encrypted_chat_key, wrapped_for_public_key, role
+		FROM chat_members WHERE chat_id = $1 AND user_id = $2`,
+		chatID, userID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrNotChatMember
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &member, nil
+}
+
+func (r *PostgresChatRepository) MemberCount(ctx context.Context, chatID string) (int, error) {
+	var count int
+	err := r.conn.GetContext(ctx, &count, `SELECT COUNT(*) FROM chat_members WHERE chat_id = $1`, chatID)
+	return count, err
+}
+
+func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key MemberChatKey) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
+		VALUES ($1, $2, now(), $3, $4, 'member')`,
+		chatID, userID, key.EncryptedChatKey, key.WrappedForPublicKey,
+	)
+	return err
+}
+
+func (r *PostgresChatRepository) RemoveMember(ctx context.Context, chatID, userID string) error {
+	result, err := r.conn.ExecContext(ctx, `DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, chatID, userID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrNotChatMember
+	}
+	return nil
+}
+
+func (r *PostgresChatRepository) SetRole(ctx context.Context, chatID, userID string, role domain.MemberRole) error {
+	result, err := r.conn.ExecContext(ctx, `
+		UPDATE chat_members SET role = $1 WHERE chat_id = $2 AND user_id = $3`,
+		role, chatID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrNotChatMember
+	}
+	return nil
+}
+
 func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) {
 	var members []*domain.ChatMember
 	err := r.conn.SelectContext(ctx, &members, `
-		SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at, encrypted_chat_key, wrapped_for_public_key
+		SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at,
+		       encrypted_chat_key, wrapped_for_public_key, role
 		FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
 		chatID,
 	)
@@ -155,7 +239,7 @@ func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, m
 func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error) {
 	var chats []*domain.Chat
 	err := r.conn.SelectContext(ctx, &chats, `
-		SELECT c.id, c.created_at FROM chats c
+		SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
 		JOIN chat_members m ON m.chat_id = c.id
 		LEFT JOIN LATERAL (
 			SELECT created_at FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1

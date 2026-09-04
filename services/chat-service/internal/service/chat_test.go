@@ -77,9 +77,14 @@ func (r *fakeChatRepository) project(m *domain.Message) *domain.Message {
 func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, chatKeyByUserID map[string]repository.MemberChatKey) error {
 	r.chats[chat.ID] = chat
 	for id, key := range chatKeyByUserID {
+		role := domain.MemberRoleMember
+		if chat.CreatedBy != nil && id == *chat.CreatedBy {
+			role = domain.MemberRoleAdmin
+		}
 		r.members[chat.ID] = append(r.members[chat.ID], &domain.ChatMember{
 			ChatID: chat.ID, UserID: id, JoinedAt: chat.CreatedAt,
 			EncryptedChatKey: key.EncryptedChatKey, WrappedForPublicKey: key.WrappedForPublicKey,
+			Role: role,
 		})
 	}
 	return nil
@@ -115,7 +120,7 @@ func (r *fakeChatRepository) GetChat(_ context.Context, chatID string) (*domain.
 
 func (r *fakeChatRepository) FindPrivateChat(_ context.Context, userA, userB string) (*domain.Chat, error) {
 	for chatID, members := range r.members {
-		if len(members) != 2 {
+		if len(members) != 2 || r.chats[chatID].ChatType == domain.ChatTypeGroup {
 			continue
 		}
 		hasA, hasB := false, false
@@ -141,6 +146,58 @@ func (r *fakeChatRepository) IsMember(_ context.Context, chatID, userID string) 
 		}
 	}
 	return false, nil
+}
+
+func (r *fakeChatRepository) IsAdmin(_ context.Context, chatID, userID string) (bool, error) {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			return m.Role == domain.MemberRoleAdmin, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *fakeChatRepository) GetMember(_ context.Context, chatID, userID string) (*domain.ChatMember, error) {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			return m, nil
+		}
+	}
+	return nil, domain.ErrNotChatMember
+}
+
+func (r *fakeChatRepository) MemberCount(_ context.Context, chatID string) (int, error) {
+	return len(r.members[chatID]), nil
+}
+
+func (r *fakeChatRepository) AddMember(_ context.Context, chatID, userID string, key repository.MemberChatKey) error {
+	r.members[chatID] = append(r.members[chatID], &domain.ChatMember{
+		ChatID: chatID, UserID: userID, JoinedAt: time.Now(),
+		EncryptedChatKey: key.EncryptedChatKey, WrappedForPublicKey: key.WrappedForPublicKey,
+		Role: domain.MemberRoleMember,
+	})
+	return nil
+}
+
+func (r *fakeChatRepository) RemoveMember(_ context.Context, chatID, userID string) error {
+	members := r.members[chatID]
+	for i, m := range members {
+		if m.UserID == userID {
+			r.members[chatID] = append(members[:i], members[i+1:]...)
+			return nil
+		}
+	}
+	return domain.ErrNotChatMember
+}
+
+func (r *fakeChatRepository) SetRole(_ context.Context, chatID, userID string, role domain.MemberRole) error {
+	for _, m := range r.members[chatID] {
+		if m.UserID == userID {
+			m.Role = role
+			return nil
+		}
+	}
+	return domain.ErrNotChatMember
 }
 
 func (r *fakeChatRepository) ListMembers(_ context.Context, chatID string) ([]*domain.ChatMember, error) {
