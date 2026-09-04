@@ -1195,13 +1195,11 @@ func (*ResetPasswordResponse) Descriptor() ([]byte, []int) {
 }
 
 type LoginWithGitHubRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Code  string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	// Only used if this GitHub account has no messenger account yet — ignored
-	// (and harmless to send) when logging into an existing one.
-	PublicKey         string `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
-	WrappedPrivateKey string `protobuf:"bytes,3,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
-	KeyWrapSalt       string `protobuf:"bytes,4,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Code              string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	PublicKey         string                 `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	WrappedPrivateKey string                 `protobuf:"bytes,3,opt,name=wrapped_private_key,json=wrappedPrivateKey,proto3" json:"wrapped_private_key,omitempty"`
+	KeyWrapSalt       string                 `protobuf:"bytes,4,opt,name=key_wrap_salt,json=keyWrapSalt,proto3" json:"key_wrap_salt,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -1265,13 +1263,10 @@ func (x *LoginWithGitHubRequest) GetKeyWrapSalt() string {
 }
 
 type LoginWithGitHubResponse struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	AccessToken  string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	RefreshToken string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	// True the first time this GitHub account logs in (a messenger account was
-	// just created) — tells the client whether to keep the key pair it just
-	// generated and sent, or discard it and unwrap the existing one instead.
-	IsNewUser     bool `protobuf:"varint,3,opt,name=is_new_user,json=isNewUser,proto3" json:"is_new_user,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	IsNewUser     bool                   `protobuf:"varint,3,opt,name=is_new_user,json=isNewUser,proto3" json:"is_new_user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

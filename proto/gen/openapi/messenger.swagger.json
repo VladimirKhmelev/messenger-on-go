@@ -371,6 +371,38 @@
         ]
       }
     },
+    "/v1/chats/group": {
+      "post": {
+        "operationId": "ChatService_CreateGroupChat",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateGroupChatResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateGroupChatRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/v1/chats/{chatId}/key": {
       "get": {
         "operationId": "ChatService_GetChatKey",
@@ -467,6 +499,162 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/ChatServiceUpdateChatKeyBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/leave": {
+      "post": {
+        "operationId": "ChatService_LeaveChat",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1LeaveChatResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceLeaveChatBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/members": {
+      "post": {
+        "operationId": "ChatService_AddMember",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1AddMemberResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceAddMemberBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/members/{userId}": {
+      "delete": {
+        "operationId": "ChatService_RemoveMember",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RemoveMemberResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/{chatId}/members/{userId}/role": {
+      "put": {
+        "operationId": "ChatService_SetMemberRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1SetMemberRoleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceSetMemberRoleBody"
             }
           }
         ],
@@ -977,6 +1165,20 @@
     }
   },
   "definitions": {
+    "ChatServiceAddMemberBody": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "encryptedChatKey": {
+          "type": "string"
+        },
+        "wrappedForPublicKey": {
+          "type": "string"
+        }
+      }
+    },
     "ChatServiceEditMessageBody": {
       "type": "object",
       "properties": {
@@ -984,6 +1186,9 @@
           "type": "string"
         }
       }
+    },
+    "ChatServiceLeaveChatBody": {
+      "type": "object"
     },
     "ChatServiceMarkReadBody": {
       "type": "object",
@@ -997,6 +1202,14 @@
       "type": "object",
       "properties": {
         "text": {
+          "type": "string"
+        }
+      }
+    },
+    "ChatServiceSetMemberRoleBody": {
+      "type": "object",
+      "properties": {
+        "role": {
           "type": "string"
         }
       }
@@ -1056,6 +1269,9 @@
         }
       }
     },
+    "v1AddMemberResponse": {
+      "type": "object"
+    },
     "v1ChangePasswordRequest": {
       "type": "object",
       "properties": {
@@ -1090,6 +1306,12 @@
         },
         "lastMessage": {
           "$ref": "#/definitions/v1Message"
+        },
+        "chatType": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
         }
       }
     },
@@ -1126,6 +1348,40 @@
       }
     },
     "v1CreateChatResponse": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        }
+      }
+    },
+    "v1CreateGroupChatRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "targetUserIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "encryptedChatKey": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "wrappedForPublicKey": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "v1CreateGroupChatResponse": {
       "type": "object",
       "properties": {
         "chatId": {
@@ -1226,6 +1482,9 @@
         }
       }
     },
+    "v1LeaveChatResponse": {
+      "type": "object"
+    },
     "v1ListChatKeysResponse": {
       "type": "object",
       "properties": {
@@ -1279,8 +1538,7 @@
           "type": "string"
         },
         "publicKey": {
-          "type": "string",
-          "description": "Only used if this GitHub account has no messenger account yet — ignored\n(and harmless to send) when logging into an existing one."
+          "type": "string"
         },
         "wrappedPrivateKey": {
           "type": "string"
@@ -1300,8 +1558,7 @@
           "type": "string"
         },
         "isNewUser": {
-          "type": "boolean",
-          "description": "True the first time this GitHub account logs in (a messenger account was\njust created) — tells the client whether to keep the key pair it just\ngenerated and sent, or discard it and unwrap the existing one instead."
+          "type": "boolean"
         }
       }
     },
@@ -1411,6 +1668,9 @@
         }
       }
     },
+    "v1RemoveMemberResponse": {
+      "type": "object"
+    },
     "v1RequestPasswordResetRequest": {
       "type": "object",
       "properties": {
@@ -1464,6 +1724,9 @@
           "type": "string"
         }
       }
+    },
+    "v1SetMemberRoleResponse": {
+      "type": "object"
     },
     "v1UpdateChatKeyResponse": {
       "type": "object"
