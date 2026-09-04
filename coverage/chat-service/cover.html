@@ -71,7 +71,7 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (46.5%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (29.4%)</option>
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
 				
@@ -623,15 +623,22 @@ func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Ch
         }</span>
         <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = tx.Rollback() }</span>()
 
-        <span class="cov0" title="0">if _, err := tx.ExecContext(ctx, `INSERT INTO chats (id, created_at) VALUES ($1, $2)`, chat.ID, chat.CreatedAt); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if _, err := tx.ExecContext(ctx, `
+                INSERT INTO chats (id, created_at, chat_type, name, created_by) VALUES ($1, $2, $3, $4, $5)`,
+                chat.ID, chat.CreatedAt, chat.ChatType, chat.Name, chat.CreatedBy,
+        ); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
         <span class="cov0" title="0">for memberID, key := range chatKeyByUserID </span><span class="cov0" title="0">{
-                if _, err := tx.ExecContext(ctx, `
-                        INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key)
-                        VALUES ($1, $2, $3, $4, $5)`,
-                        chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey,
+                role := domain.MemberRoleMember
+                if chat.CreatedBy != nil &amp;&amp; memberID == *chat.CreatedBy </span><span class="cov0" title="0">{
+                        role = domain.MemberRoleAdmin
+                }</span>
+                <span class="cov0" title="0">if _, err := tx.ExecContext(ctx, `
+                        INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
+                        VALUES ($1, $2, $3, $4, $5, $6)`,
+                        chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey, role,
                 ); err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
@@ -642,7 +649,8 @@ func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Ch
 
 func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*domain.Chat, error) <span class="cov0" title="0">{
         var chat domain.Chat
-        err := r.conn.GetContext(ctx, &amp;chat, `SELECT id, created_at FROM chats WHERE id = $1`, chatID)
+        err := r.conn.GetContext(ctx, &amp;chat, `
+                SELECT id, created_at, chat_type, name, created_by FROM chats WHERE id = $1`, chatID)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrChatNotFound
         }</span>
@@ -655,8 +663,9 @@ func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*d
 func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) <span class="cov0" title="0">{
         var chat domain.Chat
         err := r.conn.GetContext(ctx, &amp;chat, `
-                SELECT c.id, c.created_at FROM chats c
-                WHERE EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
+                SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
+                WHERE c.chat_type = 'private'
+                  AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
                   AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $2)
                   AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = 2`,
                 userA, userB,
@@ -679,10 +688,85 @@ func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID st
         return exists, err
 }</span>
 
+func (r *PostgresChatRepository) IsAdmin(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
+        var exists bool
+        err := r.conn.GetContext(ctx, &amp;exists, `
+                SELECT EXISTS(SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2 AND role = 'admin')`,
+                chatID, userID,
+        )
+        return exists, err
+}</span>
+
+func (r *PostgresChatRepository) GetMember(ctx context.Context, chatID, userID string) (*domain.ChatMember, error) <span class="cov0" title="0">{
+        var member domain.ChatMember
+        err := r.conn.GetContext(ctx, &amp;member, `
+                SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at,
+                       encrypted_chat_key, wrapped_for_public_key, role
+                FROM chat_members WHERE chat_id = $1 AND user_id = $2`,
+                chatID, userID,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrNotChatMember
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;member, nil</span>
+}
+
+func (r *PostgresChatRepository) MemberCount(ctx context.Context, chatID string) (int, error) <span class="cov0" title="0">{
+        var count int
+        err := r.conn.GetContext(ctx, &amp;count, `SELECT COUNT(*) FROM chat_members WHERE chat_id = $1`, chatID)
+        return count, err
+}</span>
+
+func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key MemberChatKey) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
+                VALUES ($1, $2, now(), $3, $4, 'member')`,
+                chatID, userID, key.EncryptedChatKey, key.WrappedForPublicKey,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) RemoveMember(ctx context.Context, chatID, userID string) error <span class="cov0" title="0">{
+        result, err := r.conn.ExecContext(ctx, `DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, chatID, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return domain.ErrNotChatMember
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (r *PostgresChatRepository) SetRole(ctx context.Context, chatID, userID string, role domain.MemberRole) error <span class="cov0" title="0">{
+        result, err := r.conn.ExecContext(ctx, `
+                UPDATE chat_members SET role = $1 WHERE chat_id = $2 AND user_id = $3`,
+                role, chatID, userID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return domain.ErrNotChatMember
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
 func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
         var members []*domain.ChatMember
         err := r.conn.SelectContext(ctx, &amp;members, `
-                SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at, encrypted_chat_key, wrapped_for_public_key
+                SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at,
+                       encrypted_chat_key, wrapped_for_public_key, role
                 FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
                 chatID,
         )
@@ -738,7 +822,7 @@ func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, m
 func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error) <span class="cov0" title="0">{
         var chats []*domain.Chat
         err := r.conn.SelectContext(ctx, &amp;chats, `
-                SELECT c.id, c.created_at FROM chats c
+                SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
                 JOIN chat_members m ON m.chat_id = c.id
                 LEFT JOIN LATERAL (
                         SELECT created_at FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1
@@ -949,6 +1033,7 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
         <span class="cov8" title="1">chat := &amp;domain.Chat{
                 ID:        uuid.NewString(),
                 CreatedAt: time.Now(),
+                ChatType:  domain.ChatTypePrivate,
         }
 
         chatKeyByUserID := map[string]repository.MemberChatKey{
@@ -962,6 +1047,196 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
 
         <span class="cov8" title="1">return chat, nil</span>
 }
+
+func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requesterID, name string, targetUserIDs []string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov0" title="0">{
+        if name == "" </span><span class="cov0" title="0">{
+                return nil, domain.ErrGroupNameRequired
+        }</span>
+        <span class="cov0" title="0">if len(targetUserIDs) &lt; 2 </span><span class="cov0" title="0">{
+                return nil, domain.ErrTooFewMembers
+        }</span>
+
+        <span class="cov0" title="0">allMemberIDs := make([]string, 0, len(targetUserIDs)+1)
+        allMemberIDs = append(allMemberIDs, requesterID)
+        seen := map[string]bool{requesterID: true}
+        for _, targetID := range targetUserIDs </span><span class="cov0" title="0">{
+                if targetID == requesterID || seen[targetID] </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">seen[targetID] = true
+
+                exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">if !exists </span><span class="cov0" title="0">{
+                        return nil, domain.ErrTargetUserNotFound
+                }</span>
+                <span class="cov0" title="0">allMemberIDs = append(allMemberIDs, targetID)</span>
+        }
+
+        <span class="cov0" title="0">if len(allMemberIDs) &lt; 3 </span><span class="cov0" title="0">{
+                return nil, domain.ErrTooFewMembers
+        }</span>
+        <span class="cov0" title="0">if len(allMemberIDs) &gt; domain.MaxGroupChatMembers </span><span class="cov0" title="0">{
+                return nil, domain.ErrTooManyMembers
+        }</span>
+
+        <span class="cov0" title="0">chatKeyByUserID := make(map[string]repository.MemberChatKey, len(allMemberIDs))
+        for _, memberID := range allMemberIDs </span><span class="cov0" title="0">{
+                encryptedKey := encryptedChatKeyByUserID[memberID]
+                wrappedKey := wrappedForPublicKeyByUserID[memberID]
+                if encryptedKey == "" || wrappedKey == "" </span><span class="cov0" title="0">{
+                        return nil, domain.ErrMissingChatKey
+                }</span>
+                <span class="cov0" title="0">chatKeyByUserID[memberID] = repository.MemberChatKey{EncryptedChatKey: encryptedKey, WrappedForPublicKey: wrappedKey}</span>
+        }
+
+        <span class="cov0" title="0">chat := &amp;domain.Chat{
+                ID:        uuid.NewString(),
+                CreatedAt: time.Now(),
+                ChatType:  domain.ChatTypeGroup,
+                Name:      &amp;name,
+                CreatedBy: &amp;requesterID,
+        }
+
+        if err := s.chats.CreateChat(ctx, chat, chatKeyByUserID); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return chat, nil</span>
+}
+
+func (s *ChatService) AddMember(ctx context.Context, bearerToken, chatID, requesterID, newMemberID, encryptedChatKey, wrappedForPublicKey string) error <span class="cov0" title="0">{
+        chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
+        }</span>
+
+        <span class="cov0" title="0">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if !isAdmin </span><span class="cov0" title="0">{
+                return domain.ErrNotChatAdmin
+        }</span>
+
+        <span class="cov0" title="0">isMember, err := s.chats.IsMember(ctx, chatID, newMemberID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if isMember </span><span class="cov0" title="0">{
+                return domain.ErrAlreadyMember
+        }</span>
+
+        <span class="cov0" title="0">count, err := s.chats.MemberCount(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if count &gt;= domain.MaxGroupChatMembers </span><span class="cov0" title="0">{
+                return domain.ErrTooManyMembers
+        }</span>
+
+        <span class="cov0" title="0">exists, err := s.auth.UserExists(ctx, bearerToken, newMemberID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if !exists </span><span class="cov0" title="0">{
+                return domain.ErrTargetUserNotFound
+        }</span>
+
+        <span class="cov0" title="0">if encryptedChatKey == "" || wrappedForPublicKey == "" </span><span class="cov0" title="0">{
+                return domain.ErrMissingChatKey
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.AddMember(ctx, chatID, newMemberID, repository.MemberChatKey{
+                EncryptedChatKey:    encryptedChatKey,
+                WrappedForPublicKey: wrappedForPublicKey,
+        })</span>
+}
+
+func (s *ChatService) RemoveMember(ctx context.Context, chatID, requesterID, targetUserID string) error <span class="cov0" title="0">{
+        chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
+        }</span>
+
+        <span class="cov0" title="0">requesterIsAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if !requesterIsAdmin </span><span class="cov0" title="0">{
+                return domain.ErrNotChatAdmin
+        }</span>
+
+        <span class="cov0" title="0">if isCreator(chat, targetUserID) </span><span class="cov0" title="0">{
+                return domain.ErrCannotRemoveCreator
+        }</span>
+
+        <span class="cov0" title="0">target, err := s.chats.GetMember(ctx, chatID, targetUserID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if target.Role == domain.MemberRoleAdmin &amp;&amp; !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
+                return domain.ErrOnlyCreatorCanManageAdmins
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, targetUserID)</span>
+}
+
+func (s *ChatService) SetMemberRole(ctx context.Context, chatID, requesterID, targetUserID string, role domain.MemberRole) error <span class="cov0" title="0">{
+        if role != domain.MemberRoleAdmin &amp;&amp; role != domain.MemberRoleMember </span><span class="cov0" title="0">{
+                return domain.ErrInvalidRole
+        }</span>
+
+        <span class="cov0" title="0">chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
+        }</span>
+
+        <span class="cov0" title="0">if !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
+                return domain.ErrOnlyCreatorCanManageAdmins
+        }</span>
+
+        <span class="cov0" title="0">if isCreator(chat, targetUserID) </span><span class="cov0" title="0">{
+                return domain.ErrCannotRemoveCreator
+        }</span>
+
+        <span class="cov0" title="0">if _, err := s.chats.GetMember(ctx, chatID, targetUserID); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.SetRole(ctx, chatID, targetUserID, role)</span>
+}
+
+func (s *ChatService) LeaveChat(ctx context.Context, chatID, requesterID string) error <span class="cov0" title="0">{
+        chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
+        }</span>
+
+        <span class="cov0" title="0">if isCreator(chat, requesterID) </span><span class="cov0" title="0">{
+                return domain.ErrCannotRemoveCreator
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, requesterID)</span>
+}
+
+func isCreator(chat *domain.Chat, userID string) bool <span class="cov0" title="0">{
+        return chat.CreatedBy != nil &amp;&amp; *chat.CreatedBy == userID
+}</span>
 
 func (s *ChatService) GetChatKey(ctx context.Context, chatID, requesterID string) (string, error) <span class="cov0" title="0">{
         isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
@@ -1126,8 +1401,14 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
                 return nil
         }</span>
         <span class="cov8" title="1">if message.SenderID != requesterID </span><span class="cov0" title="0">{
-                return domain.ErrNotMessageSender
-        }</span>
+                isAdmin, err := s.chats.IsAdmin(ctx, message.ChatID, requesterID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov0" title="0">if !isAdmin </span><span class="cov0" title="0">{
+                        return domain.ErrNotMessageSender
+                }</span>
+        }
 
         <span class="cov8" title="1">now := time.Now()
         if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
@@ -1226,6 +1507,8 @@ type ChatSummary struct {
         ChatID        string
         MemberUserIDs []string
         LastMessage   *domain.Message
+        ChatType      domain.ChatType
+        Name          string
 }
 
 func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSummary, error) <span class="cov0" title="0">{
@@ -1250,10 +1533,17 @@ func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSumm
                         return nil, err
                 }</span>
 
+                <span class="cov0" title="0">name := ""
+                if chat.Name != nil </span><span class="cov0" title="0">{
+                        name = *chat.Name
+                }</span>
+
                 <span class="cov0" title="0">summaries = append(summaries, &amp;ChatSummary{
                         ChatID:        chat.ID,
                         MemberUserIDs: memberIDs,
                         LastMessage:   lastMessage,
+                        ChatType:      chat.ChatType,
+                        Name:          name,
                 })</span>
         }
 
@@ -1284,6 +1574,10 @@ func (s *ChatService) ListContacts(ctx context.Context, userID string) ([]string
 
         <span class="cov0" title="0">return contacts, nil</span>
 }
+
+func (s *ChatService) ListChatMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
+        return s.chats.ListMembers(ctx, chatID)
+}</span>
 
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
         members, err := s.chats.ListMembers(ctx, chatID)
@@ -1381,6 +1675,82 @@ func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatReque
         <span class="cov0" title="0">return &amp;chatv1.CreateChatResponse{ChatId: chat.ID}, nil</span>
 }
 
+func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGroupChatRequest) (*chatv1.CreateGroupChatResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">bearerToken, err := BearerTokenFromIncomingContext(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">chat, err := s.chat.CreateGroupChat(ctx, bearerToken, requesterID, req.GetName(), req.GetTargetUserIds(), req.GetEncryptedChatKey(), req.GetWrappedForPublicKey())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.CreateGroupChatResponse{ChatId: chat.ID}, nil</span>
+}
+
+func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest) (*chatv1.AddMemberResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">bearerToken, err := BearerTokenFromIncomingContext(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.AddMember(ctx, bearerToken, req.GetChatId(), requesterID, req.GetUserId(), req.GetEncryptedChatKey(), req.GetWrappedForPublicKey()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.AddMemberResponse{}, nil</span>
+}
+
+func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberRequest) (*chatv1.RemoveMemberResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.RemoveMember(ctx, req.GetChatId(), requesterID, req.GetUserId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.RemoveMemberResponse{}, nil</span>
+}
+
+func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRoleRequest) (*chatv1.SetMemberRoleResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.SetMemberRole(ctx, req.GetChatId(), requesterID, req.GetUserId(), domain.MemberRole(req.GetRole())); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.SetMemberRoleResponse{}, nil</span>
+}
+
+func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest) (*chatv1.LeaveChatResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.LeaveChat(ctx, req.GetChatId(), requesterID); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.LeaveChatResponse{}, nil</span>
+}
+
 func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov0" title="0">{
         senderID, ok := UserIDFromContext(ctx)
         if !ok </span><span class="cov0" title="0">{
@@ -1436,6 +1806,8 @@ func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest
                         ChatId:        summary.ChatID,
                         MemberUserIds: summary.MemberUserIDs,
                         LastMessage:   lastMessage,
+                        ChatType:      string(summary.ChatType),
+                        Name:          summary.Name,
                 })</span>
         }
 
@@ -1443,12 +1815,19 @@ func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest
 }
 
 func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) <span class="cov0" title="0">{
-        userIDs, err := s.chat.ListMembers(ctx, req.GetChatId())
+        members, err := s.chat.ListChatMembers(ctx, req.GetChatId())
         if err != nil </span><span class="cov0" title="0">{
                 return nil, toGRPCError(err)
         }</span>
 
-        <span class="cov0" title="0">return &amp;chatv1.ListMembersResponse{UserIds: userIDs}, nil</span>
+        <span class="cov0" title="0">userIDs := make([]string, 0, len(members))
+        memberInfos := make([]*chatv1.ChatMemberInfo, 0, len(members))
+        for _, m := range members </span><span class="cov0" title="0">{
+                userIDs = append(userIDs, m.UserID)
+                memberInfos = append(memberInfos, &amp;chatv1.ChatMemberInfo{UserId: m.UserID, Role: string(m.Role)})
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.ListMembersResponse{UserIds: userIDs, Members: memberInfos}, nil</span>
 }
 
 func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageRequest) (*chatv1.GetMessageResponse, error) <span class="cov0" title="0">{
@@ -1642,14 +2021,23 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
         case errors.Is(err, domain.ErrCannotChatWithSelf),
                 errors.Is(err, domain.ErrEmptyMessage),
                 errors.Is(err, domain.ErrMessageTooLarge),
-                errors.Is(err, domain.ErrMissingChatKey):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrMissingChatKey),
+                errors.Is(err, domain.ErrTooFewMembers),
+                errors.Is(err, domain.ErrTooManyMembers),
+                errors.Is(err, domain.ErrGroupNameRequired),
+                errors.Is(err, domain.ErrAlreadyMember),
+                errors.Is(err, domain.ErrNotGroupChat),
+                errors.Is(err, domain.ErrInvalidRole):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrTargetUserNotFound),
                 errors.Is(err, domain.ErrChatNotFound),
                 errors.Is(err, domain.ErrMessageNotFound):<span class="cov0" title="0">
                 return status.Error(codes.NotFound, err.Error())</span>
         case errors.Is(err, domain.ErrNotChatMember),
-                errors.Is(err, domain.ErrNotMessageSender):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrNotMessageSender),
+                errors.Is(err, domain.ErrNotChatAdmin),
+                errors.Is(err, domain.ErrCannotRemoveCreator),
+                errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins):<span class="cov0" title="0">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
         case errors.Is(err, domain.ErrMessageDeleted):<span class="cov0" title="0">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
