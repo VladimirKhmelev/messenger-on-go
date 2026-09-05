@@ -37,6 +37,13 @@ type ChatMember struct {
 	Role                MemberRole `db:"role"`
 }
 
+type ChatAvatar struct {
+	ChatID      string    `db:"chat_id"`
+	Data        []byte    `db:"data"`
+	ContentType string    `db:"content_type"`
+	UpdatedAt   time.Time `db:"updated_at"`
+}
+
 type Message struct {
 	ID        string    `db:"id"`
 	ChatID    string    `db:"chat_id"`
