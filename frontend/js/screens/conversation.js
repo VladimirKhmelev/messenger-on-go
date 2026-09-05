@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { renderAvatar, avatarUrl, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
+import { renderAvatar, avatarUrl, groupAvatarUrl, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
 import { formatTime, formatDateLabel, escapeHtml } from './sidebar.js';
 
 document.addEventListener('click', () => {
@@ -29,8 +29,11 @@ export function renderConversation(root, handlers) {
     return;
   }
 
-  const name = chat.peer.displayName || chat.peer.tag;
-  const statusText = presenceText(chat);
+  const isGroup = chat.type === 'group';
+  const name = isGroup ? chat.name : chat.peer.displayName || chat.peer.tag;
+  const avatarId = isGroup ? chat.id : chat.peer.id;
+  const avatarTag = isGroup ? chat.name : chat.peer.tag;
+  const statusText = isGroup ? `${chat.members.length} участников` : presenceText(chat);
   const sendDisabled = !state.draft.trim();
 
   const prevInput = root.querySelector('[data-input="draft"]');
@@ -48,15 +51,18 @@ export function renderConversation(root, handlers) {
   root.innerHTML = `
     <div class="conversation">
       <div class="conversation-header">
-        <div class="conversation-header-inner">
+        <div class="conversation-header-inner" ${isGroup ? 'data-action="open-group-members"' : ''}>
           <button class="conversation-back-btn" data-action="back-to-chats" title="К списку чатов" aria-label="Назад">‹</button>
-          <div class="avatar--clickable" data-action="open-avatar" data-user-id="${escapeHtml(chat.peer.id)}">
-            ${renderAvatar(chat.peer.id, chat.peer.tag, name, { sizeClass: 'avatar--md' })}
+          <div class="avatar--clickable" data-action="${isGroup ? '' : 'open-avatar'}" data-user-id="${escapeHtml(avatarId)}">
+            ${renderAvatar(avatarId, avatarTag, name, {
+              sizeClass: 'avatar--md',
+              src: isGroup ? groupAvatarUrl(chat.id) : avatarUrl(chat.peer.id),
+            })}
           </div>
           <div>
             <div class="conversation-header-name">
               ${escapeHtml(name)}
-              <span class="conversation-header-tag">@${escapeHtml(chat.peer.tag)}</span>
+              ${isGroup ? '' : `<span class="conversation-header-tag">@${escapeHtml(chat.peer.tag)}</span>`}
             </div>
             <div class="conversation-header-status" data-typing="${!!chat.peerTyping}">${statusText}</div>
           </div>
@@ -69,7 +75,9 @@ export function renderConversation(root, handlers) {
             ? renderNoMessagesYet()
             : `${chat.loadingMoreHistory ? renderLoadingMoreHistory() : ''}<div class="message-list-inner">${renderMessagesWithDateDividers(
                 chat.messages,
-                chat.peerLastReadMessageId
+                isGroup ? null : chat.peerLastReadMessageId,
+                isGroup ? chat.members : null,
+                isGroup ? chat.createdBy : null
               )}</div>`
         }
       </div>
@@ -157,6 +165,19 @@ export function renderConversation(root, handlers) {
     handlers.onDraftChange();
   });
 
+  root.querySelectorAll('[data-action="open-sender-profile"]').forEach((el) => {
+    el.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.avatarPreview = { userId: el.getAttribute('data-user-id'), name: el.getAttribute('data-user-name') };
+      handlers.onDraftChange();
+    });
+  });
+
+  root.querySelector('[data-action="open-group-members"]')?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="back-to-chats"]')) return;
+    handlers.onOpenGroupMembers();
+  });
+
   root.querySelector('[data-action="back-to-chats"]')?.addEventListener('click', () => {
     handlers.onBack();
   });
@@ -194,10 +215,17 @@ function renderAvatarPreview() {
   `;
 }
 
-function renderMessagesWithDateDividers(messages, peerLastReadMessageId) {
+function renderMessagesWithDateDividers(messages, peerLastReadMessageId, groupMembers, groupCreatedBy) {
   const lastReadIndex = peerLastReadMessageId
     ? messages.findIndex((m) => m.messageId === peerLastReadMessageId)
     : -1;
+  const memberById = groupMembers ? new Map(groupMembers.map((m) => [m.id, m])) : null;
+  const myId = state.currentUser?.id;
+  const myMember = memberById ? memberById.get(myId) : null;
+  // Mirrors the backend's DeleteMessageForAll rule: any admin (creator
+  // included, since the creator is always also an admin) can delete
+  // someone else's message in a group, not just their own.
+  const canModerate = !!memberById && (myMember?.role === 'admin' || myId === groupCreatedBy);
 
   let lastDateLabel = null;
   return messages
@@ -206,7 +234,12 @@ function renderMessagesWithDateDividers(messages, peerLastReadMessageId) {
       const divider = dateLabel && dateLabel !== lastDateLabel ? renderDateDivider(dateLabel) : '';
       lastDateLabel = dateLabel || lastDateLabel;
       const isRead = lastReadIndex !== -1 && index <= lastReadIndex;
-      return divider + renderMessage(msg, state.editingMessageId === msg.messageId, isRead);
+      const sender = !msg.mine && memberById ? memberById.get(msg.senderUserId) : null;
+      const isSenderCreator = !!sender && sender.id === groupCreatedBy;
+      return (
+        divider +
+        renderMessage(msg, state.editingMessageId === msg.messageId, isRead, sender, isSenderCreator, canModerate)
+      );
     })
     .join('');
 }
@@ -263,7 +296,7 @@ function renderDateDivider(label) {
   return `<div class="date-divider" data-date-divider="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></div>`;
 }
 
-function presenceText(chat) {
+export function presenceText(chat) {
   if (chat.peerTyping) return 'печатает...';
   if (chat.online) return 'В сети';
   if (!chat.lastSeenUnix) return 'Не в сети';
@@ -277,7 +310,7 @@ function presenceText(chat) {
   return `Был(а) в сети ${dateLabel.toLowerCase()} в ${time}`;
 }
 
-function renderMessage(msg, isEditing, isRead) {
+function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModerate) {
   if (msg.deleted) {
     return `
       <div class="message-row" data-mine="${msg.mine}">
@@ -303,17 +336,33 @@ function renderMessage(msg, isEditing, isRead) {
   const editedTag = msg.editedAtUnix ? '<span class="message-edited-tag">изменено</span>' : '';
   const readTicks = msg.mine ? renderReadTicks(isRead) : '';
   const observeAttr = !msg.mine ? 'data-observe-read' : '';
+  const senderName = sender ? sender.displayName || sender.tag : null;
+  const senderRoleLabel = isSenderCreator
+    ? '<span class="message-sender-role">Создатель</span>'
+    : sender?.role === 'admin'
+      ? '<span class="message-sender-role">Админ</span>'
+      : '';
+  const senderAvatar = sender
+    ? `<div class="message-sender-avatar avatar--clickable" data-action="open-sender-profile" data-user-id="${escapeHtml(sender.id)}" data-user-name="${escapeHtml(senderName)}">${renderAvatar(sender.id, sender.tag, senderName, { sizeClass: 'avatar--sm' })}</div>`
+    : '';
+  const senderLabel = senderName
+    ? `<div class="message-sender-name">${escapeHtml(senderName)}${senderRoleLabel}</div>`
+    : '';
 
   return `
     <div class="message-row" data-mine="${msg.mine}" data-message-id="${msg.messageId}" ${observeAttr}>
       <div class="message-row-inner">
+        ${senderAvatar}
         <button class="message-menu-btn" data-action="open-menu" title="Действия">⋯</button>
         <div class="bubble">
+          ${senderLabel}
           <span class="bubble-text">${escapeHtml(msg.text)}</span>
           <div class="message-menu" data-menu hidden>
             <div class="message-menu-item" data-action="copy">Копировать текст</div>${
-              msg.mine
-                ? `<div class="message-menu-item" data-action="edit">Редактировать</div><div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
+              msg.mine ? '<div class="message-menu-item" data-action="edit">Редактировать</div>' : ''
+            }${
+              msg.mine || canModerate
+                ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
                 : ''
             }<div class="message-menu-item" data-action="delete-for-me">Удалить у меня</div>
           </div>

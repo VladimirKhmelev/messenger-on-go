@@ -49,6 +49,18 @@ const ERROR_TRANSLATIONS = {
   'message does not belong to this chat': 'Сообщение не принадлежит этому чату',
   'message body exceeds maximum allowed size': 'Сообщение слишком длинное',
   'too many messages sent, slow down': 'Слишком много сообщений, помедленнее',
+  'a group chat needs at least two other members': 'Нужно выбрать минимум двух участников',
+  'group chat member limit exceeded': 'Достигнут лимит участников группы',
+  'group chat name must not be empty': 'Введите название группы',
+  'only a chat admin can perform this action': 'Это может сделать только администратор',
+  'user is already a member of this chat': 'Пользователь уже в группе',
+  'this operation is only valid for group chats': 'Действие доступно только в группах',
+  'the group creator cannot be removed': 'Создателя группы нельзя удалить',
+  'only the group creator can promote, demote, or remove an admin': 'Только создатель группы может управлять администраторами',
+  'role must be admin or member': 'Некорректная роль',
+  'group avatar not found': 'У группы нет фото',
+  'group avatar must be a JPEG, PNG, GIF, or WebP image': 'Фото группы должно быть в формате JPEG, PNG, GIF или WebP',
+  'group avatar must be smaller than 2MB': 'Фото группы должно быть меньше 2 МБ',
 };
 
 export function translateApiError(err) {
@@ -168,6 +180,33 @@ export const chatApi = {
   createChat: (targetUserId, encryptedChatKey, wrappedForPublicKey) =>
     request('/v1/chats', { method: 'POST', body: { targetUserId, encryptedChatKey, wrappedForPublicKey } }),
 
+  createGroupChat: (name, targetUserIds, encryptedChatKey, wrappedForPublicKey) =>
+    request('/v1/chats/group', {
+      method: 'POST',
+      body: { name, targetUserIds, encryptedChatKey, wrappedForPublicKey },
+    }),
+
+  addMember: (chatId, userId, encryptedChatKey, wrappedForPublicKey) =>
+    request(`/v1/chats/${encodeURIComponent(chatId)}/members`, {
+      method: 'POST',
+      body: { userId, encryptedChatKey, wrappedForPublicKey },
+    }),
+
+  removeMember: (chatId, userId) =>
+    request(`/v1/chats/${encodeURIComponent(chatId)}/members/${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    }),
+
+  setMemberRole: (chatId, userId, role) =>
+    request(`/v1/chats/${encodeURIComponent(chatId)}/members/${encodeURIComponent(userId)}/role`, {
+      method: 'PUT',
+      body: { role },
+    }),
+
+  leaveChat: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/leave`, { method: 'POST', body: {} }),
+
+  listChatMembers: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/members`),
+
   getChatKey: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/key`),
 
   listChatKeys: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/keys`),
@@ -183,6 +222,20 @@ export const chatApi = {
 
   getHistory: (chatId, limit = 50) =>
     request(`/v1/chats/${encodeURIComponent(chatId)}/messages?limit=${limit}`),
+
+  uploadGroupAvatar: async (chatId, file) => {
+    const response = await fetch(`/v1/chats/${encodeURIComponent(chatId)}/avatar`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type, Authorization: `Bearer ${accessToken}` },
+      credentials: 'include',
+      body: file,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new ApiError(text || `Request failed (${response.status})`, response.status);
+    }
+  },
 };
 
 export async function refreshAccessToken() {

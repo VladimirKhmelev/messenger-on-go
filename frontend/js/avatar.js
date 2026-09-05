@@ -20,21 +20,27 @@ export function avatarUrl(userId) {
   return `/v1/users/${encodeURIComponent(userId)}/avatar?v=${cacheBustVersion}`;
 }
 
+export function groupAvatarUrl(chatId) {
+  return `/v1/chats/${encodeURIComponent(chatId)}/avatar?v=${cacheBustVersion}`;
+}
+
 // Renders an avatar as a real photo when one exists, falling back to the
 // initials circle on load failure (404 = no avatar uploaded, or a transient
 // error) — avoids a round-trip existence check before every render. `extraHtml`
 // lets callers inject sibling content (e.g. a presence dot) inside the circle.
-export function renderAvatar(userId, seed, name, { sizeClass = '', extraHtml = '' } = {}) {
+// `avatarFor`/`src` default to the per-user avatar endpoint but can be
+// overridden (e.g. groupAvatarUrl) to render a group chat's photo instead.
+export function renderAvatar(userId, seed, name, { sizeClass = '', extraHtml = '', avatarFor = userId, src = avatarUrl(userId) } = {}) {
   const palette = avatarPalette(seed);
   const classes = `avatar ${sizeClass}`.trim();
   return `
     <div class="${classes}" style="background:${palette.bg};color:${palette.text}" data-avatar-for="${escapeAttr(
-      userId
+      avatarFor
     )}">
       <span class="avatar-fallback">${initialsFrom(name)}</span>
       <img
         class="avatar-img"
-        src="${avatarUrl(userId)}"
+        src="${src}"
         alt=""
         loading="lazy"
         onerror="this.remove()"
