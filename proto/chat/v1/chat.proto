@@ -97,6 +97,14 @@ service ChatService {
   }
 
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+
+  rpc ListChatMembers(ListChatMembersRequest)
+      returns (ListChatMembersResponse) {
+    option (google.api.http) = {
+      get: "/v1/chats/{chat_id}/members"
+    };
+  }
+
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
   rpc GetPresence(GetPresenceRequest) returns (GetPresenceResponse);
   rpc SetOnline(SetOnlineRequest) returns (SetOnlineResponse);
@@ -276,6 +284,15 @@ message ListMembersResponse {
 message ChatMemberInfo {
   string user_id = 1;
   string role = 2;
+}
+
+message ListChatMembersRequest {
+  string chat_id = 1;
+}
+
+message ListChatMembersResponse {
+  repeated ChatMemberInfo members = 1;
+  string created_by = 2;
 }
 
 message GetMessageRequest {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -630,6 +631,28 @@ func (s *ChatService) ListChatMembers(ctx context.Context, chatID string) ([]*do
 	return s.chats.ListMembers(ctx, chatID)
 }
 
+func (s *ChatService) ListMembersForUser(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, *domain.Chat, error) {
+	isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !isMember {
+		return nil, nil, domain.ErrNotChatMember
+	}
+
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	members, err := s.chats.ListMembers(ctx, chatID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return members, chat, nil
+}
+
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) {
 	members, err := s.chats.ListMembers(ctx, chatID)
 	if err != nil {
@@ -675,4 +698,51 @@ func (s *ChatService) SetTyping(ctx context.Context, chatID, userID string) erro
 
 func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (bool, error) {
 	return s.presence.IsTyping(ctx, chatID, userID)
+}
+
+const MaxGroupAvatarSizeBytes = 2 * 1024 * 1024 // 2MB
+
+var allowedGroupAvatarContentTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+	"image/webp": true,
+}
+
+func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error {
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypeGroup {
+		return domain.ErrNotGroupChat
+	}
+
+	isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+	if err != nil {
+		return err
+	}
+	if !isAdmin {
+		return domain.ErrNotChatAdmin
+	}
+
+	if len(data) > MaxGroupAvatarSizeBytes {
+		return domain.ErrGroupAvatarTooLarge
+	}
+
+	contentType := http.DetectContentType(data)
+	if !allowedGroupAvatarContentTypes[contentType] {
+		return domain.ErrInvalidGroupAvatarType
+	}
+
+	return s.chats.UpsertChatAvatar(ctx, &domain.ChatAvatar{
+		ChatID:      chatID,
+		Data:        data,
+		ContentType: contentType,
+		UpdatedAt:   time.Now(),
+	})
+}
+
+func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) {
+	return s.chats.GetChatAvatar(ctx, chatID)
 }

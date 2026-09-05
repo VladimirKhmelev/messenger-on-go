@@ -1,12 +1,13 @@
 import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
-import { renderAvatar, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
+import { renderAvatar, groupAvatarUrl, avatarUrl, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
 
 export function renderSidebar(root, handlers) {
   const isDark = getTheme() === 'dark';
   const query = state.searchQuery.trim().toLowerCase();
   const filtered = state.chats.filter((chat) => {
     if (!query) return true;
+    if (chat.type === 'group') return chat.name.toLowerCase().includes(query);
     return (
       chat.peer.tag.toLowerCase().includes(query) ||
       (chat.peer.displayName || '').toLowerCase().includes(query) ||
@@ -32,6 +33,7 @@ export function renderSidebar(root, handlers) {
             <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
               <span class="knob"></span>
             </button>
+            <button class="settings-btn" title="Новая группа" data-action="open-group-creator">☰</button>
             <button class="settings-btn" title="Настройки" data-action="open-settings">⚙</button>
             <button class="logout-btn" title="Выйти" data-action="logout">Выход</button>
           </div>
@@ -67,6 +69,10 @@ export function renderSidebar(root, handlers) {
 
   root.querySelector('[data-action="open-settings"]').addEventListener('click', () => {
     handlers.onOpenSettings();
+  });
+
+  root.querySelector('[data-action="open-group-creator"]').addEventListener('click', () => {
+    handlers.onOpenGroupCreator();
   });
 
   const searchInput = root.querySelector('[data-input="search"]');
@@ -108,7 +114,10 @@ function renderCreateChatRow(user) {
 }
 
 function renderChatRow(chat) {
-  const name = chat.peer.displayName || chat.peer.tag;
+  const isGroup = chat.type === 'group';
+  const name = isGroup ? chat.name : chat.peer.displayName || chat.peer.tag;
+  const avatarId = isGroup ? chat.id : chat.peer.id;
+  const avatarTag = isGroup ? chat.name : chat.peer.tag;
   const lastMessage = chat.messages[chat.messages.length - 1];
   const lastTime = lastMessage ? formatTime(lastMessage.createdAtUnix) : '';
   const lastPreview = lastMessage ? escapeHtml(lastMessage.text) : '';
@@ -119,8 +128,9 @@ function renderChatRow(chat) {
 
   return `
     <button class="chat-row" data-chat-id="${chat.id}" data-selected="${isSelected}">
-      ${renderAvatar(chat.peer.id, chat.peer.tag, name, {
-        extraHtml: `<div class="avatar-dot" style="background:${dotColor}"></div>`,
+      ${renderAvatar(avatarId, avatarTag, name, {
+        extraHtml: isGroup ? '' : `<div class="avatar-dot" style="background:${dotColor}"></div>`,
+        src: isGroup ? groupAvatarUrl(chat.id) : avatarUrl(chat.peer.id),
       })}
       <div class="chat-row-body">
         <div class="chat-row-line1">

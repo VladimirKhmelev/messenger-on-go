@@ -36,4 +36,7 @@ type ChatRepository interface {
 
 	AppendMessageEvent(ctx context.Context, event *domain.MessageEvent) error
 	HideMessageForUser(ctx context.Context, messageID, userID string) error
+
+	UpsertChatAvatar(ctx context.Context, avatar *domain.ChatAvatar) error
+	GetChatAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error)
 }

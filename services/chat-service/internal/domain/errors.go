@@ -25,4 +25,7 @@ var (
 	ErrCannotRemoveCreator        = errors.New("the group creator cannot be removed")
 	ErrOnlyCreatorCanManageAdmins = errors.New("only the group creator can promote, demote, or remove an admin")
 	ErrInvalidRole                = errors.New("role must be admin or member")
+	ErrGroupAvatarNotFound        = errors.New("group avatar not found")
+	ErrInvalidGroupAvatarType     = errors.New("group avatar must be a JPEG, PNG, GIF, or WebP image")
+	ErrGroupAvatarTooLarge        = errors.New("group avatar must be smaller than 2MB")
 )
