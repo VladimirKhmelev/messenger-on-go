@@ -19,6 +19,7 @@ type fakeChatRepository struct {
 	messages map[string][]*domain.Message
 	events   map[string][]*domain.MessageEvent
 	hidden   map[string]map[string]bool
+	avatars  map[string]*domain.ChatAvatar
 }
 
 func newFakeChatRepository() *fakeChatRepository {
@@ -28,6 +29,7 @@ func newFakeChatRepository() *fakeChatRepository {
 		messages: make(map[string][]*domain.Message),
 		events:   make(map[string][]*domain.MessageEvent),
 		hidden:   make(map[string]map[string]bool),
+		avatars:  make(map[string]*domain.ChatAvatar),
 	}
 }
 
@@ -275,6 +277,19 @@ func (r *fakeChatRepository) HideMessageForUser(_ context.Context, messageID, us
 	}
 	r.hidden[messageID][userID] = true
 	return nil
+}
+
+func (r *fakeChatRepository) UpsertChatAvatar(_ context.Context, avatar *domain.ChatAvatar) error {
+	r.avatars[avatar.ChatID] = avatar
+	return nil
+}
+
+func (r *fakeChatRepository) GetChatAvatar(_ context.Context, chatID string) (*domain.ChatAvatar, error) {
+	avatar, ok := r.avatars[chatID]
+	if !ok {
+		return nil, domain.ErrGroupAvatarNotFound
+	}
+	return avatar, nil
 }
 
 func (r *fakeChatRepository) MarkRead(_ context.Context, chatID, userID, messageID string, readAt time.Time) error {
@@ -712,5 +727,37 @@ func TestChatService_DeleteMessageForMe_NotChatMember(t *testing.T) {
 	err = svc.DeleteMessageForMe(context.Background(), sent.ID, "user-stranger")
 	if !errors.Is(err, domain.ErrNotChatMember) {
 		t.Errorf("DeleteMessageForMe() error = %v, want %v", err, domain.ErrNotChatMember)
+	}
+}
+
+func newFakeGroupChat(repo *fakeChatRepository, creatorID string, memberIDs ...string) *domain.Chat {
+	name := "Test Group"
+	chat := &domain.Chat{
+		ID: uuid.NewString(), CreatedAt: time.Now(),
+		ChatType: domain.ChatTypeGroup, Name: &name, CreatedBy: &creatorID,
+	}
+	allIDs := append([]string{creatorID}, memberIDs...)
+	_ = repo.CreateChat(context.Background(), chat, chatKeys(allIDs...))
+	return chat
+}
+
+var pngMagicBytes = []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+
+func TestChatService_UploadGroupAvatar_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := newFakeGroupChat(repo, "user-a", "user-b")
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
+
+	err := svc.UploadGroupAvatar(context.Background(), chat.ID, "user-a", pngMagicBytes)
+	if err != nil {
+		t.Fatalf("UploadGroupAvatar() unexpected error: %v", err)
+	}
+
+	avatar, err := svc.GetGroupAvatar(context.Background(), chat.ID)
+	if err != nil {
+		t.Fatalf("GetGroupAvatar() unexpected error: %v", err)
+	}
+	if avatar.ContentType != "image/png" {
+		t.Errorf("GetGroupAvatar() ContentType = %q, want image/png", avatar.ContentType)
 	}
 }

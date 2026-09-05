@@ -25,6 +25,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
+	transportgroupavatar "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
 )
 
@@ -147,6 +148,14 @@ func main() {
 		metrics.Handler(w, r)
 	}); err != nil {
 		log.Fatalf("chat-service: failed to register /metrics route: %v", err)
+	}
+
+	groupAvatarHandler := transportgroupavatar.NewHandler(chatService, jwtSecret)
+	if err := gwMux.HandlePath(http.MethodGet, "/v1/chats/{chat_id}/avatar", groupAvatarHandler.Get); err != nil {
+		log.Fatalf("chat-service: failed to register group avatar GET route: %v", err)
+	}
+	if err := gwMux.HandlePath(http.MethodPost, "/v1/chats/{chat_id}/avatar", groupAvatarHandler.Upload); err != nil {
+		log.Fatalf("chat-service: failed to register group avatar POST route: %v", err)
 	}
 
 	httpServer := &http.Server{
