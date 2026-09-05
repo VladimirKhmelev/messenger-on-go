@@ -10,10 +10,26 @@ export const state = {
 
   currentUser: null, // { id, email, tag, displayName }
 
-  chats: [], // { id, peer: {id, email, tag, displayName}, messages: [], online, lastSeenUnix, peerLastReadMessageId }
+  chats: [],
   selectedChatId: null,
   searchQuery: '',
   foundUsers: [], // [{ id, tag, displayName }] — search results (tag prefix, 3+ chars) with no existing chat
+
+  groupCreatorOpen: false, // true while the "new group" modal (member picker) is open
+  groupCreatorSelected: [], // [{ id, tag, displayName }] — members picked so far in the modal
+  groupCreatorName: '',
+  groupCreatorError: '',
+  groupCreatorBusy: false,
+  groupCreatorQuery: '',
+  groupCreatorFoundUsers: [],
+
+  groupMembersOpen: false, // true while the "manage members" panel is open for the selected chat
+  groupMembersBusy: false,
+  groupMembersError: '',
+  groupMembersAddQuery: '', // "add member" inline search field, admin-only
+  groupMembersAddFoundUsers: [],
+  groupMembersAvatarBusy: false,
+  groupMembersAvatarError: '',
   draft: '',
   editingMessageId: null, // set while a message's inline edit field is open
   focusDraftOnRender: false, // one-shot flag: focus the composer input on the next conversation render
@@ -40,6 +56,8 @@ const listeners = {
   conversation: [],
   toast: [],
   settings: [],
+  groupCreator: [],
+  groupMembers: [],
 };
 
 export function onZone(zone, fn) {

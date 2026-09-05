@@ -29,6 +29,8 @@ import { renderSidebar } from './screens/sidebar.js';
 import { renderConversation } from './screens/conversation.js';
 import { renderToast } from './screens/toast.js';
 import { renderSettings } from './screens/settings.js';
+import { renderGroupCreator } from './screens/groupCreator.js';
+import { renderGroupMembers } from './screens/groupMembers.js';
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
 const HISTORY_PAGE_SIZE = 50;
@@ -122,6 +124,8 @@ function renderRoot() {
       </div>
       <div data-zone="toast"></div>
       <div data-zone="settings"></div>
+      <div data-zone="groupCreator"></div>
+      <div data-zone="groupMembers"></div>
     `;
   }
   wireZones();
@@ -158,6 +162,7 @@ function wireZones() {
         onCreateChat: handleCreateChat,
         onLogout: handleLogout,
         onOpenSettings: handleOpenSettings,
+        onOpenGroupCreator: handleOpenGroupCreator,
       })
     );
   }
@@ -189,6 +194,43 @@ function wireZones() {
         onMessageVisible: handleMessageVisible,
         onBack: handleBackToChats,
         onTyping: handleTyping,
+        onOpenGroupMembers: handleOpenGroupMembers,
+      })
+    );
+  }
+
+  const groupCreatorRoot = app.querySelector('[data-zone="groupCreator"]');
+  if (groupCreatorRoot) {
+    onZoneOnce('groupCreator', () =>
+      renderGroupCreator(groupCreatorRoot, {
+        onClose: handleCloseGroupCreator,
+        onRerender: () => notify('groupCreator'),
+        onSearchChange: handleGroupCreatorSearchChange,
+        onToggleMember: handleGroupCreatorToggleMember,
+        onSubmit: handleCreateGroupChat,
+      })
+    );
+  }
+
+  const groupMembersRoot = app.querySelector('[data-zone="groupMembers"]');
+  if (groupMembersRoot) {
+    onZoneOnce('groupMembers', () =>
+      renderGroupMembers(groupMembersRoot, {
+        onClose: handleCloseGroupMembers,
+        onSetRole: handleSetMemberRole,
+        onRemoveMember: handleRemoveMember,
+        onLeave: handleLeaveChat,
+        onAddMemberSearchChange: handleGroupMembersAddSearchChange,
+        onAddMember: handleAddGroupMember,
+        onUploadGroupAvatar: handleUploadGroupAvatar,
+        onOpenProfile: (userId, name) => {
+          // The avatar preview overlay itself is rendered inside
+          // conversation.js's markup (renderAvatarPreview), not this zone
+          // — notify both so it actually shows up while this panel is open.
+          state.avatarPreview = { userId, name };
+          notify('conversation');
+          notify('groupMembers');
+        },
       })
     );
   }
@@ -507,16 +549,33 @@ async function resolvePeer(userId) {
 }
 
 async function chatSummaryToChat(summary, myUserId) {
-  const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId);
-  const peer = await resolvePeer(peerId);
-
   const lastMessage = summary.lastMessage
     ? { ...summary.lastMessage, mine: summary.lastMessage.senderUserId === myUserId }
     : null;
   if (lastMessage) await decryptMessageInPlace(summary.chatId, lastMessage);
 
+  if (summary.chatType === 'group') {
+    const { members, createdBy } = await loadGroupMembers(summary.chatId, myUserId, summary.memberUserIds);
+    return {
+      id: summary.chatId,
+      type: 'group',
+      name: summary.name || 'Группа',
+      members,
+      createdBy,
+      messages: lastMessage ? [lastMessage] : [],
+      historyLoaded: false,
+      hasMoreHistory: true,
+      loadingMoreHistory: false,
+      unreadCount: 0,
+    };
+  }
+
+  const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId);
+  const peer = await resolvePeer(peerId);
+
   return {
     id: summary.chatId,
+    type: 'private',
     peer,
     messages: lastMessage ? [lastMessage] : [],
     historyLoaded: false,
@@ -529,6 +588,30 @@ async function chatSummaryToChat(summary, myUserId) {
   };
 }
 
+// Fetches roles for a group chat and resolves each member's profile —
+// falls back to bare member IDs (no roles) if the request fails, so a
+// transient error doesn't crash chat loading entirely.
+async function loadGroupMembers(chatId, myUserId, fallbackMemberIds) {
+  try {
+    const data = await chatApi.listChatMembers(chatId);
+    const roleByUserId = new Map((data?.members || []).map((m) => [m.userId, m.role]));
+    const memberIds = [...roleByUserId.keys()];
+    const members = await Promise.all(
+      memberIds.map(async (id) => {
+        const peer = await resolvePeer(id);
+        return { ...peer, role: roleByUserId.get(id) || 'member' };
+      })
+    );
+    return { members, createdBy: data?.createdBy || null };
+  } catch (err) {
+    console.error('failed to load group members:', err);
+    const members = await Promise.all(
+      (fallbackMemberIds || []).map(async (id) => ({ ...(await resolvePeer(id)), role: 'member' }))
+    );
+    return { members, createdBy: null };
+  }
+}
+
 async function loadChats(myUserId) {
   try {
     const data = await chatApi.listChats();
@@ -537,6 +620,24 @@ async function loadChats(myUserId) {
   } catch (err) {
     console.error('failed to load chats:', err);
     return [];
+  }
+}
+
+// Fetches one chat by id via the same REST listing loadChats uses — no
+// single-chat endpoint exists, so this re-fetches the whole list and picks
+// the one we need. Used when a WS message arrives for a chat we don't have
+// locally yet (new contact's first message, or we were just added to a
+// group) — correctness over efficiency, this only runs on that cold-start
+// edge case, not on every message.
+async function fetchChatById(chatId) {
+  try {
+    const data = await chatApi.listChats();
+    const summary = (data?.chats || []).find((s) => s.chatId === chatId);
+    if (!summary) return null;
+    return await chatSummaryToChat(summary, state.currentUser?.id);
+  } catch (err) {
+    console.error('failed to fetch chat by id:', err);
+    return null;
   }
 }
 
@@ -573,7 +674,7 @@ function handleSearchChange() {
   searchDebounceTimer = setTimeout(async () => {
     try {
       const data = await authApi.searchUsers(query);
-      const existingChatUserIds = new Set(state.chats.map((c) => c.peer.id));
+      const existingChatUserIds = new Set(state.chats.filter((c) => c.type !== 'group').map((c) => c.peer.id));
 
       state.foundUsers = (data?.users || [])
         .filter((u) => u.userId !== state.currentUser?.id && !existingChatUserIds.has(u.userId))
@@ -611,6 +712,7 @@ async function handleCreateChat(user) {
 
     const chat = {
       id: data.chatId,
+      type: 'private',
       peer: { id: user.id, email: null, tag: user.tag, displayName: user.displayName || user.tag },
       messages: [],
       historyLoaded: true, // brand new chat, nothing to fetch
@@ -632,6 +734,317 @@ async function handleCreateChat(user) {
   }
 }
 
+function handleOpenGroupCreator() {
+  state.groupCreatorOpen = true;
+  state.groupCreatorSelected = [];
+  state.groupCreatorName = '';
+  state.groupCreatorError = '';
+  state.groupCreatorQuery = '';
+  state.groupCreatorFoundUsers = [];
+  notify('groupCreator');
+}
+
+function handleCloseGroupCreator() {
+  state.groupCreatorOpen = false;
+  notify('groupCreator');
+}
+
+let groupSearchDebounceTimer = null;
+
+function handleGroupCreatorSearchChange(query) {
+  state.groupCreatorQuery = query;
+  clearTimeout(groupSearchDebounceTimer);
+  const trimmed = query.trim();
+  if (trimmed.length < SEARCH_MIN_QUERY_LEN) {
+    state.groupCreatorFoundUsers = [];
+    notify('groupCreator');
+    return;
+  }
+
+  groupSearchDebounceTimer = setTimeout(async () => {
+    try {
+      const data = await authApi.searchUsers(trimmed);
+      const selectedIds = new Set(state.groupCreatorSelected.map((u) => u.id));
+      state.groupCreatorFoundUsers = (data?.users || [])
+        .filter((u) => u.userId !== state.currentUser?.id && !selectedIds.has(u.userId))
+        .map((u) => ({ id: u.userId, tag: u.tag, displayName: u.displayName || u.tag }));
+      notify('groupCreator');
+    } catch {
+      // search failed or query too short server-side — leave results cleared
+    }
+  }, SEARCH_DEBOUNCE_MS);
+}
+
+function handleGroupCreatorToggleMember(userId) {
+  const alreadySelected = state.groupCreatorSelected.find((u) => u.id === userId);
+  if (alreadySelected) {
+    state.groupCreatorSelected = state.groupCreatorSelected.filter((u) => u.id !== userId);
+  } else {
+    const candidate = state.groupCreatorFoundUsers.find((u) => u.id === userId);
+    if (candidate) {
+      state.groupCreatorSelected = [...state.groupCreatorSelected, candidate];
+      state.groupCreatorFoundUsers = state.groupCreatorFoundUsers.filter((u) => u.id !== userId);
+    }
+  }
+  notify('groupCreator');
+}
+
+async function handleCreateGroupChat() {
+  const name = state.groupCreatorName.trim();
+  const targetUsers = state.groupCreatorSelected;
+  if (!name || targetUsers.length < 2) return;
+
+  state.groupCreatorBusy = true;
+  state.groupCreatorError = '';
+  notify('groupCreator');
+
+  try {
+    const myKeyData = await authApi.getPublicKey(state.currentUser.id);
+    const targetKeyDataById = new Map();
+    for (const user of targetUsers) {
+      const keyData = await authApi.getPublicKey(user.id);
+      if (!keyData?.publicKey) {
+        throw new Error(`У ${user.displayName || user.tag} нет ключа шифрования`);
+      }
+      targetKeyDataById.set(user.id, keyData.publicKey);
+    }
+
+    const { key: chatKey, raw: rawChatKey } = await generateChatKey();
+    const encryptedChatKey = {
+      [state.currentUser.id]: await encryptChatKeyForPeer(rawChatKey, myKeyData.publicKey),
+    };
+    const wrappedForPublicKey = {
+      [state.currentUser.id]: myKeyData.publicKey,
+    };
+    for (const [userId, publicKey] of targetKeyDataById) {
+      encryptedChatKey[userId] = await encryptChatKeyForPeer(rawChatKey, publicKey);
+      wrappedForPublicKey[userId] = publicKey;
+    }
+
+    const targetUserIds = targetUsers.map((u) => u.id);
+    const data = await chatApi.createGroupChat(name, targetUserIds, encryptedChatKey, wrappedForPublicKey);
+    chatKeyCache.set(data.chatId, chatKey);
+
+    const members = [
+      { ...state.currentUser, role: 'admin' },
+      ...targetUsers.map((u) => ({ ...u, role: 'member' })),
+    ];
+
+    const chat = {
+      id: data.chatId,
+      type: 'group',
+      name,
+      members,
+      createdBy: state.currentUser.id,
+      messages: [],
+      historyLoaded: true,
+      hasMoreHistory: false,
+      loadingMoreHistory: false,
+      unreadCount: 0,
+    };
+    state.chats.unshift(chat);
+    state.groupCreatorOpen = false;
+    state.groupCreatorBusy = false;
+    handleSelectChat(chat.id);
+    notify('sidebar');
+    notify('groupCreator');
+  } catch (err) {
+    console.error('failed to create group chat:', err);
+    state.groupCreatorError = translateApiError(err) ?? err.message ?? 'Не удалось создать группу';
+    state.groupCreatorBusy = false;
+    notify('groupCreator');
+  }
+}
+
+function handleOpenGroupMembers() {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+
+  state.groupMembersOpen = true;
+  state.groupMembersError = '';
+  state.groupMembersAddQuery = '';
+  state.groupMembersAddFoundUsers = [];
+  notify('groupMembers');
+
+  if (chat?.type === 'group') {
+    for (const member of chat.members) {
+      if (member.id !== state.currentUser?.id) ws?.getPresence(member.id);
+    }
+  }
+}
+
+function handleCloseGroupMembers() {
+  state.groupMembersOpen = false;
+  notify('groupMembers');
+}
+
+async function handleSetMemberRole(userId, role) {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type !== 'group') return;
+
+  state.groupMembersBusy = true;
+  state.groupMembersError = '';
+  notify('groupMembers');
+
+  try {
+    await chatApi.setMemberRole(chat.id, userId, role);
+    const member = chat.members.find((m) => m.id === userId);
+    if (member) member.role = role;
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+  } catch (err) {
+    console.error('failed to change member role:', err);
+    state.groupMembersError = translateApiError(err) ?? 'Не удалось изменить роль';
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+  }
+}
+
+async function handleRemoveMember(userId) {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type !== 'group') return;
+
+  state.groupMembersBusy = true;
+  state.groupMembersError = '';
+  notify('groupMembers');
+
+  try {
+    await chatApi.removeMember(chat.id, userId);
+    chat.members = chat.members.filter((m) => m.id !== userId);
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+    notify('conversation');
+  } catch (err) {
+    console.error('failed to remove member:', err);
+    state.groupMembersError = translateApiError(err) ?? 'Не удалось удалить участника';
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+  }
+}
+
+let groupMembersAddSearchDebounceTimer = null;
+
+function handleGroupMembersAddSearchChange(query) {
+  state.groupMembersAddQuery = query;
+  clearTimeout(groupMembersAddSearchDebounceTimer);
+  const trimmed = query.trim();
+  if (trimmed.length < SEARCH_MIN_QUERY_LEN) {
+    state.groupMembersAddFoundUsers = [];
+    notify('groupMembers');
+    return;
+  }
+
+  groupMembersAddSearchDebounceTimer = setTimeout(async () => {
+    const chat = state.chats.find((c) => c.id === state.selectedChatId);
+    if (!chat || chat.type !== 'group') return;
+
+    try {
+      const data = await authApi.searchUsers(trimmed);
+      const existingMemberIds = new Set(chat.members.map((m) => m.id));
+      state.groupMembersAddFoundUsers = (data?.users || [])
+        .filter((u) => u.userId !== state.currentUser?.id && !existingMemberIds.has(u.userId))
+        .map((u) => ({ id: u.userId, tag: u.tag, displayName: u.displayName || u.tag }));
+      notify('groupMembers');
+    } catch {
+      // search failed or query too short server-side — leave results cleared
+    }
+  }, SEARCH_DEBOUNCE_MS);
+}
+
+async function handleAddGroupMember(userId) {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type !== 'group') return;
+
+  const candidate = state.groupMembersAddFoundUsers.find((u) => u.id === userId);
+  if (!candidate) return;
+
+  state.groupMembersBusy = true;
+  state.groupMembersError = '';
+  notify('groupMembers');
+
+  try {
+    const targetKeyData = await authApi.getPublicKey(userId);
+    if (!targetKeyData?.publicKey) {
+      throw new Error(`У ${candidate.displayName || candidate.tag} нет ключа шифрования`);
+    }
+
+    const chatKey = await getChatKey(chat.id);
+    const rawChatKey = await crypto.subtle.exportKey('raw', chatKey);
+    const encryptedChatKey = await encryptChatKeyForPeer(rawChatKey, targetKeyData.publicKey);
+
+    await chatApi.addMember(chat.id, userId, encryptedChatKey, targetKeyData.publicKey);
+
+    chat.members.push({ ...candidate, role: 'member' });
+    state.groupMembersAddQuery = '';
+    state.groupMembersAddFoundUsers = [];
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+    notify('conversation');
+    ws?.getPresence(userId);
+  } catch (err) {
+    console.error('failed to add member:', err);
+    state.groupMembersError = translateApiError(err) ?? err.message ?? 'Не удалось добавить участника';
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+  }
+}
+
+async function handleUploadGroupAvatar(file) {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type !== 'group') return;
+
+  state.groupMembersAvatarError = '';
+
+  if (file.size > MAX_AVATAR_SIZE_BYTES) {
+    state.groupMembersAvatarError = 'Файл слишком большой (максимум 2МБ)';
+    notify('groupMembers');
+    return;
+  }
+
+  state.groupMembersAvatarBusy = true;
+  notify('groupMembers');
+
+  try {
+    await chatApi.uploadGroupAvatar(chat.id, file);
+    bumpAvatarCacheVersion();
+    state.groupMembersAvatarBusy = false;
+    notify('groupMembers');
+    notify('sidebar');
+    notify('conversation');
+  } catch (err) {
+    state.groupMembersAvatarError = translateApiError(err) ?? 'Не удалось загрузить фото';
+    state.groupMembersAvatarBusy = false;
+    notify('groupMembers');
+  }
+}
+
+async function handleLeaveChat() {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type !== 'group') return;
+
+  state.groupMembersBusy = true;
+  state.groupMembersError = '';
+  notify('groupMembers');
+
+  try {
+    await chatApi.leaveChat(chat.id);
+    state.chats = state.chats.filter((c) => c.id !== chat.id);
+    state.groupMembersOpen = false;
+    state.groupMembersBusy = false;
+    if (state.selectedChatId === chat.id) {
+      state.selectedChatId = null;
+      syncMobileViewAttr();
+    }
+    notify('sidebar');
+    notify('conversation');
+    notify('groupMembers');
+  } catch (err) {
+    console.error('failed to leave chat:', err);
+    state.groupMembersError = translateApiError(err) ?? 'Не удалось покинуть группу';
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+  }
+}
+
 function handleSelectChat(chatId) {
   trimInactiveChatHistory(state.selectedChatId);
   state.selectedChatId = chatId;
@@ -649,7 +1062,7 @@ function handleSelectChat(chatId) {
   if (chat && !chat.historyLoaded) {
     ws?.getHistory(chatId);
   }
-  if (chat) {
+  if (chat && chat.type !== 'group') {
     ws?.getReadStatus(chatId, chat.peer.id);
   }
 
@@ -1042,20 +1455,44 @@ function connectWs() {
       /* ack only; the actual message is appended via onMessageReceived fanout */
     },
     onPresenceChanged: ({ peerUserId, online, lastSeenUnix }) => {
-      const chat = state.chats.find((c) => c.peer.id === peerUserId);
-      if (!chat) return;
-      // The 5s presence poll re-asks every open chat's status even when nothing
-      // changed — a full sidebar re-render on every reply would recreate every
-      // avatar <img>, triggering a fresh HTTP request each time. Skip the
-      // re-render when the values are actually unchanged.
-      if (chat.online === online && chat.lastSeenUnix === lastSeenUnix) return;
-      chat.online = online;
-      chat.lastSeenUnix = lastSeenUnix;
+      let changed = false;
+
+      const chat = state.chats.find((c) => c.type !== 'group' && c.peer.id === peerUserId);
+      if (chat) {
+        // The 5s presence poll re-asks every open chat's status even when nothing
+        // changed — a full sidebar re-render on every reply would recreate every
+        // avatar <img>, triggering a fresh HTTP request each time. Skip the
+        // re-render when the values are actually unchanged.
+        if (chat.online !== online || chat.lastSeenUnix !== lastSeenUnix) {
+          chat.online = online;
+          chat.lastSeenUnix = lastSeenUnix;
+          changed = true;
+        }
+      }
+
+      // A group member is the same person as any peerUserId — update their
+      // row wherever they show up as a group member too, same dedup logic.
+      let groupMemberChanged = false;
+      for (const c of state.chats) {
+        if (c.type !== 'group') continue;
+        const member = c.members.find((m) => m.id === peerUserId);
+        if (!member) continue;
+        if (member.online !== online || member.lastSeenUnix !== lastSeenUnix) {
+          member.online = online;
+          member.lastSeenUnix = lastSeenUnix;
+          groupMemberChanged = true;
+        }
+      }
+
+      if (!changed && !groupMemberChanged) return;
       notify('sidebar');
-      if (chat.id === state.selectedChatId) notify('conversation');
+      if (chat && chat.id === state.selectedChatId) notify('conversation');
+      if (groupMemberChanged) notify('groupMembers');
     },
     onProfileUpdated: ({ peerUserId, tag, displayName }) => {
-      const chat = state.chats.find((c) => c.peer.id === peerUserId);
+      // Groups don't live-update member profiles yet — a member's changed
+      // name/tag in a group is picked up next time the chat list reloads.
+      const chat = state.chats.find((c) => c.type !== 'group' && c.peer.id === peerUserId);
       if (!chat) return;
       chat.peer.tag = tag;
       chat.peer.displayName = displayName;
@@ -1064,7 +1501,7 @@ function connectWs() {
       if (chat.id === state.selectedChatId) notify('conversation');
     },
     onTypingChanged: ({ chatId, peerUserId }) => {
-      const chat = state.chats.find((c) => c.id === chatId && c.peer.id === peerUserId);
+      const chat = state.chats.find((c) => c.id === chatId && c.type !== 'group' && c.peer.id === peerUserId);
       if (!chat) return;
       clearTimeout(chat.typingClearTimer);
       chat.peerTyping = true;
@@ -1075,7 +1512,7 @@ function connectWs() {
       if (chatId === state.selectedChatId) notify('conversation');
     },
     onReadStatus: ({ chatId, peerUserId, lastReadMessageId }) => {
-      const chat = state.chats.find((c) => c.id === chatId && c.peer.id === peerUserId);
+      const chat = state.chats.find((c) => c.id === chatId && c.type !== 'group' && c.peer.id === peerUserId);
       if (!chat) return;
       chat.peerLastReadMessageId = lastReadMessageId || null;
       if (chatId === state.selectedChatId) notify('conversation');
@@ -1140,6 +1577,10 @@ async function refreshAfterReconnect() {
   await syncNewChatsAfterReconnect();
 
   for (const chat of state.chats) {
+    if (chat.type === 'group') {
+      if (chat.historyLoaded) ws.getHistory(chat.id);
+      continue;
+    }
     ws.getPresence(chat.peer.id);
     if (chat.historyLoaded) {
       ws.getHistory(chat.id);
@@ -1154,8 +1595,10 @@ async function refreshAfterReconnect() {
 // connects/disconnects — if that single event is lost (e.g. during our own
 // reconnect window), the peer's online status goes stale until someone
 // re-asks. Poll periodically and on tab-focus so it self-heals either way.
+// Groups don't have a single peer to poll presence for, so they're skipped.
 function refreshAllPresence() {
   for (const chat of state.chats) {
+    if (chat.type === 'group') continue;
     ws?.getPresence(chat.peer.id);
   }
 }
@@ -1206,19 +1649,16 @@ async function appendMessage(chatId, message) {
 
   if (index === -1) {
     if (mine) return; // nothing sensible to backfill from our own fanout copy
-    const peer = await resolvePeer(message.senderUserId);
-    state.chats.unshift({
-      id: chatId,
-      peer,
-      messages: [],
-      historyLoaded: true,
-      hasMoreHistory: false,
-      loadingMoreHistory: false,
-      online: false,
-      lastSeenUnix: 0,
-      peerLastReadMessageId: null,
-      unreadCount: 0,
-    });
+
+    // A chat we don't know about yet (first message ever from a new
+    // contact, or we were just added to a group and haven't refreshed the
+    // chat list). Could be either private or group — the message payload
+    // alone doesn't say which, so fetch the real summary instead of
+    // guessing (guessing wrong used to create a broken private-shaped
+    // entry for what was actually a group).
+    const newChat = await fetchChatById(chatId);
+    if (!newChat) return; // not actually a member (or a transient error) — drop it
+    state.chats.unshift(newChat);
     index = 0;
   }
 
@@ -1249,7 +1689,10 @@ function showToast(chatId) {
   const chat = state.chats.find((c) => c.id === chatId);
   if (!chat) return;
 
-  const name = chat.peer.displayName || chat.peer.tag;
+  const isGroup = chat.type === 'group';
+  const name = isGroup ? chat.name : chat.peer.displayName || chat.peer.tag;
+  const avatarId = isGroup ? chat.id : chat.peer.id;
+  const avatarSeed = isGroup ? chat.name : chat.peer.tag;
   const preview = unreadPreviewText(chat);
   playNotificationSound();
 
@@ -1258,7 +1701,7 @@ function showToast(chatId) {
     return;
   }
 
-  state.toast = { chatId, peerUserId: chat.peer.id, name, avatarSeed: chat.peer.tag, text: preview };
+  state.toast = { chatId, peerUserId: avatarId, name, avatarSeed, text: preview };
   notify('toast');
 
   clearTimeout(toastTimer);

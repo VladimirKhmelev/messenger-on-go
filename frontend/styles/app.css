@@ -258,6 +258,8 @@ a:hover { color: var(--accent); }
 }
 .avatar--md { width: 36px; height: 36px; font-size: 12px; }
 .avatar--sm { width: 36px; height: 36px; font-size: 12px; }
+.avatar--xs { width: 24px; height: 24px; font-size: 10px; }
+.avatar--lg { width: 72px; height: 72px; font-size: 22px; }
 .avatar-dot {
   position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px;
   border-radius: 50%; border: 2px solid var(--bg-sidebar);
@@ -371,6 +373,16 @@ a:hover { color: var(--accent); }
 .bubble-text { white-space: pre-wrap; }
 .message-row[data-mine='true'] .bubble { background: var(--accent); color: var(--accent-text); }
 .message-row[data-mine='false'] .bubble { background: var(--bg-white); color: var(--text); }
+
+.message-sender-avatar { flex-shrink: 0; margin-bottom: 2px; cursor: pointer; }
+.message-sender-name {
+  font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.message-sender-role {
+  font-size: 10px; font-weight: 600; color: var(--text-muted-2);
+  background: var(--row-selected-bg); padding: 1px 6px; border-radius: 8px;
+}
 .message-time { font-size: 11px; color: var(--text-muted-2); margin-top: 4px; padding: 0 4px; }
 .message-edited-tag { margin-left: 6px; font-style: italic; }
 .read-ticks { margin-left: 4px; }
@@ -494,6 +506,61 @@ a:hover { color: var(--accent); }
   color: var(--text-muted-3); font-size: 18px; cursor: pointer; line-height: 1;
 }
 .modal-close:hover { color: var(--text); }
+
+/* ---------- Group chat modals ---------- */
+.group-selected-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.group-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 10px; border-radius: 14px;
+  background: var(--row-selected-bg); font-size: 13px;
+}
+.group-chip-remove {
+  cursor: pointer; color: var(--text-muted-3); font-size: 14px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.group-chip-remove:hover { color: var(--text); background: var(--border); }
+
+.group-search-results { max-height: 180px; overflow-y: auto; gap: 2px; }
+
+.group-avatar-section {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 4px 0 16px;
+}
+.avatar--editable { position: relative; }
+.avatar-edit-overlay {
+  position: absolute; inset: 0; border-radius: 50%; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  background: rgb(0 0 0 / 45%); color: #fff; font-size: 11px; font-weight: 600;
+  opacity: 0; transition: opacity 0.15s;
+}
+.avatar--editable:hover .avatar-edit-overlay { opacity: 1; }
+.group-avatar-status { font-size: 12px; color: var(--text-muted-2); }
+
+.group-members-list { max-height: 320px; overflow-y: auto; gap: 2px; }
+.group-member-row { cursor: default; }
+.group-member-role {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  margin-left: 6px;
+}
+.group-member-you {
+  font-size: 11px; font-weight: 600; color: var(--text-muted-2);
+  margin-left: 6px;
+}
+.group-member-status { font-size: 12px; color: var(--text-muted-2); margin-top: 1px; }
+.group-member-actions {
+  display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+  align-items: flex-end; font-size: 12px;
+}
+.group-member-actions .action { cursor: pointer; color: var(--text-muted-3); }
+.group-member-actions .action:hover { color: var(--accent); }
+.group-member-actions .action--danger { color: oklch(55% 0.18 25); }
+.group-member-actions .action--danger:hover { color: oklch(45% 0.18 25); }
+
+/* Renders inside the conversation zone, which comes before groupMembers/
+   groupCreator in DOM order — without this it would paint underneath those
+   panels' own .modal-backdrop when opened from within them. */
+.modal-backdrop:has(.avatar-preview) { z-index: 70; }
 
 .avatar-preview {
   position: relative; max-width: min(90vw, 480px); max-height: 90vh;
