@@ -71,11 +71,13 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (29.4%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (30.2%)</option>
 				
-				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
+				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
+				
+				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
 				</select>
 			</div>
@@ -116,6 +118,7 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service"
+        transportgroupavatar "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar"
         transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc"
 )
 
@@ -238,6 +241,14 @@ func main() <span class="cov0" title="0">{
                 metrics.Handler(w, r)
         }</span>); err != nil <span class="cov0" title="0">{
                 log.Fatalf("chat-service: failed to register /metrics route: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">groupAvatarHandler := transportgroupavatar.NewHandler(chatService, jwtSecret)
+        if err := gwMux.HandlePath(http.MethodGet, "/v1/chats/{chat_id}/avatar", groupAvatarHandler.Get); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to register group avatar GET route: %v", err)
+        }</span>
+        <span class="cov0" title="0">if err := gwMux.HandlePath(http.MethodPost, "/v1/chats/{chat_id}/avatar", groupAvatarHandler.Upload); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("chat-service: failed to register group avatar POST route: %v", err)
         }</span>
 
         <span class="cov0" title="0">httpServer := &amp;http.Server{
@@ -945,6 +956,31 @@ func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, message
         )
         return err
 }</span>
+
+func (r *PostgresChatRepository) UpsertChatAvatar(ctx context.Context, avatar *domain.ChatAvatar) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO chat_avatars (chat_id, data, content_type, updated_at)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (chat_id) DO UPDATE SET data = $2, content_type = $3, updated_at = $4`,
+                avatar.ChatID, avatar.Data, avatar.ContentType, avatar.UpdatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) GetChatAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov0" title="0">{
+        var avatar domain.ChatAvatar
+        err := r.conn.GetContext(ctx, &amp;avatar, `
+                SELECT chat_id, data, content_type, updated_at FROM chat_avatars WHERE chat_id = $1`,
+                chatID,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrGroupAvatarNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;avatar, nil</span>
+}
 </pre>
 		
 		<pre class="file" id="file8" style="display: none">package service
@@ -953,6 +989,7 @@ import (
         "context"
         "errors"
         "log"
+        "net/http"
         "time"
 
         "github.com/google/uuid"
@@ -1579,6 +1616,28 @@ func (s *ChatService) ListChatMembers(ctx context.Context, chatID string) ([]*do
         return s.chats.ListMembers(ctx, chatID)
 }</span>
 
+func (s *ChatService) ListMembersForUser(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, *domain.Chat, error) <span class="cov0" title="0">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
+                return nil, nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov0" title="0">chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+
+        <span class="cov0" title="0">members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+
+        <span class="cov0" title="0">return members, chat, nil</span>
+}
+
 func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
         members, err := s.chats.ListMembers(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
@@ -1625,9 +1684,168 @@ func (s *ChatService) SetTyping(ctx context.Context, chatID, userID string) erro
 func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
         return s.presence.IsTyping(ctx, chatID, userID)
 }</span>
+
+const MaxGroupAvatarSizeBytes = 2 * 1024 * 1024 // 2MB
+
+var allowedGroupAvatarContentTypes = map[string]bool{
+        "image/jpeg": true,
+        "image/png":  true,
+        "image/gif":  true,
+        "image/webp": true,
+}
+
+func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov8" title="1">{
+        chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
+        }</span>
+
+        <span class="cov8" title="1">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !isAdmin </span><span class="cov0" title="0">{
+                return domain.ErrNotChatAdmin
+        }</span>
+
+        <span class="cov8" title="1">if len(data) &gt; MaxGroupAvatarSizeBytes </span><span class="cov0" title="0">{
+                return domain.ErrGroupAvatarTooLarge
+        }</span>
+
+        <span class="cov8" title="1">contentType := http.DetectContentType(data)
+        if !allowedGroupAvatarContentTypes[contentType] </span><span class="cov0" title="0">{
+                return domain.ErrInvalidGroupAvatarType
+        }</span>
+
+        <span class="cov8" title="1">return s.chats.UpsertChatAvatar(ctx, &amp;domain.ChatAvatar{
+                ChatID:      chatID,
+                Data:        data,
+                ContentType: contentType,
+                UpdatedAt:   time.Now(),
+        })</span>
+}
+
+func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov8" title="1">{
+        return s.chats.GetChatAvatar(ctx, chatID)
+}</span>
 </pre>
 		
-		<pre class="file" id="file9" style="display: none">package grpc
+		<pre class="file" id="file9" style="display: none">package groupavatar
+
+import (
+        "context"
+        "errors"
+        "io"
+        "log"
+        "net/http"
+        "strings"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+)
+
+const maxUploadBytes = 2*1024*1024 + 1024
+
+type ChatService interface {
+        UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error
+        GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error)
+}
+
+type Handler struct {
+        chat      ChatService
+        jwtSecret string
+}
+
+func NewHandler(chat ChatService, jwtSecret string) *Handler <span class="cov0" title="0">{
+        return &amp;Handler{chat: chat, jwtSecret: jwtSecret}
+}</span>
+
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request, pathParams map[string]string) <span class="cov0" title="0">{
+        chatID := pathParams["chat_id"]
+        if chatID == "" </span><span class="cov0" title="0">{
+                http.Error(w, "missing chat id", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">avatar, err := h.chat.GetGroupAvatar(r.Context(), chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, domain.ErrGroupAvatarNotFound) </span><span class="cov0" title="0">{
+                        http.NotFound(w, r)
+                        return
+                }</span>
+                <span class="cov0" title="0">http.Error(w, "internal error", http.StatusInternalServerError)
+                return</span>
+        }
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", avatar.ContentType)
+        w.Header().Set("Cache-Control", "private, max-age=60")
+        if _, err := w.Write(avatar.Data); err != nil </span><span class="cov0" title="0">{
+                log.Printf("chat-service: failed to write group avatar response for %s: %v", chatID, err)
+        }</span>
+}
+
+func (h *Handler) Upload(w http.ResponseWriter, r *http.Request, pathParams map[string]string) <span class="cov0" title="0">{
+        chatID := pathParams["chat_id"]
+        if chatID == "" </span><span class="cov0" title="0">{
+                http.Error(w, "missing chat id", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">userID, ok := h.authenticate(r)
+        if !ok </span><span class="cov0" title="0">{
+                http.Error(w, "missing or invalid authorization", http.StatusUnauthorized)
+                return
+        }</span>
+
+        <span class="cov0" title="0">body := http.MaxBytesReader(w, r.Body, maxUploadBytes)
+        data, err := io.ReadAll(body)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := h.chat.UploadGroupAvatar(r.Context(), chatID, userID, data); err != nil </span><span class="cov0" title="0">{
+                writeDomainError(w, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.WriteHeader(http.StatusNoContent)</span>
+}
+
+func (h *Handler) authenticate(r *http.Request) (userID string, ok bool) <span class="cov0" title="0">{
+        authHeader := r.Header.Get("Authorization")
+        const prefix = "Bearer "
+        if !strings.HasPrefix(authHeader, prefix) </span><span class="cov0" title="0">{
+                return "", false
+        }</span>
+        <span class="cov0" title="0">token := strings.TrimPrefix(authHeader, prefix)
+
+        userID, err := jwtutil.ValidateAccessToken(token, h.jwtSecret)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", false
+        }</span>
+
+        <span class="cov0" title="0">return userID, true</span>
+}
+
+func writeDomainError(w http.ResponseWriter, err error) <span class="cov0" title="0">{
+        switch </span>{
+        case errors.Is(err, domain.ErrGroupAvatarTooLarge), errors.Is(err, domain.ErrInvalidGroupAvatarType):<span class="cov0" title="0">
+                http.Error(w, err.Error(), http.StatusBadRequest)</span>
+        case errors.Is(err, domain.ErrNotChatAdmin):<span class="cov0" title="0">
+                http.Error(w, err.Error(), http.StatusForbidden)</span>
+        case errors.Is(err, domain.ErrNotGroupChat), errors.Is(err, domain.ErrChatNotFound):<span class="cov0" title="0">
+                http.Error(w, err.Error(), http.StatusBadRequest)</span>
+        default:<span class="cov0" title="0">
+                http.Error(w, "internal error", http.StatusInternalServerError)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package grpc
 
 import (
         "context"
@@ -1828,6 +2046,30 @@ func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersReq
         }</span>
 
         <span class="cov0" title="0">return &amp;chatv1.ListMembersResponse{UserIds: userIDs, Members: memberInfos}, nil</span>
+}
+
+func (s *ChatServer) ListChatMembers(ctx context.Context, req *chatv1.ListChatMembersRequest) (*chatv1.ListChatMembersResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">members, chat, err := s.chat.ListMembersForUser(ctx, req.GetChatId(), requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">memberInfos := make([]*chatv1.ChatMemberInfo, 0, len(members))
+        for _, m := range members </span><span class="cov0" title="0">{
+                memberInfos = append(memberInfos, &amp;chatv1.ChatMemberInfo{UserId: m.UserID, Role: string(m.Role)})
+        }</span>
+
+        <span class="cov0" title="0">createdBy := ""
+        if chat.CreatedBy != nil </span><span class="cov0" title="0">{
+                createdBy = *chat.CreatedBy
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.ListChatMembersResponse{Members: memberInfos, CreatedBy: createdBy}, nil</span>
 }
 
 func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageRequest) (*chatv1.GetMessageResponse, error) <span class="cov0" title="0">{
@@ -2052,7 +2294,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file10" style="display: none">package grpc
+		<pre class="file" id="file11" style="display: none">package grpc
 
 import (
         "context"

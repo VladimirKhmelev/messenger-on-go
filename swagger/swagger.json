@@ -546,6 +546,34 @@
       }
     },
     "/v1/chats/{chatId}/members": {
+      "get": {
+        "operationId": "ChatService_ListChatMembers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListChatMembersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      },
       "post": {
         "operationId": "ChatService_AddMember",
         "responses": {
@@ -1292,6 +1320,17 @@
     "v1ChangePasswordResponse": {
       "type": "object"
     },
+    "v1ChatMemberInfo": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    },
     "v1ChatSummary": {
       "type": "object",
       "properties": {
@@ -1494,6 +1533,21 @@
             "type": "object",
             "$ref": "#/definitions/v1MemberChatKey"
           }
+        }
+      }
+    },
+    "v1ListChatMembersResponse": {
+      "type": "object",
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ChatMemberInfo"
+          }
+        },
+        "createdBy": {
+          "type": "string"
         }
       }
     },
