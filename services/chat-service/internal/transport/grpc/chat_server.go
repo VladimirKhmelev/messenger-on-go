@@ -201,6 +201,30 @@ func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersReq
 	return &chatv1.ListMembersResponse{UserIds: userIDs, Members: memberInfos}, nil
 }
 
+func (s *ChatServer) ListChatMembers(ctx context.Context, req *chatv1.ListChatMembersRequest) (*chatv1.ListChatMembersResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	members, chat, err := s.chat.ListMembersForUser(ctx, req.GetChatId(), requesterID)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	memberInfos := make([]*chatv1.ChatMemberInfo, 0, len(members))
+	for _, m := range members {
+		memberInfos = append(memberInfos, &chatv1.ChatMemberInfo{UserId: m.UserID, Role: string(m.Role)})
+	}
+
+	createdBy := ""
+	if chat.CreatedBy != nil {
+		createdBy = *chat.CreatedBy
+	}
+
+	return &chatv1.ListChatMembersResponse{Members: memberInfos, CreatedBy: createdBy}, nil
+}
+
 func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageRequest) (*chatv1.GetMessageResponse, error) {
 	message, err := s.chat.GetMessage(ctx, req.GetMessageId())
 	if err != nil {
