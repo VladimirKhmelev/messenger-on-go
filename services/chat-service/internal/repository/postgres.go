@@ -362,3 +362,28 @@ func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, message
 	)
 	return err
 }
+
+func (r *PostgresChatRepository) UpsertChatAvatar(ctx context.Context, avatar *domain.ChatAvatar) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO chat_avatars (chat_id, data, content_type, updated_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (chat_id) DO UPDATE SET data = $2, content_type = $3, updated_at = $4`,
+		avatar.ChatID, avatar.Data, avatar.ContentType, avatar.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresChatRepository) GetChatAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) {
+	var avatar domain.ChatAvatar
+	err := r.conn.GetContext(ctx, &avatar, `
+		SELECT chat_id, data, content_type, updated_at FROM chat_avatars WHERE chat_id = $1`,
+		chatID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrGroupAvatarNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &avatar, nil
+}
