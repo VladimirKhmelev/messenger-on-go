@@ -55,13 +55,18 @@ services:
       retries: 5
 
   nats:
-    image: nats:2.10
+    image: nats:2.10-alpine
     restart: unless-stopped
-    command: ["-js", "-sd", "/data"]
+    command: ["-js", "-sd", "/data", "-m", "8222"]
     volumes:
       - nats-data:/data
     ports:
       - "4222:4222"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -69,6 +74,11 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   jaeger:
     image: jaegertracing/all-in-one:latest
@@ -109,6 +119,8 @@ services:
       dockerfile: services/auth-service/Dockerfile
       network: host
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     ports:
       - "50051:50051"
       - "8082:8080"
@@ -148,6 +160,8 @@ services:
       dockerfile: services/chat-service/Dockerfile
       network: host
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     ports:
       - "50052:50051"
       - "8083:8080"
@@ -179,6 +193,8 @@ services:
       dockerfile: services/ws-gateway/Dockerfile
       network: host
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     ports:
       - "8080:8080"
     environment:
@@ -205,6 +221,8 @@ services:
       dockerfile: services/ws-gateway/Dockerfile
       network: host
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     ports:
       - "8081:8080"
     environment:
@@ -231,6 +249,8 @@ services:
       dockerfile: services/notification-worker/Dockerfile
       network: host
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     environment:
       GRPC_PORT: "50051"
       METRICS_PORT: "9090"
