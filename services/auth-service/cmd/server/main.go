@@ -115,6 +115,7 @@ func main() {
 	emailVerifyLimiter := cache.NewEmailVerifyRateLimiter(redisClient)
 	passwordResets := cache.NewPasswordResetStore(redisClient)
 	passwordChanges := cache.NewPasswordChangeTracker(redisClient)
+	refreshRevoked := cache.NewRefreshRevokedTracker(redisClient)
 	mailer := mail.NewSender(smtpAddr, smtpFrom, smtpDisplayName, smtpUsername, smtpPassword)
 	githubClient := oauth.NewGitHubClient(githubClientID, githubClientSecret)
 
@@ -124,7 +125,7 @@ func main() {
 	}
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher, passwordChanges)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher, passwordChanges, refreshRevoked)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

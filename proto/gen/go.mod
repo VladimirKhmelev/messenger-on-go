@@ -1,6 +1,6 @@
 module github.com/VladimirKhmelev/messenger-on-go/proto/gen
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0

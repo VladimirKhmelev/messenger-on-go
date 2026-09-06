@@ -1,6 +1,6 @@
 module github.com/VladimirKhmelev/messenger-on-go/services/chat-service
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil v0.0.0-00010101000000-000000000000

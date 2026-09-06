@@ -13,7 +13,7 @@ import (
 func TestAuthService_ChangePassword_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -82,7 +82,7 @@ func TestAuthService_ChangePassword_SameAsOld(t *testing.T) {
 func TestAuthService_ChangePassword_RateLimited(t *testing.T) {
 	repo := newFakeUserRepository()
 	limiter := &fakeRateLimiter{allow: true}
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -100,7 +100,7 @@ func TestAuthService_ChangePassword_RateLimited(t *testing.T) {
 func TestAuthService_ChangePassword_InvalidatesTokensIssuedBefore(t *testing.T) {
 	repo := newFakeUserRepository()
 	tracker := newFakePasswordChangeTracker()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), tracker)
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), tracker, newFakeRefreshRevokedTracker())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
