@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  GO_VERSION: "1.26.2"
+  GO_VERSION: "1.26.3"
 
 jobs:
   proto-lint:
@@ -98,6 +98,12 @@ jobs:
           version: v2.12.2
           working-directory: services/${{ matrix.service }}
 
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+        continue-on-error: true
+
       - run: go build ./...
 
       - name: Run tests with coverage
@@ -143,6 +149,96 @@ jobs:
           version: v2.12.2
           working-directory: pkg/jwtutil
 
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+        continue-on-error: true
+
+      - run: go build ./...
+      - run: go test ./... -cover
+
+  pkg-metrics:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pkg/metrics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: pkg/metrics/go.sum
+
+      - name: Check gofmt
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt'ed:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Check go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+          working-directory: pkg/metrics
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+        continue-on-error: true
+
+      - run: go build ./...
+      - run: go test ./... -cover
+
+  pkg-tracing:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pkg/tracing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: pkg/tracing/go.sum
+
+      - name: Check gofmt
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt'ed:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Check go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+          working-directory: pkg/tracing
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+        continue-on-error: true
+
       - run: go build ./...
       - run: go test ./... -cover
 
@@ -167,5 +263,19 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/auth-service/go.sum
+      - name: Run integration tests
+        run: go test -tags=integration ./... -v
+
+  chat-service-integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/chat-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/chat-service/go.sum
       - name: Run integration tests
         run: go test -tags=integration ./... -v

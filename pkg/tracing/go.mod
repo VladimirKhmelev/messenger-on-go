@@ -1,6 +1,6 @@
 module github.com/VladimirKhmelev/messenger-on-go/pkg/tracing
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/nats-io/nats.go v1.52.0
