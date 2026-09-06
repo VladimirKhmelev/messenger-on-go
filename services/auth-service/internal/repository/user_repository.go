@@ -8,6 +8,7 @@ import (
 
 type UserRepository interface {
 	Create(ctx context.Context, user *domain.User) error
+	Delete(ctx context.Context, userID string) error
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByTag(ctx context.Context, tag string) (bool, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)

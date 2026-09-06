@@ -44,6 +44,11 @@ func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) 
 	return err
 }
 
+func (r *PostgresUserRepository) Delete(ctx context.Context, userID string) error {
+	_, err := r.conn.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
 func (r *PostgresUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	var exists bool
 	err := r.conn.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`, email)
