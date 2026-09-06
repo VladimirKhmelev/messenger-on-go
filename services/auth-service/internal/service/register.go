@@ -30,6 +30,11 @@ type PasswordChangeTracker interface {
 	ChangedAfter(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
 }
 
+type RefreshRevokedTracker interface {
+	MarkAllRevoked(ctx context.Context, userID string, ttl time.Duration) error
+	RevokedAfter(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
+}
+
 type EmailVerificationStore interface {
 	GenerateAndStore(ctx context.Context, email string) (string, error)
 	Verify(ctx context.Context, email, code string) (bool, error)
@@ -71,6 +76,7 @@ type AuthService struct {
 	github             GitHubOAuthClient
 	events             EventPublisher
 	passwordChanges    PasswordChangeTracker
+	refreshRevoked     RefreshRevokedTracker
 }
 
 func NewAuthService(
@@ -85,6 +91,7 @@ func NewAuthService(
 	github GitHubOAuthClient,
 	eventPublisher EventPublisher,
 	passwordChanges PasswordChangeTracker,
+	refreshRevoked RefreshRevokedTracker,
 ) *AuthService {
 	return &AuthService{
 		users:              users,
@@ -94,6 +101,7 @@ func NewAuthService(
 		emailCodes:         emailCodes,
 		emailVerifyLimiter: emailVerifyLimiter,
 		passwordChanges:    passwordChanges,
+		refreshRevoked:     refreshRevoked,
 		mailer:             mailer,
 		passwordResets:     passwordResets,
 		github:             github,
@@ -158,10 +166,12 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
 
 	code, err := s.emailCodes.GenerateAndStore(ctx, email)
 	if err != nil {
+		s.rollbackRegistration(ctx, user.ID)
 		return nil, err
 	}
 
 	if err := s.mailer.SendVerificationCode(email, code); err != nil {
+		s.rollbackRegistration(ctx, user.ID)
 		return nil, err
 	}
 
@@ -175,6 +185,12 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
 	}
 
 	return user, nil
+}
+
+func (s *AuthService) rollbackRegistration(ctx context.Context, userID string) {
+	if err := s.users.Delete(ctx, userID); err != nil {
+		log.Printf("auth-service: failed to roll back registration for %s after verification email failure: %v", userID, err)
+	}
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error {
