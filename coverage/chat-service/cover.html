@@ -75,7 +75,7 @@
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (0.0%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (34.0%)</option>
 				
 				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
@@ -1866,17 +1866,17 @@ type ChatServer struct {
         chat *service.ChatService
 }
 
-func NewChatServer(chat *service.ChatService) *ChatServer <span class="cov0" title="0">{
+func NewChatServer(chat *service.ChatService) *ChatServer <span class="cov8" title="1">{
         return &amp;ChatServer{chat: chat}
 }</span>
 
-func (s *ChatServer) Health(ctx context.Context, req *chatv1.HealthRequest) (*chatv1.HealthResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) Health(ctx context.Context, req *chatv1.HealthRequest) (*chatv1.HealthResponse, error) <span class="cov8" title="1">{
         return &amp;chatv1.HealthResponse{Ok: true}, nil
 }</span>
 
-func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatRequest) (*chatv1.CreateChatResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatRequest) (*chatv1.CreateChatResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1893,9 +1893,9 @@ func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatReque
         <span class="cov0" title="0">return &amp;chatv1.CreateChatResponse{ChatId: chat.ID}, nil</span>
 }
 
-func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGroupChatRequest) (*chatv1.CreateGroupChatResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGroupChatRequest) (*chatv1.CreateGroupChatResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1912,9 +1912,9 @@ func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGrou
         <span class="cov0" title="0">return &amp;chatv1.CreateGroupChatResponse{ChatId: chat.ID}, nil</span>
 }
 
-func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest) (*chatv1.AddMemberResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest) (*chatv1.AddMemberResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1930,9 +1930,9 @@ func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest
         <span class="cov0" title="0">return &amp;chatv1.AddMemberResponse{}, nil</span>
 }
 
-func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberRequest) (*chatv1.RemoveMemberResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberRequest) (*chatv1.RemoveMemberResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1943,9 +1943,9 @@ func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberR
         <span class="cov0" title="0">return &amp;chatv1.RemoveMemberResponse{}, nil</span>
 }
 
-func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRoleRequest) (*chatv1.SetMemberRoleResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRoleRequest) (*chatv1.SetMemberRoleResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1956,9 +1956,9 @@ func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRol
         <span class="cov0" title="0">return &amp;chatv1.SetMemberRoleResponse{}, nil</span>
 }
 
-func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest) (*chatv1.LeaveChatResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest) (*chatv1.LeaveChatResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1969,9 +1969,9 @@ func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest
         <span class="cov0" title="0">return &amp;chatv1.LeaveChatResponse{}, nil</span>
 }
 
-func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov8" title="1">{
         senderID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -1983,9 +1983,9 @@ func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageReq
         <span class="cov0" title="0">return &amp;chatv1.SendMessageResponse{MessageId: message.ID}, nil</span>
 }
 
-func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryRequest) (*chatv1.GetHistoryResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryRequest) (*chatv1.GetHistoryResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2002,9 +2002,9 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
         <span class="cov0" title="0">return &amp;chatv1.GetHistoryResponse{Messages: result}, nil</span>
 }
 
-func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest) (*chatv1.ListChatsResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest) (*chatv1.ListChatsResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2048,9 +2048,9 @@ func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersReq
         <span class="cov0" title="0">return &amp;chatv1.ListMembersResponse{UserIds: userIDs, Members: memberInfos}, nil</span>
 }
 
-func (s *ChatServer) ListChatMembers(ctx context.Context, req *chatv1.ListChatMembersRequest) (*chatv1.ListChatMembersResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) ListChatMembers(ctx context.Context, req *chatv1.ListChatMembersRequest) (*chatv1.ListChatMembersResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2081,9 +2081,9 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
         <span class="cov0" title="0">return &amp;chatv1.GetMessageResponse{Message: toProtoMessage(message)}, nil</span>
 }
 
-func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageRequest) (*chatv1.EditMessageResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageRequest) (*chatv1.EditMessageResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2095,9 +2095,9 @@ func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageReq
         <span class="cov0" title="0">return &amp;chatv1.EditMessageResponse{Message: toProtoMessage(message)}, nil</span>
 }
 
-func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.DeleteMessageForAllRequest) (*chatv1.DeleteMessageForAllResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.DeleteMessageForAllRequest) (*chatv1.DeleteMessageForAllResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2108,9 +2108,9 @@ func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.Delete
         <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForAllResponse{}, nil</span>
 }
 
-func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteMessageForMeRequest) (*chatv1.DeleteMessageForMeResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteMessageForMeRequest) (*chatv1.DeleteMessageForMeResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2121,9 +2121,9 @@ func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteM
         <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForMeResponse{}, nil</span>
 }
 
-func (s *ChatServer) MarkRead(ctx context.Context, req *chatv1.MarkReadRequest) (*chatv1.MarkReadResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) MarkRead(ctx context.Context, req *chatv1.MarkReadRequest) (*chatv1.MarkReadResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2143,9 +2143,9 @@ func (s *ChatServer) GetReadStatus(ctx context.Context, req *chatv1.GetReadStatu
         <span class="cov0" title="0">return &amp;chatv1.GetReadStatusResponse{LastReadMessageId: lastReadMessageID}, nil</span>
 }
 
-func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyRequest) (*chatv1.GetChatKeyResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyRequest) (*chatv1.GetChatKeyResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2157,9 +2157,9 @@ func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyReque
         <span class="cov0" title="0">return &amp;chatv1.GetChatKeyResponse{EncryptedChatKey: encryptedChatKey}, nil</span>
 }
 
-func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysRequest) (*chatv1.ListChatKeysResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysRequest) (*chatv1.ListChatKeysResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2180,9 +2180,9 @@ func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysR
         <span class="cov0" title="0">return &amp;chatv1.ListChatKeysResponse{MemberKeys: memberKeys}, nil</span>
 }
 
-func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKeyRequest) (*chatv1.UpdateChatKeyResponse, error) <span class="cov0" title="0">{
+func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKeyRequest) (*chatv1.UpdateChatKeyResponse, error) <span class="cov8" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2193,7 +2193,7 @@ func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKe
         <span class="cov0" title="0">return &amp;chatv1.UpdateChatKeyResponse{}, nil</span>
 }
 
-func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov0" title="0">{
+func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov8" title="1">{
         result := &amp;chatv1.Message{
                 MessageId:     m.ID,
                 SenderUserId:  m.SenderID,
@@ -2204,7 +2204,7 @@ func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov0" title=
         if m.EditedAt != nil </span><span class="cov0" title="0">{
                 result.EditedAtUnix = m.EditedAt.Unix()
         }</span>
-        <span class="cov0" title="0">return result</span>
+        <span class="cov8" title="1">return result</span>
 }
 
 func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceRequest) (*chatv1.GetPresenceResponse, error) <span class="cov0" title="0">{
@@ -2258,7 +2258,7 @@ func (s *ChatServer) GetTyping(ctx context.Context, req *chatv1.GetTypingRequest
         <span class="cov0" title="0">return &amp;chatv1.GetTypingResponse{Typing: typing}, nil</span>
 }
 
-func toGRPCError(err error) error <span class="cov0" title="0">{
+func toGRPCError(err error) error <span class="cov8" title="1">{
         switch </span>{
         case errors.Is(err, domain.ErrCannotChatWithSelf),
                 errors.Is(err, domain.ErrEmptyMessage),
@@ -2269,25 +2269,25 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 errors.Is(err, domain.ErrGroupNameRequired),
                 errors.Is(err, domain.ErrAlreadyMember),
                 errors.Is(err, domain.ErrNotGroupChat),
-                errors.Is(err, domain.ErrInvalidRole):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrInvalidRole):<span class="cov8" title="1">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrTargetUserNotFound),
                 errors.Is(err, domain.ErrChatNotFound),
-                errors.Is(err, domain.ErrMessageNotFound):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrMessageNotFound):<span class="cov8" title="1">
                 return status.Error(codes.NotFound, err.Error())</span>
         case errors.Is(err, domain.ErrNotChatMember),
                 errors.Is(err, domain.ErrNotMessageSender),
                 errors.Is(err, domain.ErrNotChatAdmin),
                 errors.Is(err, domain.ErrCannotRemoveCreator),
-                errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins):<span class="cov8" title="1">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
-        case errors.Is(err, domain.ErrMessageDeleted):<span class="cov0" title="0">
+        case errors.Is(err, domain.ErrMessageDeleted):<span class="cov8" title="1">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
-        case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov0" title="0">
+        case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov8" title="1">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
-        case errors.Is(err, domain.ErrTooManyMessages):<span class="cov0" title="0">
+        case errors.Is(err, domain.ErrTooManyMessages):<span class="cov8" title="1">
                 return status.Error(codes.ResourceExhausted, err.Error())</span>
-        default:<span class="cov0" title="0">
+        default:<span class="cov8" title="1">
                 log.Printf("chat-service: internal error: %v", err)
                 return status.Error(codes.Internal, "internal error")</span>
         }
