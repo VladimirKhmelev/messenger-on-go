@@ -131,6 +131,7 @@ function renderChatRow(chat) {
       ${renderAvatar(avatarId, avatarTag, name, {
         extraHtml: isGroup ? '' : `<div class="avatar-dot" style="background:${dotColor}"></div>`,
         src: isGroup ? groupAvatarUrl(chat.id) : avatarUrl(chat.peer.id),
+        deleted: !isGroup && !!chat.peer.deleted,
       })}
       <div class="chat-row-body">
         <div class="chat-row-line1">

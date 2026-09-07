@@ -13,6 +13,7 @@ type User struct {
 	PublicKey         string    `db:"public_key"`
 	WrappedPrivateKey string    `db:"wrapped_private_key"`
 	KeyWrapSalt       string    `db:"key_wrap_salt"`
+	Deleted           bool      `db:"deleted"`
 }
 
 type Avatar struct {

@@ -120,6 +120,14 @@ service AuthService {
     };
   }
 
+  rpc DeleteAccount(DeleteAccountRequest)
+      returns (DeleteAccountResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/me/delete"
+      body: "*"
+    };
+  }
+
   rpc GetPublicKey(GetPublicKeyRequest) returns (GetPublicKeyResponse) {
     option (google.api.http) = {
       get: "/v1/users/{user_id}/public-key"
@@ -175,6 +183,7 @@ message GetUserByTagResponse {
   string tag = 3;
   string display_name = 4;
   string public_key = 5;
+  bool deleted = 6;
 }
 
 message GetUserByIDRequest {
@@ -187,6 +196,7 @@ message GetUserByIDResponse {
   string tag = 3;
   string display_name = 4;
   string public_key = 5;
+  bool deleted = 6;
 }
 
 message SearchUsersRequest {
@@ -202,6 +212,7 @@ message UserSummary {
   string email = 2;
   string tag = 3;
   string display_name = 4;
+  bool deleted = 5;
 }
 
 message RefreshTokenRequest {
@@ -295,6 +306,13 @@ message ChangePasswordRequest {
 }
 
 message ChangePasswordResponse {
+}
+
+message DeleteAccountRequest {
+  string password = 1;
+}
+
+message DeleteAccountResponse {
 }
 
 message GetPublicKeyRequest {

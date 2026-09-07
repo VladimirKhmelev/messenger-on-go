@@ -60,6 +60,7 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,
 		PublicKey:   user.PublicKey,
+		Deleted:     user.Deleted,
 	}, nil
 }
 
@@ -75,6 +76,7 @@ func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDReq
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,
 		PublicKey:   user.PublicKey,
+		Deleted:     user.Deleted,
 	}, nil
 }
 
@@ -91,6 +93,7 @@ func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersReq
 			Email:       user.Email,
 			Tag:         user.Tag,
 			DisplayName: user.DisplayName,
+			Deleted:     user.Deleted,
 		})
 	}
 
@@ -222,6 +225,19 @@ func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePassw
 	}
 
 	return &authv1.ChangePasswordResponse{}, nil
+}
+
+func (s *AuthServer) DeleteAccount(ctx context.Context, req *authv1.DeleteAccountRequest) (*authv1.DeleteAccountResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.auth.DeleteAccount(ctx, userID, req.GetPassword()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.DeleteAccountResponse{}, nil
 }
 
 func (s *AuthServer) GetPublicKey(ctx context.Context, req *authv1.GetPublicKeyRequest) (*authv1.GetPublicKeyResponse, error) {

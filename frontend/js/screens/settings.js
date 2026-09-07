@@ -78,6 +78,33 @@ export function renderSettings(root, handlers) {
         <button class="btn-primary" data-action="save-password" ${state.settingsPasswordBusy ? 'disabled' : ''}>
           Сменить пароль
         </button>
+
+        <div class="settings-danger-zone">
+          <div class="settings-danger-title">Опасная зона</div>
+          ${
+            state.settingsDeleteAccountConfirming
+              ? `
+                <div class="settings-danger-warning">
+                  Аккаунт нельзя будет восстановить. Тег и email освободятся — их сможет занять
+                  кто угодно, включая вас при повторной регистрации.
+                </div>
+                <div class="field">
+                  <label>Пароль</label>
+                  <input type="password" data-input="delete-account-password" autocomplete="current-password" placeholder="Оставьте пустым, если вход только через GitHub" />
+                </div>
+                <div class="form-error">${state.settingsDeleteAccountError || ''}</div>
+                <div class="settings-danger-actions">
+                  <button class="btn-secondary" data-action="cancel-delete-account" ${state.settingsDeleteAccountBusy ? 'disabled' : ''}>
+                    Отмена
+                  </button>
+                  <button class="btn-danger" data-action="confirm-delete-account" ${state.settingsDeleteAccountBusy ? 'disabled' : ''}>
+                    Удалить аккаунт навсегда
+                  </button>
+                </div>
+              `
+              : `<button class="btn-danger" data-action="start-delete-account">Удалить аккаунт</button>`
+          }
+        </div>
       </div>
     </div>
   `;
@@ -140,6 +167,17 @@ export function renderSettings(root, handlers) {
     const newPassword = root.querySelector('[data-input="settings-new-password"]').value;
     const confirmPassword = root.querySelector('[data-input="settings-new-password-confirm"]').value;
     handlers.onChangePassword(oldPassword, newPassword, confirmPassword);
+  });
+
+  root.querySelector('[data-action="start-delete-account"]')?.addEventListener('click', () => {
+    handlers.onStartDeleteAccount();
+  });
+  root.querySelector('[data-action="cancel-delete-account"]')?.addEventListener('click', () => {
+    handlers.onCancelDeleteAccount();
+  });
+  root.querySelector('[data-action="confirm-delete-account"]')?.addEventListener('click', () => {
+    const password = root.querySelector('[data-input="delete-account-password"]')?.value ?? '';
+    handlers.onConfirmDeleteAccount(password);
   });
 }
 

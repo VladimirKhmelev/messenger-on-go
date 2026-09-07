@@ -983,6 +983,38 @@
         ]
       }
     },
+    "/v1/users/me/delete": {
+      "post": {
+        "operationId": "AuthService_DeleteAccount",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeleteAccountResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1DeleteAccountRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
     "/v1/users/me/display-name": {
       "patch": {
         "operationId": "AuthService_UpdateDisplayName",
@@ -1428,6 +1460,17 @@
         }
       }
     },
+    "v1DeleteAccountRequest": {
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "string"
+        }
+      }
+    },
+    "v1DeleteAccountResponse": {
+      "type": "object"
+    },
     "v1DeleteMessageForAllResponse": {
       "type": "object"
     },
@@ -1487,6 +1530,9 @@
         },
         "publicKey": {
           "type": "string"
+        },
+        "deleted": {
+          "type": "boolean"
         }
       }
     },
@@ -1507,6 +1553,9 @@
         },
         "publicKey": {
           "type": "string"
+        },
+        "deleted": {
+          "type": "boolean"
         }
       }
     },
@@ -1831,6 +1880,9 @@
         },
         "displayName": {
           "type": "string"
+        },
+        "deleted": {
+          "type": "boolean"
         }
       }
     },

@@ -172,6 +172,26 @@ a:hover { color: var(--accent); }
   border: 1px solid var(--border-soft); background: transparent;
   color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer;
 }
+.btn-danger {
+  width: 100%; padding: 12px; border-radius: 12px; border: none;
+  background: oklch(55% 0.18 25); color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-danger:disabled { opacity: 0.6; cursor: default; }
+
+.settings-danger-zone {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border-soft);
+}
+.settings-danger-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: oklch(55% 0.18 25); margin-bottom: 10px;
+}
+.settings-danger-warning {
+  font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;
+}
+.settings-danger-actions { display: flex; gap: 8px; margin-top: 8px; }
+.settings-danger-actions .btn-secondary,
+.settings-danger-actions .btn-danger { margin-top: 0; }
 
 .divider { display: flex; align-items: center; gap: 10px; margin: 24px 0; }
 .divider .line { flex: 1; height: 1px; background: var(--border); }
@@ -260,6 +280,7 @@ a:hover { color: var(--accent); }
 .avatar--sm { width: 36px; height: 36px; font-size: 12px; }
 .avatar--xs { width: 24px; height: 24px; font-size: 10px; }
 .avatar--lg { width: 72px; height: 72px; font-size: 22px; }
+.avatar--deleted { background: var(--text-muted-3); color: var(--bg-page); }
 .avatar-dot {
   position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px;
   border-radius: 50%; border: 2px solid var(--bg-sidebar);

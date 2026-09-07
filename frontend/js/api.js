@@ -155,6 +155,9 @@ export const authApi = {
       body: { oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt },
     }),
 
+  deleteAccount: (password) =>
+    request('/v1/users/me/delete', { method: 'POST', body: { password } }),
+
   getPublicKey: (userId) => request(`/v1/users/${encodeURIComponent(userId)}/public-key`),
 
   getWrappedPrivateKey: () => request('/v1/users/me/wrapped-private-key'),

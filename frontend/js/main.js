@@ -8,6 +8,7 @@ import {
   setAccessToken,
   currentUserIdFromToken,
   translateApiError,
+  ApiError,
 } from './api.js';
 import { WsClient } from './ws.js';
 import { bumpAvatarCacheVersion } from './avatar.js';
@@ -177,6 +178,9 @@ function wireZones() {
         onSaveDisplayName: handleSaveDisplayName,
         onChangePassword: handleChangePassword,
         onUploadAvatar: handleUploadAvatar,
+        onStartDeleteAccount: handleStartDeleteAccount,
+        onCancelDeleteAccount: handleCancelDeleteAccount,
+        onConfirmDeleteAccount: handleConfirmDeleteAccount,
       })
     );
   }
@@ -542,9 +546,10 @@ async function resolvePeer(userId) {
       email: user?.email ?? null,
       tag: user?.tag ?? userId,
       displayName: user?.displayName || user?.tag || userId,
+      deleted: !!user?.deleted,
     };
   } catch {
-    return { id: userId, email: null, tag: userId, displayName: userId };
+    return { id: userId, email: null, tag: userId, displayName: userId, deleted: false };
   }
 }
 
@@ -1254,6 +1259,8 @@ function handleOpenSettings() {
   state.settingsError = '';
   state.settingsPasswordError = '';
   state.settingsPasswordSuccess = '';
+  state.settingsDeleteAccountConfirming = false;
+  state.settingsDeleteAccountError = '';
   state.tagCheck = null;
   notify('settings');
 }
@@ -1367,6 +1374,42 @@ async function handleUploadAvatar(file) {
     state.settingsAvatarBusy = false;
     notify('settings');
   }
+}
+
+function handleStartDeleteAccount() {
+  state.settingsDeleteAccountConfirming = true;
+  state.settingsDeleteAccountError = '';
+  notify('settings');
+}
+
+function handleCancelDeleteAccount() {
+  state.settingsDeleteAccountConfirming = false;
+  state.settingsDeleteAccountError = '';
+  notify('settings');
+}
+
+async function handleConfirmDeleteAccount(password) {
+  state.settingsDeleteAccountError = '';
+  state.settingsDeleteAccountBusy = true;
+  notify('settings');
+
+  try {
+    await authApi.deleteAccount(password);
+  } catch (err) {
+    // translateApiError's generic "email or password" wording doesn't fit —
+    // this form only ever asks for a password.
+    state.settingsDeleteAccountError = err instanceof ApiError && err.status === 401
+      ? 'Неверный пароль'
+      : (translateApiError(err) ?? 'Не удалось удалить аккаунт');
+    state.settingsDeleteAccountBusy = false;
+    notify('settings');
+    return;
+  }
+
+  state.settingsDeleteAccountBusy = false;
+  state.settingsDeleteAccountConfirming = false;
+  state.settingsOpen = false;
+  await handleLogout();
 }
 
 function handleToastDismiss() {

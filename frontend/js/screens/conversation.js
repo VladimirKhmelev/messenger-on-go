@@ -57,6 +57,7 @@ export function renderConversation(root, handlers) {
             ${renderAvatar(avatarId, avatarTag, name, {
               sizeClass: 'avatar--md',
               src: isGroup ? groupAvatarUrl(chat.id) : avatarUrl(chat.peer.id),
+              deleted: !isGroup && !!chat.peer.deleted,
             })}
           </div>
           <div>
@@ -343,7 +344,7 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
       ? '<span class="message-sender-role">Админ</span>'
       : '';
   const senderAvatar = sender
-    ? `<div class="message-sender-avatar avatar--clickable" data-action="open-sender-profile" data-user-id="${escapeHtml(sender.id)}" data-user-name="${escapeHtml(senderName)}">${renderAvatar(sender.id, sender.tag, senderName, { sizeClass: 'avatar--sm' })}</div>`
+    ? `<div class="message-sender-avatar avatar--clickable" data-action="open-sender-profile" data-user-id="${escapeHtml(sender.id)}" data-user-name="${escapeHtml(senderName)}">${renderAvatar(sender.id, sender.tag, senderName, { sizeClass: 'avatar--sm', deleted: !!sender.deleted })}</div>`
     : '';
   const senderLabel = senderName
     ? `<div class="message-sender-name">${escapeHtml(senderName)}${senderRoleLabel}</div>`
