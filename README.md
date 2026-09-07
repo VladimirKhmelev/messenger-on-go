@@ -28,7 +28,7 @@ Real-time чат с E2E-шифрованием сообщений, реализ�
                          │ NATS JetStream / core pub-sub
                          ▼
               ┌────────────────────┐
-              │ notification-worker │
+              │ notification-worker│
               └────────────────────┘
 ```
 
