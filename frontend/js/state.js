@@ -48,6 +48,9 @@ export const state = {
   settingsPasswordBusy: false,
   settingsAvatarError: '',
   settingsAvatarBusy: false,
+  settingsDeleteAccountConfirming: false, // true while the "are you sure" confirmation form is open
+  settingsDeleteAccountError: '',
+  settingsDeleteAccountBusy: false,
 };
 
 const listeners = {

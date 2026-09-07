@@ -168,7 +168,7 @@ function renderMemberRow(member, { isCreator, isAdmin, myId, chatCreatedBy }) {
 
   return `
     <div class="chat-row group-member-row">
-      ${renderAvatar(member.id, member.tag, name)}
+      ${renderAvatar(member.id, member.tag, name, { deleted: !!member.deleted })}
       <div class="chat-row-body">
         <div class="chat-row-name">${escapeHtml(name)} ${badge}${meBadge}</div>
         <div class="chat-row-tag">@${escapeHtml(member.tag)}</div>

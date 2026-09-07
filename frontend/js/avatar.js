@@ -30,9 +30,20 @@ export function groupAvatarUrl(chatId) {
 // lets callers inject sibling content (e.g. a presence dot) inside the circle.
 // `avatarFor`/`src` default to the per-user avatar endpoint but can be
 // overridden (e.g. groupAvatarUrl) to render a group chat's photo instead.
-export function renderAvatar(userId, seed, name, { sizeClass = '', extraHtml = '', avatarFor = userId, src = avatarUrl(userId) } = {}) {
-  const palette = avatarPalette(seed);
+// `deleted` short-circuits all of that — a deleted account never has a real
+// photo (the server wipes it on deletion), so there's no point in an <img>
+// request at all; render a plain grey skull instead.
+export function renderAvatar(userId, seed, name, { sizeClass = '', extraHtml = '', avatarFor = userId, src = avatarUrl(userId), deleted = false } = {}) {
   const classes = `avatar ${sizeClass}`.trim();
+  if (deleted) {
+    return `
+      <div class="${classes} avatar--deleted" data-avatar-for="${escapeAttr(avatarFor)}">
+        <span class="avatar-fallback">💀</span>${extraHtml}
+      </div>
+    `;
+  }
+
+  const palette = avatarPalette(seed);
   return `
     <div class="${classes}" style="background:${palette.bg};color:${palette.text}" data-avatar-for="${escapeAttr(
       avatarFor
