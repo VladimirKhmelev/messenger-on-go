@@ -386,6 +386,34 @@ func (r *fakeUserRepository) DeleteAvatar(_ context.Context, userID string) erro
 	return nil
 }
 
+func (r *fakeUserRepository) Anonymize(_ context.Context, userID, anonymizedEmail, anonymizedTag, anonymizedDisplayName string) error {
+	for email, u := range r.users {
+		if u.ID != userID {
+			continue
+		}
+		delete(r.users, email)
+		delete(r.usersByTag, u.Tag)
+		delete(r.byEmail, email)
+		delete(r.byTag, u.Tag)
+
+		u.Email = anonymizedEmail
+		u.Tag = anonymizedTag
+		u.DisplayName = anonymizedDisplayName
+		u.PasswordHash = ""
+		u.PublicKey = ""
+		u.WrappedPrivateKey = ""
+		u.KeyWrapSalt = ""
+		u.Deleted = true
+
+		r.users[anonymizedEmail] = u
+		r.usersByTag[anonymizedTag] = u
+		r.byEmail[anonymizedEmail] = true
+		r.byTag[anonymizedTag] = true
+		return nil
+	}
+	return domain.ErrUserNotFound
+}
+
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	svc := newTestAuthService(repo)
