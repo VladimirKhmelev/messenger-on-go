@@ -4,6 +4,7 @@
 [![Live](https://img.shields.io/badge/live-wisply.site-blue)](https://wisply.site)
 [![Swagger](https://img.shields.io/badge/API-Swagger-85EA2D)](https://vladimirkhmelev.github.io/messenger-on-go/swagger/)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Real-time чат с E2E-шифрованием сообщений, реализованный как monorepo из 4
 независимых микросервисов
