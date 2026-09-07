@@ -24,4 +24,5 @@ type UserRepository interface {
 	UpsertAvatar(ctx context.Context, avatar *domain.Avatar) error
 	GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error)
 	DeleteAvatar(ctx context.Context, userID string) error
+	Anonymize(ctx context.Context, userID, anonymizedEmail, anonymizedTag, anonymizedDisplayName string) error
 }
