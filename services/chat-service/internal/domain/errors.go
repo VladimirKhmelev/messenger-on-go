@@ -28,4 +28,5 @@ var (
 	ErrGroupAvatarNotFound        = errors.New("group avatar not found")
 	ErrInvalidGroupAvatarType     = errors.New("group avatar must be a JPEG, PNG, GIF, or WebP image")
 	ErrGroupAvatarTooLarge        = errors.New("group avatar must be smaller than 2MB")
+	ErrOnlyCreatorCanDeleteChat   = errors.New("only the group creator can delete the chat")
 )
