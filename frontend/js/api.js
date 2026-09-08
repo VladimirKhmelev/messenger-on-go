@@ -57,6 +57,7 @@ const ERROR_TRANSLATIONS = {
   'this operation is only valid for group chats': 'Действие доступно только в группах',
   'the group creator cannot be removed': 'Создателя группы нельзя удалить',
   'only the group creator can promote, demote, or remove an admin': 'Только создатель группы может управлять администраторами',
+  'only the group creator can delete the chat': 'Только создатель группы может её расформировать',
   'role must be admin or member': 'Некорректная роль',
   'group avatar not found': 'У группы нет фото',
   'group avatar must be a JPEG, PNG, GIF, or WebP image': 'Фото группы должно быть в формате JPEG, PNG, GIF или WebP',
@@ -207,6 +208,8 @@ export const chatApi = {
     }),
 
   leaveChat: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/leave`, { method: 'POST', body: {} }),
+
+  deleteGroupChat: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}`, { method: 'DELETE' }),
 
   listChatMembers: (chatId) => request(`/v1/chats/${encodeURIComponent(chatId)}/members`),
 

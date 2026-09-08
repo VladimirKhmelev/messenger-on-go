@@ -12,6 +12,7 @@ export class WsClient {
     onProfileUpdated,
     onReadStatus,
     onTypingChanged,
+    onChatDeleted,
     onError,
     onReconnected,
     refreshAccessToken,
@@ -27,6 +28,7 @@ export class WsClient {
     this.onProfileUpdated = onProfileUpdated;
     this.onReadStatus = onReadStatus;
     this.onTypingChanged = onTypingChanged;
+    this.onChatDeleted = onChatDeleted;
     this.onError = onError;
     this.onReconnected = onReconnected;
     this.refreshAccessToken = refreshAccessToken;
@@ -154,6 +156,9 @@ export class WsClient {
         break;
       case 'typing_changed':
         this.onTypingChanged?.({ chatId: msg.chat_id, peerUserId: msg.peer_user_id });
+        break;
+      case 'chat_deleted':
+        this.onChatDeleted?.({ chatId: msg.chat_id });
         break;
       case 'token_expired':
         this._refreshTokenNow = true;

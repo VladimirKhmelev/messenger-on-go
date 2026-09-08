@@ -70,6 +70,30 @@ export function renderGroupMembers(root, handlers) {
               </button>`
             : ''
         }
+
+        ${
+          isCreator
+            ? state.groupMembersDeleteConfirming
+              ? `
+                <div class="settings-danger-zone">
+                  <div class="settings-danger-warning">
+                    Группа будет удалена безвозвратно — все сообщения и участники пропадут для всех.
+                  </div>
+                  <div class="settings-danger-actions">
+                    <button class="btn-secondary" data-action="cancel-delete-chat" ${state.groupMembersBusy ? 'disabled' : ''}>
+                      Отмена
+                    </button>
+                    <button class="btn-danger" data-action="confirm-delete-chat" ${state.groupMembersBusy ? 'disabled' : ''}>
+                      Расформировать
+                    </button>
+                  </div>
+                </div>
+              `
+              : `<div class="settings-danger-zone">
+                  <button class="btn-danger" data-action="start-delete-chat">Расформировать группу</button>
+                </div>`
+            : ''
+        }
       </div>
     </div>
   `;
@@ -106,6 +130,16 @@ export function renderGroupMembers(root, handlers) {
 
   root.querySelector('[data-action="leave"]')?.addEventListener('click', () => {
     handlers.onLeave();
+  });
+
+  root.querySelector('[data-action="start-delete-chat"]')?.addEventListener('click', () => {
+    handlers.onStartDeleteChat();
+  });
+  root.querySelector('[data-action="cancel-delete-chat"]')?.addEventListener('click', () => {
+    handlers.onCancelDeleteChat();
+  });
+  root.querySelector('[data-action="confirm-delete-chat"]')?.addEventListener('click', () => {
+    handlers.onConfirmDeleteChat();
   });
 
   const searchInput = root.querySelector('[data-input="add-member-search"]');
