@@ -14,6 +14,7 @@ proto:
 
 up:
 	docker-compose up -d --build
+	docker-compose restart nginx
 
 down:
 	docker-compose down
