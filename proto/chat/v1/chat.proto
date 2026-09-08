@@ -56,6 +56,13 @@ service ChatService {
     };
   }
 
+  rpc DeleteGroupChat(DeleteGroupChatRequest)
+      returns (DeleteGroupChatResponse) {
+    option (google.api.http) = {
+      delete: "/v1/chats/{chat_id}"
+    };
+  }
+
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
     option (google.api.http) = {
       post: "/v1/chats/{chat_id}/messages"
@@ -201,6 +208,13 @@ message LeaveChatRequest {
 }
 
 message LeaveChatResponse {
+}
+
+message DeleteGroupChatRequest {
+  string chat_id = 1;
+}
+
+message DeleteGroupChatResponse {
 }
 
 message SendMessageRequest {
