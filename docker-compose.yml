@@ -83,6 +83,10 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     restart: unless-stopped
+    # На проде за 12 дней разрослось до 2 Гб, вынудив хост использовать swap
+    # Лимит в 512 мб обеспечивает запас в несколько дней.
+    mem_limit: 512m
+    cpus: 0.5
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
@@ -91,6 +95,8 @@ services:
   victoriametrics:
     image: victoriametrics/victoria-metrics:v1.125.0
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - vmdata:/storage
       - ./metrics/promscrape.yml:/etc/promscrape.yml:ro
@@ -104,6 +110,8 @@ services:
   grafana:
     image: grafana/grafana:12.2.0
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
     depends_on:
       - victoriametrics
     volumes:
