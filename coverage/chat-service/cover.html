@@ -71,11 +71,11 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (30.2%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (32.4%)</option>
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (34.0%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (33.0%)</option>
 				
 				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
@@ -466,6 +466,7 @@ const (
         SubjectMessageUpdated = "msg.updated"
         SubjectMessageDeleted = "msg.deleted"
         SubjectMessageRead    = "msg.read"
+        SubjectChatDeleted    = "chat.deleted"
 )
 
 type MessageCreated struct {
@@ -490,6 +491,12 @@ type MessageRead struct {
         ReadAt    time.Time `json:"read_at"`
 }
 
+type ChatDeleted struct {
+        ChatID        string    `json:"chat_id"`
+        MemberUserIDs []string  `json:"member_user_ids"`
+        DeletedAt     time.Time `json:"deleted_at"`
+}
+
 type Publisher struct {
         js jetstream.JetStream
 }
@@ -507,7 +514,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) <span class="c
 
         <span class="cov0" title="0">_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
                 Name:     StreamName,
-                Subjects: []string{"msg.*"},
+                Subjects: []string{"msg.*", "chat.*"},
         })
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -543,6 +550,14 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) e
                 return err
         }</span>
         <span class="cov0" title="0">return p.publish(ctx, SubjectMessageRead, payload)</span>
+}
+
+func (p *Publisher) PublishChatDeleted(ctx context.Context, event ChatDeleted) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return p.publish(ctx, SubjectChatDeleted, payload)</span>
 }
 
 func (p *Publisher) publish(ctx context.Context, subject string, payload []byte) error <span class="cov0" title="0">{
@@ -670,6 +685,11 @@ func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*d
         }</span>
         <span class="cov0" title="0">return &amp;chat, nil</span>
 }
+
+func (r *PostgresChatRepository) DeleteChat(ctx context.Context, chatID string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `DELETE FROM chats WHERE id = $1`, chatID)
+        return err
+}</span>
 
 func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) <span class="cov0" title="0">{
         var chat domain.Chat
@@ -1014,6 +1034,7 @@ type EventPublisher interface {
         PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
         PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
         PublishMessageRead(ctx context.Context, event events.MessageRead) error
+        PublishChatDeleted(ctx context.Context, event events.ChatDeleted) error
 }
 
 type PresenceChecker interface {
@@ -1271,7 +1292,43 @@ func (s *ChatService) LeaveChat(ctx context.Context, chatID, requesterID string)
         <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, requesterID)</span>
 }
 
-func isCreator(chat *domain.Chat, userID string) bool <span class="cov0" title="0">{
+func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID string) error <span class="cov8" title="1">{
+        chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
+        }</span>
+        <span class="cov8" title="1">if !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
+                return domain.ErrOnlyCreatorCanDeleteChat
+        }</span>
+
+        <span class="cov8" title="1">members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">memberUserIDs := make([]string, 0, len(members))
+        for _, m := range members </span><span class="cov8" title="1">{
+                memberUserIDs = append(memberUserIDs, m.UserID)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.chats.DeleteChat(ctx, chatID); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">if err := s.events.PublishChatDeleted(ctx, events.ChatDeleted{
+                ChatID:        chatID,
+                MemberUserIDs: memberUserIDs,
+                DeletedAt:     time.Now(),
+        }); err != nil </span><span class="cov0" title="0">{
+                log.Printf("chat-service: failed to publish chat.deleted event for %s: %v", chatID, err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func isCreator(chat *domain.Chat, userID string) bool <span class="cov8" title="1">{
         return chat.CreatedBy != nil &amp;&amp; *chat.CreatedBy == userID
 }</span>
 
@@ -1969,6 +2026,19 @@ func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest
         <span class="cov0" title="0">return &amp;chatv1.LeaveChatResponse{}, nil</span>
 }
 
+func (s *ChatServer) DeleteGroupChat(ctx context.Context, req *chatv1.DeleteGroupChatRequest) (*chatv1.DeleteGroupChatResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.DeleteGroupChat(ctx, req.GetChatId(), requesterID); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.DeleteGroupChatResponse{}, nil</span>
+}
+
 func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov8" title="1">{
         senderID, ok := UserIDFromContext(ctx)
         if !ok </span><span class="cov8" title="1">{
@@ -2279,7 +2349,8 @@ func toGRPCError(err error) error <span class="cov8" title="1">{
                 errors.Is(err, domain.ErrNotMessageSender),
                 errors.Is(err, domain.ErrNotChatAdmin),
                 errors.Is(err, domain.ErrCannotRemoveCreator),
-                errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins),
+                errors.Is(err, domain.ErrOnlyCreatorCanDeleteChat):<span class="cov8" title="1">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
         case errors.Is(err, domain.ErrMessageDeleted):<span class="cov8" title="1">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>

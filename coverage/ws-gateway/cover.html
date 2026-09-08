@@ -61,7 +61,7 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (15.1%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (14.3%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (80.0%)</option>
 				
@@ -179,6 +179,7 @@ func main() <span class="cov0" title="0">{
                         OnPresenceChanged: fanout.HandlePresenceChanged,
                         OnProfileUpdated:  fanout.HandleProfileUpdated,
                         OnTypingChanged:   fanout.HandleTypingChanged,
+                        OnChatDeleted:     fanout.HandleChatDeleted,
                 }
                 if err := events.Consume(consumerCtx, natsURL, handlers); err != nil </span><span class="cov0" title="0">{
                         log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
@@ -436,11 +437,12 @@ import (
 )
 
 const (
-        chatStreamName   = "CHAT_EVENTS"
-        subjectMsg       = "msg.created"
-        subjectMsgEdit   = "msg.updated"
-        subjectMsgDelete = "msg.deleted"
-        subjectMsgRead   = "msg.read"
+        chatStreamName    = "CHAT_EVENTS"
+        subjectMsg        = "msg.created"
+        subjectMsgEdit    = "msg.updated"
+        subjectMsgDelete  = "msg.deleted"
+        subjectMsgRead    = "msg.read"
+        subjectChatDelete = "chat.deleted"
 
         notifyStreamName = "NOTIFY_EVENTS"
         subjectNotify    = "notify.push"
@@ -477,6 +479,12 @@ type MessageRead struct {
         ReadAt    time.Time `json:"read_at"`
 }
 
+type ChatDeleted struct {
+        ChatID        string    `json:"chat_id"`
+        MemberUserIDs []string  `json:"member_user_ids"`
+        DeletedAt     time.Time `json:"deleted_at"`
+}
+
 type NotifyPush struct {
         UserID    string    `json:"user_id"`
         ChatID    string    `json:"chat_id"`
@@ -509,6 +517,7 @@ type Handlers struct {
         OnPresenceChanged func(ctx context.Context, event PresenceChanged)
         OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
         OnTypingChanged   func(ctx context.Context, event TypingChanged)
+        OnChatDeleted     func(ctx context.Context, event ChatDeleted)
 }
 
 type PresencePublisher struct {
@@ -563,7 +572,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                 return err
         }</span>
 
-        <span class="cov0" title="0">errCh := make(chan error, 7)
+        <span class="cov0" title="0">errCh := make(chan error, 8)
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
@@ -595,6 +604,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
                                 return
                         }</span>
                         <span class="cov0" title="0">handlers.OnMessageRead(ctx, event)</span>
+                })
+        }()
+
+        <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
+                errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectChatDelete, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
+                        var event ChatDeleted
+                        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("ws-gateway: failed to unmarshal chat.deleted event: %v", err)
+                                return
+                        }</span>
+                        <span class="cov0" title="0">handlers.OnChatDeleted(ctx, event)</span>
                 })
         }()
 
@@ -857,6 +877,17 @@ func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingCha
                 }
                 <span class="cov0" title="0">f.registry.Broadcast(userID, payload)</span>
         }
+}
+
+func (f *Fanout) HandleChatDeleted(_ context.Context, event events.ChatDeleted) <span class="cov0" title="0">{
+        payload := serverMessage{
+                Type:   "chat_deleted",
+                ChatID: event.ChatID,
+        }
+
+        for _, userID := range event.MemberUserIDs </span><span class="cov0" title="0">{
+                f.registry.Broadcast(userID, payload)
+        }</span>
 }
 
 func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) <span class="cov0" title="0">{
