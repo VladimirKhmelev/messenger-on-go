@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	chatStreamName   = "CHAT_EVENTS"
-	subjectMsg       = "msg.created"
-	subjectMsgEdit   = "msg.updated"
-	subjectMsgDelete = "msg.deleted"
-	subjectMsgRead   = "msg.read"
+	chatStreamName    = "CHAT_EVENTS"
+	subjectMsg        = "msg.created"
+	subjectMsgEdit    = "msg.updated"
+	subjectMsgDelete  = "msg.deleted"
+	subjectMsgRead    = "msg.read"
+	subjectChatDelete = "chat.deleted"
 
 	notifyStreamName = "NOTIFY_EVENTS"
 	subjectNotify    = "notify.push"
@@ -54,6 +55,12 @@ type MessageRead struct {
 	ReadAt    time.Time `json:"read_at"`
 }
 
+type ChatDeleted struct {
+	ChatID        string    `json:"chat_id"`
+	MemberUserIDs []string  `json:"member_user_ids"`
+	DeletedAt     time.Time `json:"deleted_at"`
+}
+
 type NotifyPush struct {
 	UserID    string    `json:"user_id"`
 	ChatID    string    `json:"chat_id"`
@@ -86,6 +93,7 @@ type Handlers struct {
 	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
 	OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
 	OnTypingChanged   func(ctx context.Context, event TypingChanged)
+	OnChatDeleted     func(ctx context.Context, event ChatDeleted)
 }
 
 type PresencePublisher struct {
@@ -140,7 +148,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 		return err
 	}
 
-	errCh := make(chan error, 7)
+	errCh := make(chan error, 8)
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
@@ -172,6 +180,17 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 				return
 			}
 			handlers.OnMessageRead(ctx, event)
+		})
+	}()
+
+	go func() {
+		errCh <- consumeOne(ctx, js, chatStreamName, subjectChatDelete, func(ctx context.Context, data []byte) {
+			var event ChatDeleted
+			if err := json.Unmarshal(data, &event); err != nil {
+				log.Printf("ws-gateway: failed to unmarshal chat.deleted event: %v", err)
+				return
+			}
+			handlers.OnChatDeleted(ctx, event)
 		})
 	}()
 

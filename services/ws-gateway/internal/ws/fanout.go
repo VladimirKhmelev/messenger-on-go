@@ -147,6 +147,17 @@ func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingCha
 	}
 }
 
+func (f *Fanout) HandleChatDeleted(_ context.Context, event events.ChatDeleted) {
+	payload := serverMessage{
+		Type:   "chat_deleted",
+		ChatID: event.ChatID,
+	}
+
+	for _, userID := range event.MemberUserIDs {
+		f.registry.Broadcast(userID, payload)
+	}
+}
+
 func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) {
 	contacts, err := f.contacts.ListContacts(ctx, event.UserID)
 	if err != nil {
