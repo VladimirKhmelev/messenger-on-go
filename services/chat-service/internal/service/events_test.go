@@ -62,3 +62,7 @@ func (failingEventPublisher) PublishMessageUpdated(context.Context, events.Messa
 func (failingEventPublisher) PublishMessageRead(context.Context, events.MessageRead) error {
 	return errPublishFailed
 }
+
+func (failingEventPublisher) PublishChatDeleted(context.Context, events.ChatDeleted) error {
+	return errPublishFailed
+}

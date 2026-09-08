@@ -77,6 +77,11 @@ func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*d
 	return &chat, nil
 }
 
+func (r *PostgresChatRepository) DeleteChat(ctx context.Context, chatID string) error {
+	_, err := r.conn.ExecContext(ctx, `DELETE FROM chats WHERE id = $1`, chatID)
+	return err
+}
+
 func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) {
 	var chat domain.Chat
 	err := r.conn.GetContext(ctx, &chat, `

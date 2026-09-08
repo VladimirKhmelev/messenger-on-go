@@ -15,6 +15,7 @@ type MemberChatKey struct {
 type ChatRepository interface {
 	CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]MemberChatKey) error
 	GetChat(ctx context.Context, chatID string) (*domain.Chat, error)
+	DeleteChat(ctx context.Context, chatID string) error
 	FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error)
 	IsMember(ctx context.Context, chatID, userID string) (bool, error)
 	IsAdmin(ctx context.Context, chatID, userID string) (bool, error)

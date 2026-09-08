@@ -30,6 +30,7 @@ export const state = {
   groupMembersAddFoundUsers: [],
   groupMembersAvatarBusy: false,
   groupMembersAvatarError: '',
+  groupMembersDeleteConfirming: false, // true while the creator's "disband group" confirmation is open
   draft: '',
   editingMessageId: null, // set while a message's inline edit field is open
   focusDraftOnRender: false, // one-shot flag: focus the composer input on the next conversation render

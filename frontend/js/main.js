@@ -227,6 +227,9 @@ function wireZones() {
         onAddMemberSearchChange: handleGroupMembersAddSearchChange,
         onAddMember: handleAddGroupMember,
         onUploadGroupAvatar: handleUploadGroupAvatar,
+        onStartDeleteChat: handleStartDeleteChat,
+        onCancelDeleteChat: handleCancelDeleteChat,
+        onConfirmDeleteChat: handleConfirmDeleteChat,
         onOpenProfile: (userId, name) => {
           // The avatar preview overlay itself is rendered inside
           // conversation.js's markup (renderAvatarPreview), not this zone
@@ -879,6 +882,7 @@ function handleOpenGroupMembers() {
 
 function handleCloseGroupMembers() {
   state.groupMembersOpen = false;
+  state.groupMembersDeleteConfirming = false;
   notify('groupMembers');
 }
 
@@ -1045,6 +1049,47 @@ async function handleLeaveChat() {
   } catch (err) {
     console.error('failed to leave chat:', err);
     state.groupMembersError = translateApiError(err) ?? 'Не удалось покинуть группу';
+    state.groupMembersBusy = false;
+    notify('groupMembers');
+  }
+}
+
+function handleStartDeleteChat() {
+  state.groupMembersDeleteConfirming = true;
+  state.groupMembersError = '';
+  notify('groupMembers');
+}
+
+function handleCancelDeleteChat() {
+  state.groupMembersDeleteConfirming = false;
+  state.groupMembersError = '';
+  notify('groupMembers');
+}
+
+async function handleConfirmDeleteChat() {
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type !== 'group') return;
+
+  state.groupMembersBusy = true;
+  state.groupMembersError = '';
+  notify('groupMembers');
+
+  try {
+    await chatApi.deleteGroupChat(chat.id);
+    state.chats = state.chats.filter((c) => c.id !== chat.id);
+    state.groupMembersOpen = false;
+    state.groupMembersDeleteConfirming = false;
+    state.groupMembersBusy = false;
+    if (state.selectedChatId === chat.id) {
+      state.selectedChatId = null;
+      syncMobileViewAttr();
+    }
+    notify('sidebar');
+    notify('conversation');
+    notify('groupMembers');
+  } catch (err) {
+    console.error('failed to delete group chat:', err);
+    state.groupMembersError = translateApiError(err) ?? 'Не удалось расформировать группу';
     state.groupMembersBusy = false;
     notify('groupMembers');
   }
@@ -1582,6 +1627,18 @@ function connectWs() {
 
       notify('sidebar');
       if (chatId === state.selectedChatId) notify('conversation');
+    },
+    onChatDeleted: ({ chatId }) => {
+      const wasOpen = state.selectedChatId === chatId;
+      state.chats = state.chats.filter((c) => c.id !== chatId);
+      if (state.toast?.chatId === chatId) state.toast = null;
+      if (wasOpen) {
+        state.selectedChatId = null;
+        syncMobileViewAttr();
+      }
+      notify('sidebar');
+      if (wasOpen) notify('conversation');
+      notify('toast');
     },
     onError: ({ error }) => {
       console.error('ws-gateway error:', error);

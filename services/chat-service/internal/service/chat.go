@@ -29,6 +29,7 @@ type EventPublisher interface {
 	PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
 	PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
 	PublishMessageRead(ctx context.Context, event events.MessageRead) error
+	PublishChatDeleted(ctx context.Context, event events.ChatDeleted) error
 }
 
 type PresenceChecker interface {
@@ -284,6 +285,42 @@ func (s *ChatService) LeaveChat(ctx context.Context, chatID, requesterID string)
 	}
 
 	return s.chats.RemoveMember(ctx, chatID, requesterID)
+}
+
+func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID string) error {
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypeGroup {
+		return domain.ErrNotGroupChat
+	}
+	if !isCreator(chat, requesterID) {
+		return domain.ErrOnlyCreatorCanDeleteChat
+	}
+
+	members, err := s.chats.ListMembers(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	memberUserIDs := make([]string, 0, len(members))
+	for _, m := range members {
+		memberUserIDs = append(memberUserIDs, m.UserID)
+	}
+
+	if err := s.chats.DeleteChat(ctx, chatID); err != nil {
+		return err
+	}
+
+	if err := s.events.PublishChatDeleted(ctx, events.ChatDeleted{
+		ChatID:        chatID,
+		MemberUserIDs: memberUserIDs,
+		DeletedAt:     time.Now(),
+	}); err != nil {
+		log.Printf("chat-service: failed to publish chat.deleted event for %s: %v", chatID, err)
+	}
+
+	return nil
 }
 
 func isCreator(chat *domain.Chat, userID string) bool {

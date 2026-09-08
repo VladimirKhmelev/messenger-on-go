@@ -120,6 +120,15 @@ func (r *fakeChatRepository) GetChat(_ context.Context, chatID string) (*domain.
 	return chat, nil
 }
 
+func (r *fakeChatRepository) DeleteChat(_ context.Context, chatID string) error {
+	delete(r.chats, chatID)
+	delete(r.members, chatID)
+	delete(r.messages, chatID)
+	delete(r.events, chatID)
+	delete(r.avatars, chatID)
+	return nil
+}
+
 func (r *fakeChatRepository) FindPrivateChat(_ context.Context, userA, userB string) (*domain.Chat, error) {
 	for chatID, members := range r.members {
 		if len(members) != 2 || r.chats[chatID].ChatType == domain.ChatTypeGroup {
@@ -325,6 +334,7 @@ type fakeEventPublisher struct {
 	messageCreatedEvents []events.MessageCreated
 	messageUpdatedEvents []events.MessageUpdated
 	messageReadEvents    []events.MessageRead
+	chatDeletedEvents    []events.ChatDeleted
 }
 
 func newFakeEventPublisher() *fakeEventPublisher {
@@ -343,6 +353,11 @@ func (p *fakeEventPublisher) PublishMessageUpdated(_ context.Context, event even
 
 func (p *fakeEventPublisher) PublishMessageRead(_ context.Context, event events.MessageRead) error {
 	p.messageReadEvents = append(p.messageReadEvents, event)
+	return nil
+}
+
+func (p *fakeEventPublisher) PublishChatDeleted(_ context.Context, event events.ChatDeleted) error {
+	p.chatDeletedEvents = append(p.chatDeletedEvents, event)
 	return nil
 }
 
@@ -759,5 +774,45 @@ func TestChatService_UploadGroupAvatar_Success(t *testing.T) {
 	}
 	if avatar.ContentType != "image/png" {
 		t.Errorf("GetGroupAvatar() ContentType = %q, want image/png", avatar.ContentType)
+	}
+}
+
+func TestChatService_DeleteGroupChat_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := newFakeGroupChat(repo, "user-a", "user-b", "user-c")
+	publisher := newFakeEventPublisher()
+	svc := NewChatService(repo, newFakeAuthClient(), publisher, newFakePresenceChecker(), newFakeRateLimiter())
+
+	if err := svc.DeleteGroupChat(context.Background(), chat.ID, "user-a"); err != nil {
+		t.Fatalf("DeleteGroupChat() unexpected error: %v", err)
+	}
+
+	if _, err := repo.GetChat(context.Background(), chat.ID); !errors.Is(err, domain.ErrChatNotFound) {
+		t.Errorf("GetChat() after delete error = %v, want %v", err, domain.ErrChatNotFound)
+	}
+
+	members, err := repo.ListMembers(context.Background(), chat.ID)
+	if err != nil {
+		t.Fatalf("ListMembers() unexpected error: %v", err)
+	}
+	if len(members) != 0 {
+		t.Errorf("ListMembers() after delete = %+v, want empty", members)
+	}
+
+	if len(publisher.chatDeletedEvents) != 1 {
+		t.Fatalf("PublishChatDeleted() called %d times, want 1", len(publisher.chatDeletedEvents))
+	}
+	event := publisher.chatDeletedEvents[0]
+	if event.ChatID != chat.ID {
+		t.Errorf("ChatDeleted event ChatID = %q, want %q", event.ChatID, chat.ID)
+	}
+	gotMembers := map[string]bool{}
+	for _, id := range event.MemberUserIDs {
+		gotMembers[id] = true
+	}
+	for _, want := range []string{"user-a", "user-b", "user-c"} {
+		if !gotMembers[want] {
+			t.Errorf("ChatDeleted event MemberUserIDs = %v, missing %q", event.MemberUserIDs, want)
+		}
 	}
 }
