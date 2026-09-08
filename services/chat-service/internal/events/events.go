@@ -18,6 +18,7 @@ const (
 	SubjectMessageUpdated = "msg.updated"
 	SubjectMessageDeleted = "msg.deleted"
 	SubjectMessageRead    = "msg.read"
+	SubjectChatDeleted    = "chat.deleted"
 )
 
 type MessageCreated struct {
@@ -42,6 +43,12 @@ type MessageRead struct {
 	ReadAt    time.Time `json:"read_at"`
 }
 
+type ChatDeleted struct {
+	ChatID        string    `json:"chat_id"`
+	MemberUserIDs []string  `json:"member_user_ids"`
+	DeletedAt     time.Time `json:"deleted_at"`
+}
+
 type Publisher struct {
 	js jetstream.JetStream
 }
@@ -59,7 +66,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:     StreamName,
-		Subjects: []string{"msg.*"},
+		Subjects: []string{"msg.*", "chat.*"},
 	})
 	if err != nil {
 		return nil, err
@@ -95,6 +102,14 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) e
 		return err
 	}
 	return p.publish(ctx, SubjectMessageRead, payload)
+}
+
+func (p *Publisher) PublishChatDeleted(ctx context.Context, event ChatDeleted) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	return p.publish(ctx, SubjectChatDeleted, payload)
 }
 
 func (p *Publisher) publish(ctx context.Context, subject string, payload []byte) error {
