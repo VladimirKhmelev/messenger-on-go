@@ -122,6 +122,19 @@ func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest
 	return &chatv1.LeaveChatResponse{}, nil
 }
 
+func (s *ChatServer) DeleteGroupChat(ctx context.Context, req *chatv1.DeleteGroupChatRequest) (*chatv1.DeleteGroupChatResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.DeleteGroupChat(ctx, req.GetChatId(), requesterID); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.DeleteGroupChatResponse{}, nil
+}
+
 func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) {
 	senderID, ok := UserIDFromContext(ctx)
 	if !ok {
@@ -432,7 +445,8 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrNotMessageSender),
 		errors.Is(err, domain.ErrNotChatAdmin),
 		errors.Is(err, domain.ErrCannotRemoveCreator),
-		errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins):
+		errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins),
+		errors.Is(err, domain.ErrOnlyCreatorCanDeleteChat):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, domain.ErrMessageDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())
