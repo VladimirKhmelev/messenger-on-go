@@ -83,14 +83,19 @@ func (r *PostgresChatRepository) DeleteChat(ctx context.Context, chatID string) 
 }
 
 func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) {
+	wantMemberCount := 2
+	if userA == userB {
+		wantMemberCount = 1
+	}
+
 	var chat domain.Chat
 	err := r.conn.GetContext(ctx, &chat, `
 		SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
 		WHERE c.chat_type = 'private'
 		  AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
 		  AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $2)
-		  AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = 2`,
-		userA, userB,
+		  AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = $3`,
+		userA, userB, wantMemberCount,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrChatNotFound

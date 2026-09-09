@@ -130,8 +130,13 @@ func (r *fakeChatRepository) DeleteChat(_ context.Context, chatID string) error 
 }
 
 func (r *fakeChatRepository) FindPrivateChat(_ context.Context, userA, userB string) (*domain.Chat, error) {
+	wantMemberCount := 2
+	if userA == userB {
+		wantMemberCount = 1
+	}
+
 	for chatID, members := range r.members {
-		if len(members) != 2 || r.chats[chatID].ChatType == domain.ChatTypeGroup {
+		if len(members) != wantMemberCount || r.chats[chatID].ChatType == domain.ChatTypeGroup {
 			continue
 		}
 		hasA, hasB := false, false
@@ -455,9 +460,20 @@ func TestChatService_CreateChat_WithSelf(t *testing.T) {
 	repo := newFakeChatRepository()
 	svc := NewChatService(repo, newFakeAuthClient("user-a"), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
 
-	_, err := svc.CreateChat(context.Background(), "token", "user-a", "user-a", encryptedChatKeysOnly(chatKeys("user-a")), wrappedForPublicKeysOnly(chatKeys("user-a")))
-	if !errors.Is(err, domain.ErrCannotChatWithSelf) {
-		t.Errorf("CreateChat() error = %v, want %v", err, domain.ErrCannotChatWithSelf)
+	chat, err := svc.CreateChat(context.Background(), "token", "user-a", "user-a", encryptedChatKeysOnly(chatKeys("user-a")), wrappedForPublicKeysOnly(chatKeys("user-a")))
+	if err != nil {
+		t.Fatalf("CreateChat() with self unexpected error: %v", err)
+	}
+	if chat.ChatType != domain.ChatTypePrivate {
+		t.Errorf("CreateChat() with self ChatType = %q, want %q", chat.ChatType, domain.ChatTypePrivate)
+	}
+
+	members, err := repo.ListMembers(context.Background(), chat.ID)
+	if err != nil {
+		t.Fatalf("ListMembers() unexpected error: %v", err)
+	}
+	if len(members) != 1 || members[0].UserID != "user-a" {
+		t.Errorf("ListMembers() = %+v, want a single member user-a", members)
 	}
 }
 

@@ -58,16 +58,16 @@ func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPubli
 }
 
 func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) {
-	if requesterID == targetID {
-		return nil, domain.ErrCannotChatWithSelf
-	}
+	isSelfChat := requesterID == targetID
 
-	exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, domain.ErrTargetUserNotFound
+	if !isSelfChat {
+		exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, domain.ErrTargetUserNotFound
+		}
 	}
 
 	existing, err := s.chats.FindPrivateChat(ctx, requesterID, targetID)
