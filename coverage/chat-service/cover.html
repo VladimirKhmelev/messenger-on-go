@@ -692,14 +692,19 @@ func (r *PostgresChatRepository) DeleteChat(ctx context.Context, chatID string) 
 }</span>
 
 func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, userB string) (*domain.Chat, error) <span class="cov0" title="0">{
-        var chat domain.Chat
+        wantMemberCount := 2
+        if userA == userB </span><span class="cov0" title="0">{
+                wantMemberCount = 1
+        }</span>
+
+        <span class="cov0" title="0">var chat domain.Chat
         err := r.conn.GetContext(ctx, &amp;chat, `
                 SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
                 WHERE c.chat_type = 'private'
                   AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
                   AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $2)
-                  AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = 2`,
-                userA, userB,
+                  AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = $3`,
+                userA, userB, wantMemberCount,
         )
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrChatNotFound
@@ -1063,17 +1068,17 @@ func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPubli
 }</span>
 
 func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov8" title="1">{
-        if requesterID == targetID </span><span class="cov8" title="1">{
-                return nil, domain.ErrCannotChatWithSelf
-        }</span>
+        isSelfChat := requesterID == targetID
 
-        <span class="cov8" title="1">exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
-        <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
-                return nil, domain.ErrTargetUserNotFound
-        }</span>
+        if !isSelfChat </span><span class="cov8" title="1">{
+                exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
+                        return nil, domain.ErrTargetUserNotFound
+                }</span>
+        }
 
         <span class="cov8" title="1">existing, err := s.chats.FindPrivateChat(ctx, requesterID, targetID)
         if err == nil </span><span class="cov8" title="1">{
