@@ -164,6 +164,7 @@ function wireZones() {
         onLogout: handleLogout,
         onOpenSettings: handleOpenSettings,
         onOpenGroupCreator: handleOpenGroupCreator,
+        onOpenSavedMessages: handleOpenSavedMessages,
       })
     );
   }
@@ -578,13 +579,18 @@ async function chatSummaryToChat(summary, myUserId) {
     };
   }
 
-  const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId);
+  // A "Saved Messages" self-chat has exactly one member (myUserId itself),
+  // so the "not me" filter finds nothing — fall back to myUserId, which
+  // resolvePeer happily resolves like any other user.
+  const peerId = (summary.memberUserIds || []).find((id) => id !== myUserId) ?? myUserId;
   const peer = await resolvePeer(peerId);
+  const isSelfChat = peerId === myUserId;
 
   return {
     id: summary.chatId,
     type: 'private',
     peer,
+    isSelfChat,
     messages: lastMessage ? [lastMessage] : [],
     historyLoaded: false,
     hasMoreHistory: true,
@@ -722,6 +728,7 @@ async function handleCreateChat(user) {
       id: data.chatId,
       type: 'private',
       peer: { id: user.id, email: null, tag: user.tag, displayName: user.displayName || user.tag },
+      isSelfChat: user.id === state.currentUser?.id,
       messages: [],
       historyLoaded: true, // brand new chat, nothing to fetch
       hasMoreHistory: false,
@@ -736,10 +743,22 @@ async function handleCreateChat(user) {
     state.searchQuery = '';
     handleSelectChat(chat.id);
     notify('sidebar');
-    ws?.getPresence(chat.peer.id);
+    if (!chat.isSelfChat) ws?.getPresence(chat.peer.id);
   } catch (err) {
     console.error('failed to create chat:', err);
   }
+}
+
+async function handleOpenSavedMessages() {
+  const existing = state.chats.find((c) => c.type === 'private' && c.isSelfChat);
+  if (existing) {
+    handleSelectChat(existing.id);
+    return;
+  }
+
+  const me = state.currentUser;
+  if (!me) return;
+  await handleCreateChat({ id: me.id, tag: me.tag, displayName: me.displayName });
 }
 
 function handleOpenGroupCreator() {
@@ -1681,11 +1700,11 @@ async function refreshAfterReconnect() {
       if (chat.historyLoaded) ws.getHistory(chat.id);
       continue;
     }
-    ws.getPresence(chat.peer.id);
+    if (!chat.isSelfChat) ws.getPresence(chat.peer.id);
     if (chat.historyLoaded) {
       ws.getHistory(chat.id);
     }
-    if (chat.id === state.selectedChatId) {
+    if (chat.id === state.selectedChatId && !chat.isSelfChat) {
       ws.getReadStatus(chat.id, chat.peer.id);
     }
   }
@@ -1698,7 +1717,7 @@ async function refreshAfterReconnect() {
 // Groups don't have a single peer to poll presence for, so they're skipped.
 function refreshAllPresence() {
   for (const chat of state.chats) {
-    if (chat.type === 'group') continue;
+    if (chat.type === 'group' || chat.isSelfChat) continue;
     ws?.getPresence(chat.peer.id);
   }
 }
