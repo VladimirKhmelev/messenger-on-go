@@ -281,6 +281,7 @@ a:hover { color: var(--accent); }
 .avatar--xs { width: 24px; height: 24px; font-size: 10px; }
 .avatar--lg { width: 72px; height: 72px; font-size: 22px; }
 .avatar--deleted { background: var(--text-muted-3); color: var(--bg-page); }
+.avatar--saved-messages { background: var(--accent); color: var(--accent-text); font-size: 16px; }
 .avatar-dot {
   position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px;
   border-radius: 50%; border: 2px solid var(--bg-sidebar);

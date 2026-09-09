@@ -30,10 +30,11 @@ export function renderConversation(root, handlers) {
   }
 
   const isGroup = chat.type === 'group';
-  const name = isGroup ? chat.name : chat.peer.displayName || chat.peer.tag;
+  const isSelfChat = !isGroup && !!chat.isSelfChat;
+  const name = isGroup ? chat.name : isSelfChat ? 'Избранное' : chat.peer.displayName || chat.peer.tag;
   const avatarId = isGroup ? chat.id : chat.peer.id;
   const avatarTag = isGroup ? chat.name : chat.peer.tag;
-  const statusText = isGroup ? `${chat.members.length} участников` : presenceText(chat);
+  const statusText = isGroup ? `${chat.members.length} участников` : isSelfChat ? '' : presenceText(chat);
   const sendDisabled = !state.draft.trim();
 
   const prevInput = root.querySelector('[data-input="draft"]');
@@ -53,33 +54,46 @@ export function renderConversation(root, handlers) {
       <div class="conversation-header">
         <div class="conversation-header-inner" ${isGroup ? 'data-action="open-group-members"' : ''}>
           <button class="conversation-back-btn" data-action="back-to-chats" title="К списку чатов" aria-label="Назад">‹</button>
-          <div class="avatar--clickable" data-action="${isGroup ? '' : 'open-avatar'}" data-user-id="${escapeHtml(avatarId)}">
-            ${renderAvatar(avatarId, avatarTag, name, {
-              sizeClass: 'avatar--md',
-              src: isGroup ? groupAvatarUrl(chat.id) : avatarUrl(chat.peer.id),
-              deleted: !isGroup && !!chat.peer.deleted,
-            })}
+          <div class="${isSelfChat ? '' : 'avatar--clickable'}" data-action="${isGroup || isSelfChat ? '' : 'open-avatar'}" data-user-id="${escapeHtml(avatarId)}">
+            ${
+              isSelfChat
+                ? '<div class="avatar avatar--md avatar--saved-messages">🔖</div>'
+                : renderAvatar(avatarId, avatarTag, name, {
+                    sizeClass: 'avatar--md',
+                    src: isGroup ? groupAvatarUrl(chat.id) : avatarUrl(chat.peer.id),
+                    deleted: !isGroup && !!chat.peer.deleted,
+                  })
+            }
           </div>
           <div>
             <div class="conversation-header-name">
               ${escapeHtml(name)}
-              ${isGroup ? '' : `<span class="conversation-header-tag">@${escapeHtml(chat.peer.tag)}</span>`}
+              ${isGroup || isSelfChat ? '' : `<span class="conversation-header-tag">@${escapeHtml(chat.peer.tag)}</span>`}
             </div>
-            <div class="conversation-header-status" data-typing="${!!chat.peerTyping}">${statusText}</div>
+            ${statusText ? `<div class="conversation-header-status" data-typing="${!!chat.peerTyping}">${statusText}</div>` : ''}
           </div>
         </div>
       </div>
       <div class="message-list" data-list="messages" data-chat-id="${chat.id}">
         <div class="date-sticky" data-sticky-date hidden><span></span></div>
         ${
-          chat.historyLoaded && chat.messages.length === 0
-            ? renderNoMessagesYet()
-            : `${chat.loadingMoreHistory ? renderLoadingMoreHistory() : ''}<div class="message-list-inner">${renderMessagesWithDateDividers(
-                chat.messages,
-                isGroup ? null : chat.peerLastReadMessageId,
-                isGroup ? chat.members : null,
-                isGroup ? chat.createdBy : null
-              )}</div>`
+          (() => {
+            // A "Сообщение удалено" tombstone is for the other person's
+            // benefit (so a message doesn't just vanish from their view of
+            // the conversation) — in Saved Messages there's no one else to
+            // inform, so deleted notes are dropped outright instead of left
+            // as placeholders.
+            const visibleMessages = isSelfChat ? chat.messages.filter((m) => !m.deleted) : chat.messages;
+            return chat.historyLoaded && visibleMessages.length === 0
+              ? renderNoMessagesYet()
+              : `${chat.loadingMoreHistory ? renderLoadingMoreHistory() : ''}<div class="message-list-inner">${renderMessagesWithDateDividers(
+                  visibleMessages,
+                  isGroup ? null : chat.peerLastReadMessageId,
+                  isGroup ? chat.members : null,
+                  isGroup ? chat.createdBy : null,
+                  isSelfChat
+                )}</div>`;
+          })()
         }
       </div>
       <button class="scroll-to-bottom-btn" data-action="scroll-to-bottom" hidden title="К последним сообщениям">↓</button>
@@ -216,7 +230,7 @@ function renderAvatarPreview() {
   `;
 }
 
-function renderMessagesWithDateDividers(messages, peerLastReadMessageId, groupMembers, groupCreatedBy) {
+function renderMessagesWithDateDividers(messages, peerLastReadMessageId, groupMembers, groupCreatedBy, isSelfChat = false) {
   const lastReadIndex = peerLastReadMessageId
     ? messages.findIndex((m) => m.messageId === peerLastReadMessageId)
     : -1;
@@ -234,12 +248,15 @@ function renderMessagesWithDateDividers(messages, peerLastReadMessageId, groupMe
       const dateLabel = formatDateLabel(msg.createdAtUnix);
       const divider = dateLabel && dateLabel !== lastDateLabel ? renderDateDivider(dateLabel) : '';
       lastDateLabel = dateLabel || lastDateLabel;
-      const isRead = lastReadIndex !== -1 && index <= lastReadIndex;
+      // Nobody but you ever reads a Saved Messages note, so
+      // peerLastReadMessageId-based tracking is meaningless here — show it
+      // as always-read instead of always-unread.
+      const isRead = isSelfChat || (lastReadIndex !== -1 && index <= lastReadIndex);
       const sender = !msg.mine && memberById ? memberById.get(msg.senderUserId) : null;
       const isSenderCreator = !!sender && sender.id === groupCreatedBy;
       return (
         divider +
-        renderMessage(msg, state.editingMessageId === msg.messageId, isRead, sender, isSenderCreator, canModerate)
+        renderMessage(msg, state.editingMessageId === msg.messageId, isRead, sender, isSenderCreator, canModerate, isSelfChat)
       );
     })
     .join('');
@@ -311,7 +328,7 @@ export function presenceText(chat) {
   return `Был(а) в сети ${dateLabel.toLowerCase()} в ${time}`;
 }
 
-function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModerate) {
+function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModerate, isSelfChat = false) {
   if (msg.deleted) {
     return `
       <div class="message-row" data-mine="${msg.mine}">
@@ -362,10 +379,17 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
             <div class="message-menu-item" data-action="copy">Копировать текст</div>${
               msg.mine ? '<div class="message-menu-item" data-action="edit">Редактировать</div>' : ''
             }${
-              msg.mine || canModerate
-                ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
-                : ''
-            }<div class="message-menu-item" data-action="delete-for-me">Удалить у меня</div>
+              isSelfChat
+                ? // "for all" vs "for me" is a distinction between two people —
+                  // meaningless when you're the only participant, so collapse
+                  // to a single delete that removes the note outright.
+                  '<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить</div>'
+                : `${
+                    msg.mine || canModerate
+                      ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
+                      : ''
+                  }<div class="message-menu-item" data-action="delete-for-me">Удалить у меня</div>`
+            }
           </div>
         </div>
       </div>
