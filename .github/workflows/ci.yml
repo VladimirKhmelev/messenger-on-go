@@ -19,7 +19,7 @@ jobs:
       - name: Install protolint
         run: go install github.com/yoheimuta/protolint/cmd/protolint@v0.53.0
       - name: Run protolint
-        run: protolint lint proto/auth/v1/auth.proto proto/chat/v1/chat.proto
+        run: protolint lint proto/auth/v1/auth.proto proto/chat/v1/chat.proto proto/media/v1/media.proto
 
   swagger:
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
           with open('proto/gen/openapi/messenger.swagger.json') as f:
               spec = json.load(f)
           paths = spec.get('paths', {})
-          required = ['/v1/auth/register', '/v1/auth/login', '/v1/chats']
+          required = ['/v1/auth/register', '/v1/auth/login', '/v1/chats', '/v1/media/uploads']
           for p in required:
               assert p in paths, f'missing path: {p}'
           print('swagger spec OK, paths:', list(paths.keys()))
@@ -66,6 +66,7 @@ jobs:
           - chat-service
           - ws-gateway
           - notification-worker
+          - media-service
     runs-on: ubuntu-latest
     defaults:
       run:
