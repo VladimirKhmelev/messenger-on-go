@@ -6,6 +6,7 @@ volumes:
   vmdata:
   grafanadata:
   minio-data:
+  media-db-data:
 
 services:
   auth-db:
@@ -38,6 +39,23 @@ services:
       - chat-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chat"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  media-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: media
+      POSTGRES_PASSWORD: media
+      POSTGRES_DB: media
+    ports:
+      - "5434:5432"
+    volumes:
+      - media-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U media"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -283,19 +301,35 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     cpus: 0.5
+    ports:
+      - "50053:50051"
+      - "8084:8080"
     environment:
+      GRPC_PORT: "50051"
       HTTP_PORT: "8080"
+      POSTGRES_DSN: postgres://media:media@media-db:5432/media?sslmode=disable
+      CHAT_SERVICE_ADDR: chat-service:50051
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       MINIO_ENDPOINT: minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      PUBLIC_MEDIA_URL: ${PUBLIC_MEDIA_URL:-https://localhost:8443/messenger-media}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/v1/media/health"]
+      test: ["CMD", "/grpc-health-probe", "-addr=:50051"]
       interval: 5s
       timeout: 5s
       retries: 5
     depends_on:
+      media-db:
+        condition: service_healthy
       minio:
         condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
 
   nginx:
     image: nginx:1.27-alpine
