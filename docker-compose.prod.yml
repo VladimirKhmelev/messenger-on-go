@@ -18,3 +18,7 @@ services:
   notification-worker:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/notification-worker:${IMAGE_TAG:-latest}
     build: !reset null
+
+  media-service:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/media-service:${IMAGE_TAG:-latest}
+    build: !reset null

@@ -17,6 +17,7 @@ jobs:
           - chat-service
           - ws-gateway
           - notification-worker
+          - media-service
     runs-on: ubuntu-latest
     permissions:
       contents: read

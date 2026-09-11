@@ -10,6 +10,9 @@
     },
     {
       "name": "ChatService"
+    },
+    {
+      "name": "MediaService"
     }
   ],
   "consumes": [
@@ -953,6 +956,128 @@
         ]
       }
     },
+    "/v1/media/health": {
+      "get": {
+        "operationId": "MediaService_Health",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/mediaV1HealthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "MediaService"
+        ]
+      }
+    },
+    "/v1/media/uploads": {
+      "post": {
+        "operationId": "MediaService_RequestUpload",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RequestUploadResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1RequestUploadRequest"
+            }
+          }
+        ],
+        "tags": [
+          "MediaService"
+        ]
+      }
+    },
+    "/v1/media/uploads/{uploadId}/confirm": {
+      "post": {
+        "operationId": "MediaService_ConfirmUpload",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ConfirmUploadResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/MediaServiceConfirmUploadBody"
+            }
+          }
+        ],
+        "tags": [
+          "MediaService"
+        ]
+      }
+    },
+    "/v1/media/{mediaId}/download-url": {
+      "get": {
+        "operationId": "MediaService_GetDownloadURL",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetDownloadURLResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "MediaService"
+        ]
+      }
+    },
     "/v1/users": {
       "get": {
         "operationId": "AuthService_SearchUsers",
@@ -1315,6 +1440,9 @@
         }
       }
     },
+    "MediaServiceConfirmUploadBody": {
+      "type": "object"
+    },
     "authV1HealthResponse": {
       "type": "object",
       "properties": {
@@ -1324,6 +1452,14 @@
       }
     },
     "chatV1HealthResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    },
+    "mediaV1HealthResponse": {
       "type": "object",
       "properties": {
         "ok": {
@@ -1428,6 +1564,14 @@
         }
       }
     },
+    "v1ConfirmUploadResponse": {
+      "type": "object",
+      "properties": {
+        "mediaId": {
+          "type": "string"
+        }
+      }
+    },
     "v1CreateChatRequest": {
       "type": "object",
       "properties": {
@@ -1523,6 +1667,18 @@
       "properties": {
         "encryptedChatKey": {
           "type": "string"
+        }
+      }
+    },
+    "v1GetDownloadURLResponse": {
+      "type": "object",
+      "properties": {
+        "downloadUrl": {
+          "type": "string"
+        },
+        "expiresAtUnix": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -1817,6 +1973,36 @@
     },
     "v1RequestPasswordResetResponse": {
       "type": "object"
+    },
+    "v1RequestUploadRequest": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1RequestUploadResponse": {
+      "type": "object",
+      "properties": {
+        "uploadId": {
+          "type": "string"
+        },
+        "uploadUrl": {
+          "type": "string"
+        },
+        "expiresAtUnix": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
     },
     "v1ResetPasswordRequest": {
       "type": "object",
