@@ -92,8 +92,9 @@ NATS.
 ## Структура репозитория
 
 ```
-docker-compose.yml             все 5 сервисов + Postgres×3 + Redis + NATS + MinIO + nginx
-Makefile                       proto/up/down/unit/integration/lint/ci
+docker-compose.yml              все 5 сервисов + Postgres×3 + Redis + NATS + MinIO + nginx
+docker-compose.prod.yml         override для прода — образы из GHCR вместо build:
+Makefile                        proto/up/down/unit/integration/lint/ci
 
 services/
   auth-service/                 регистрация, логин, JWT, OAuth, RSA-ключи
