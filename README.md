@@ -6,25 +6,25 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Real-time чат с E2E-шифрованием сообщений, реализованный как monorepo из 4
+Real-time чат с E2E-шифрованием сообщений, реализованный как monorepo из 5
 независимых микросервисов
 
 ## Архитектура
 
 ```
-                        ┌──────────────┐
-   браузер ── HTTPS ──▶ │    nginx     │
-                        └──────┬───────┘
-                               │
-        ┌───────────────┬─────┴────────┬───────────────┐
-        ▼               ▼              ▼               │
- ┌─────────────┐ ┌─────────────┐ ┌─────────────┐       │
- │auth-service │ │chat-service │ │ ws-gateway  │◀──────┘ WS
- │  + Postgres │ │ + Postgres  │ │  (× 2 инст.)│
- │  + Redis    │ │ + Redis     │ └──────┬──────┘
- └──────┬──────┘ └──────┬──────┘        │
-        │               │               │
-        └───────────────┴───────────────┘
+                          ┌──────────────┐
+     браузер ── HTTPS ──▶ │    nginx     │
+                          └──────┬───────┘
+                                 │
+      ┌────────────────┬─────────┴────────┬────────────────┐
+      ▼                ▼                  ▼                ▼
+┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐
+│auth-service │  │chat-service │  │media-service │  │ ws-gateway  │◀── WS
+│  + Postgres │  │ + Postgres  │  │  + Postgres  │  │ (× 2 инст.) │
+│  + Redis    │  │ + Redis     │  │  + MinIO     │  └──────┬──────┘
+└──────┬──────┘  └──────┬──────┘  └──────┬───────┘         │
+       │                │                │                 │
+       └────────────────┴────────────────┴─────────────────┘
                          │ NATS JetStream / core pub-sub
                          ▼
               ┌────────────────────┐
@@ -36,6 +36,7 @@ Real-time чат с E2E-шифрованием сообщений, реализ�
 |---|---|---|
 | `auth-service` | регистрация, логин, JWT, OAuth (GitHub), RSA-ключи для E2E | свой Postgres + Redis |
 | `chat-service` | чаты, сообщения (зашифрованы на клиенте), presence, typing | свой Postgres + Redis |
+| `media-service` | файлы в чатах — presigned upload/download URL | свой Postgres + MinIO |
 | `ws-gateway` | держит WebSocket-соединения, офлайн-валидация JWT | без своей БД |
 | `notification-worker` | слушает события, решает кому послать push-уведомление | без своей БД |
 
@@ -48,7 +49,13 @@ NATS.
   Crypto API), приватный ключ хранится только на устройстве (обёрнутым
   паролем пользователя). Ключ каждого чата — отдельный AES-256-GCM ключ,
   зашифрованный RSA-публичным ключом каждого участника. Сервер физически не
-  может прочитать содержимое сообщений.
+  может прочитать содержимое сообщений — то же самое применимо и к
+  медиафайлам (картинки/видео шифруются на клиенте тем же ключом чата,
+  `media-service` работает как opaque blob store и не видит содержимое).
+- **Файлы в чатах без прокси байтов через сервис** — клиент загружает/скачивает
+  зашифрованный файл прямо в/из MinIO по presigned URL (S3-совместимое
+  хранилище), `media-service` только выдаёт короткоживущий URL и проверяет
+  membership в чате — Go-код не тратит CPU/трафик на передачу самих байтов.
 - **Presence и typing-индикатор** — статус "в сети" привязан к реальной
   видимости вкладки/фокусу окна (`visibilitychange` + `blur`/`focus`), а не
   просто к открытому WS-соединению.
@@ -76,7 +83,7 @@ NATS.
               ├─────────────────────────────────┤
    messaging  │  NATS JetStream (nats.go)       │
               ├─────────────────────────────────┤
-   storage    │  Postgres (pgx)  ·  Redis       │
+   storage    │  Postgres (pgx)  ·  Redis  ·  MinIO │
               ├─────────────────────────────────┤
    runtime    │  Docker Compose                 │
               └─────────────────────────────────┘
@@ -85,7 +92,7 @@ NATS.
 ## Структура репозитория
 
 ```
-docker-compose.yml             все 4 сервиса + Postgres×2 + Redis + NATS + nginx
+docker-compose.yml             все 5 сервисов + Postgres×3 + Redis + NATS + MinIO + nginx
 Makefile                       proto/up/down/unit/integration/lint/ci
 
 services/
@@ -132,11 +139,25 @@ services/
       chatclient/                  gRPC-клиент к chat-service
     Dockerfile
 
+  media-service/                файлы в чатах (presigned upload/download через MinIO)
+    cmd/server/main.go
+    internal/
+      domain/                     MediaObject + ошибки
+      repository/                 Postgres-репозиторий метаданных загрузок + миграции
+      minioclient/                 presigned PUT/GET URL, EnsureBucket, StatObject,
+                                    rewrite внутреннего host на публичный
+      service/                    бизнес-логика: лимит размера, membership-check,
+                                    подтверждение реального попадания файла в MinIO
+      transport/grpc/             gRPC-сервер + JWT auth-интерцептор
+      chatclient/                  gRPC-клиент к chat-service (ListMembers)
+    Dockerfile                    + grpc-health-probe для healthcheck
+
 proto/
   auth/v1/auth.proto             контракт auth-service (+ HTTP-аннотации для grpc-gateway)
   chat/v1/chat.proto             контракт chat-service
+  media/v1/media.proto           контракт media-service
   gen/                            сгенерированный код — отдельный Go-модуль, НЕ редактировать руками
-    auth/v1/, chat/v1/             *.pb.go, *_grpc.pb.go, *.pb.gw.go
+    auth/v1/, chat/v1/, media/v1/  *.pb.go, *_grpc.pb.go, *.pb.gw.go
     openapi/                       messenger.swagger.json (публикуется на GitHub Pages)
   third_party/google/api/         google/api/annotations.proto (зависимость для HTTP-аннотаций)
 
@@ -166,7 +187,7 @@ nginx/
   certs/                         самоподписанные dev-сертификаты (не в репозитории)
 
 metrics/
-  promscrape.yml                 scrape-таргеты VictoriaMetrics (все 4 сервиса)
+  promscrape.yml                 scrape-таргеты VictoriaMetrics (все 5 сервисов)
   grafana_*.png                  скриншоты дашборда для README (Monitoring)
 
 grafana/
@@ -232,6 +253,10 @@ make ci            # полный набор проверок, как в GitHub 
    SMTP_USERNAME=<из SMTP-провайдера>
    SMTP_PASSWORD=<из SMTP-провайдера>
 
+   MINIO_ROOT_USER=<случайная строка>
+   MINIO_ROOT_PASSWORD=<случайная строка, openssl rand -hex 32>
+   PUBLIC_MEDIA_URL=https://yourdomain.com/messenger-media
+
    NGINX_HTTP_PORT=80
    NGINX_HTTPS_PORT=443
    NGINX_CONF=./nginx/nginx.prod.conf
@@ -246,10 +271,11 @@ make ci            # полный набор проверок, как в GitHub 
 
 ## Monitoring & Observability
 
-- **Трейсинг** — OpenTelemetry во всех 4 сервисах: gRPC (клиент+сервер через
+- **Трейсинг** — OpenTelemetry во всех 5 сервисах: gRPC (клиент+сервер через
   `otelgrpc.StatsHandler`) и NATS publish/consume (ручные producer/consumer
-  спаны, trace context прокидывается через NATS message headers). Экспорт
-  в Jaeger (`jaegertracing/all-in-one`), UI — `http://localhost:16686`.
+  спаны, trace context прокидывается через NATS message headers; media-service
+  не публикует в NATS, но его gRPC-вызовы к chat-service трассируются так же).
+  Экспорт в Jaeger (`jaegertracing/all-in-one`), UI — `http://localhost:16686`.
 - **Метрики** — Prometheus-формат (`github.com/VictoriaMetrics/metrics`) на
   каждом сервисе: per-method gRPC RPS/latency (interceptor, аналогично
   трейсингу) + бизнес-метрики (failed logins, messages sent, notify.push,
