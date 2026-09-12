@@ -289,3 +289,29 @@ export async function decryptMessage(aesKey, encodedBase64) {
   const plaintextBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext);
   return new TextDecoder().decode(plaintextBuf);
 }
+
+// Same scheme as encryptMessage (random IV prefix + GCM ciphertext), but for
+// raw file bytes instead of text — used for media uploads, so the server
+// (media-service and MinIO alike) only ever stores/serves opaque ciphertext.
+// Returns a Blob ready to PUT to a presigned upload URL.
+export async function encryptFile(aesKey, file) {
+  const plaintext = await file.arrayBuffer();
+  const iv = crypto.getRandomValues(new Uint8Array(GCM_IV_LENGTH));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, plaintext);
+  const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.byteLength);
+  return new Blob([combined]);
+}
+
+// Reverses encryptFile. Takes the downloaded ciphertext as an ArrayBuffer
+// (fetched from the presigned download URL) and returns the decrypted file
+// bytes as a Blob with the original content type, ready for an <img>/<a>
+// object URL.
+export async function decryptFile(aesKey, ciphertextBuf, contentType) {
+  const combined = new Uint8Array(ciphertextBuf);
+  const iv = combined.slice(0, GCM_IV_LENGTH);
+  const ciphertext = combined.slice(GCM_IV_LENGTH);
+  const plaintextBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext);
+  return new Blob([plaintextBuf], { type: contentType });
+}
