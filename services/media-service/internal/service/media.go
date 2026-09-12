@@ -17,6 +17,19 @@ const (
 	downloadURLTTL = 15 * time.Minute
 )
 
+var blockedContentTypes = map[string]bool{
+	"application/x-msdownload":                      true, // .exe, .dll
+	"application/x-msdos-program":                   true, // .exe, .com
+	"application/x-executable":                      true, // ELF binaries (Linux)
+	"application/x-mach-binary":                     true, // macOS executables
+	"application/x-sh":                              true, // .sh
+	"application/x-bat":                             true, // .bat
+	"application/x-msi":                             true, // .msi
+	"application/vnd.microsoft.portable-executable": true, // .exe, .dll (modern browsers)
+	"application/x-apple-diskimage":                 true, // .dmg
+	"application/java-archive":                      true, // .jar
+}
+
 type ChatMembership interface {
 	IsMember(ctx context.Context, chatID, userID string) (bool, error)
 }
@@ -46,6 +59,9 @@ type UploadTicket struct {
 func (s *MediaService) RequestUpload(ctx context.Context, chatID, requesterID, contentType string, sizeBytes int64) (*UploadTicket, error) {
 	if contentType == "" {
 		return nil, domain.ErrEmptyContentType
+	}
+	if blockedContentTypes[contentType] {
+		return nil, domain.ErrContentTypeBlocked
 	}
 	if sizeBytes <= 0 {
 		return nil, domain.ErrInvalidSize
