@@ -415,6 +415,25 @@ a:hover { color: var(--accent); }
   background: transparent !important; border: 1px dashed var(--border-soft);
 }
 
+.bubble--media { padding: 8px; max-width: 320px; }
+.media-attachment { cursor: pointer; border-radius: 10px; overflow: hidden; }
+.media-attachment--image {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 120px; background: rgba(0, 0, 0, 0.06);
+}
+.media-attachment-placeholder { font-size: 13px; color: var(--text-muted-2); padding: 24px; text-align: center; }
+.media-attachment-img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; }
+.media-attachment--file {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: var(--bg-card); border-radius: 10px;
+}
+.message-row[data-mine='true'] .media-attachment--file { background: rgba(255, 255, 255, 0.15); }
+.media-attachment-icon { font-size: 20px; flex-shrink: 0; }
+.media-attachment-name {
+  flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.media-attachment-size { font-size: 11px; color: var(--text-muted-2); flex-shrink: 0; }
+
 .message-menu-btn {
   flex-shrink: 0; width: 24px; height: 24px; margin-bottom: 2px;
   border: none; background: transparent; cursor: pointer; border-radius: 50%;
@@ -449,7 +468,10 @@ a:hover { color: var(--accent); }
 
 .composer {
   padding: 16px 24px; border-top: 1px solid var(--border);
-  display: flex; justify-content: center; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.composer-error {
+  width: 100%; max-width: 1040px; font-size: 12px; color: oklch(55% 0.18 25);
 }
 .composer-inner {
   width: 100%; max-width: 1040px;
@@ -460,12 +482,15 @@ a:hover { color: var(--accent); }
   border: 1px solid var(--border-soft); background: var(--bg-card);
   font-size: 14px; outline: none; color: var(--text);
 }
-.send-btn {
+.send-btn, .attach-btn {
   width: 40px; height: 40px; border-radius: 50%; border: none;
   background: var(--border); color: var(--accent-text); font-size: 17px;
   cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
 }
 .send-btn[data-enabled='true'] { background: var(--accent); cursor: pointer; }
+.attach-btn { background: transparent; font-size: 19px; }
+.attach-btn:hover { background: var(--row-selected-bg); }
+.attach-btn[data-busy='true'] { opacity: 0.5; cursor: default; }
 
 .scroll-to-bottom-btn {
   position: absolute; right: 24px; bottom: 96px; z-index: 4;
@@ -587,6 +612,9 @@ a:hover { color: var(--accent); }
 .avatar-preview {
   position: relative; max-width: min(90vw, 480px); max-height: 90vh;
 }
+/* Media attachments can be much larger/wider than a square avatar — give
+   the viewer the full available space instead of the avatar's cap. */
+.media-preview.avatar-preview { max-width: 90vw; }
 .avatar-preview-img {
   display: block; width: 100%; height: 100%; max-height: 90vh;
   object-fit: contain; border-radius: 12px;

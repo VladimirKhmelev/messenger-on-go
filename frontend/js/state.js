@@ -32,10 +32,13 @@ export const state = {
   groupMembersAvatarError: '',
   groupMembersDeleteConfirming: false, // true while the creator's "disband group" confirmation is open
   draft: '',
+  mediaUploadBusy: false, // true while a picked file is being encrypted/uploaded
+  mediaUploadError: '',
   editingMessageId: null, // set while a message's inline edit field is open
   focusDraftOnRender: false, // one-shot flag: focus the composer input on the next conversation render
   scrollToBottomOnRender: false, // one-shot flag: force-scroll to the newest message on the next conversation render
   avatarPreview: null, // { userId, name } — set while the full-size avatar viewer is open
+  mediaPreview: null, // { objectUrl, fileName } — set while the full-size media image viewer is open
 
   toast: null, // { chatId, name, text }
 

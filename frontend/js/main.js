@@ -3,6 +3,7 @@ import { initTheme } from './theme.js';
 import {
   authApi,
   chatApi,
+  mediaApi,
   refreshAccessToken,
   getAccessToken,
   setAccessToken,
@@ -24,6 +25,8 @@ import {
   decryptChatKey,
   encryptMessage,
   decryptMessage,
+  encryptFile,
+  decryptFile,
 } from './crypto.js';
 import { renderAuth, passwordMeetsRules } from './screens/auth.js';
 import { renderSidebar } from './screens/sidebar.js';
@@ -192,6 +195,8 @@ function wireZones() {
       renderConversation(conversationRoot, {
         onDraftChange: () => notify('conversation'),
         onSend: handleSend,
+        onSendFile: handleSendFile,
+        onDownloadMedia: handleDownloadMedia,
         onEditMessage: handleEditMessage,
         onDeleteMessageForAll: handleDeleteMessageForAll,
         onDeleteMessageForMe: handleDeleteMessageForMe,
@@ -1267,6 +1272,95 @@ async function handleSend() {
   ws?.sendMessage(chatId, ciphertext);
 }
 
+// Server-side sanity bound, mirrored here purely so an oversized file is
+// rejected instantly instead of after a slow upload — media-service enforces
+// the real limit (see MaxUploadSizeBytes), this is just a fast local check.
+const MAX_MEDIA_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+// Blocked by filename extension so picking an executable is caught before
+// it's even encrypted — a plain UX guardrail against accidentally sending
+// one, not a security boundary. Files are E2E-encrypted client-side, so the
+// server never sees real content either way; media-service does its own
+// (weaker, content-type-based) check as defense in depth for anyone hitting
+// the API directly, but the extension list here is what actually catches
+// the common case.
+const BLOCKED_FILE_EXTENSIONS = new Set([
+  'exe', 'dll', 'bat', 'cmd', 'com', 'scr', 'msi', 'msp', 'msix', 'appx',
+  'ps1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh', 'hta', 'cpl', 'reg',
+  'sh', 'bash', 'command', 'app', 'pkg', 'dmg', 'deb', 'rpm', 'run',
+  'jar', 'lnk', 'iso', 'img', 'chm', 'url',
+]);
+
+function fileExtension(fileName) {
+  const dot = fileName.lastIndexOf('.');
+  return dot === -1 ? '' : fileName.slice(dot + 1).toLowerCase();
+}
+
+// Uploads a file end-to-end: encrypt with the chat's own AES key (the same
+// key used for message text — media-service and MinIO only ever see
+// ciphertext), PUT the encrypted blob straight to MinIO via the presigned
+// URL, confirm with media-service, then send a small JSON envelope as a
+// regular (also encrypted) chat message so every client renders it as an
+// attachment instead of prose. No new wire format on the chat-service side.
+async function handleSendFile(file) {
+  const chatId = state.selectedChatId;
+  if (!file || !chatId) return;
+
+  if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
+    state.mediaUploadError = 'Файл слишком большой (максимум 50 МБ)';
+    notify('conversation');
+    return;
+  }
+
+  if (BLOCKED_FILE_EXTENSIONS.has(fileExtension(file.name))) {
+    state.mediaUploadError = 'Этот тип файла запрещён к отправке';
+    notify('conversation');
+    return;
+  }
+
+  state.mediaUploadBusy = true;
+  state.mediaUploadError = '';
+  notify('conversation');
+
+  try {
+    const chatKey = await getChatKey(chatId);
+    const encryptedBlob = await encryptFile(chatKey, file);
+
+    const contentType = file.type || 'application/octet-stream';
+    const ticket = await mediaApi.requestUpload(chatId, contentType, encryptedBlob.size);
+    await mediaApi.putEncrypted(ticket.uploadUrl, encryptedBlob);
+    const { mediaId } = await mediaApi.confirmUpload(ticket.uploadId);
+
+    const envelope = JSON.stringify({
+      type: 'media',
+      mediaId,
+      fileName: file.name,
+      contentType,
+      sizeBytes: file.size,
+    });
+    const ciphertext = await encryptMessage(chatKey, envelope);
+    ws?.sendMessage(chatId, ciphertext);
+  } catch (err) {
+    console.error('failed to upload file:', err);
+    state.mediaUploadError = translateApiError(err) || 'Не удалось загрузить файл';
+  } finally {
+    state.mediaUploadBusy = false;
+    notify('conversation');
+  }
+}
+
+// Fetches a media message's ciphertext from its presigned download URL,
+// decrypts it with the chat key, and hands the caller an object URL — used
+// both for inline image previews and the "download" action on non-image
+// attachments. Caller is responsible for revoking the URL when done with it.
+async function handleDownloadMedia(chatId, media) {
+  const chatKey = await getChatKey(chatId);
+  const { downloadUrl } = await mediaApi.getDownloadUrl(media.mediaId);
+  const ciphertextBuf = await mediaApi.fetchEncrypted(downloadUrl);
+  const blob = await decryptFile(chatKey, ciphertextBuf, media.contentType);
+  return URL.createObjectURL(blob);
+}
+
 async function handleEditMessage(messageId, newText) {
   const text = newText.trim();
   const chatId = state.selectedChatId;
@@ -1486,11 +1580,28 @@ function handleToastDismiss() {
 // preview. A deleted message has no body to decrypt; a message from before
 // this browser had access to the chat key (or plain decrypt failure) falls
 // back to a placeholder rather than throwing and blanking the whole list.
+// Media messages are plain text messages whose decrypted body is a JSON
+// envelope instead of prose — see handleSendFile. Parsed out into
+// message.media so rendering doesn't need to re-parse it every time; kept
+// narrow (only recognizes the exact shape we produce) so a message that
+// merely happens to look like JSON isn't mistaken for an attachment.
+function parseMediaEnvelope(text) {
+  if (!text || text[0] !== '{') return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed?.type === 'media' && parsed.mediaId && parsed.contentType) return parsed;
+  } catch {
+    // not a media envelope — fall through to treating it as plain text
+  }
+  return null;
+}
+
 async function decryptMessageInPlace(chatId, message) {
   if (!message || message.deleted || !message.text) return message;
   try {
     const chatKey = await getChatKey(chatId);
     message.text = await decryptMessage(chatKey, message.text);
+    message.media = parseMediaEnvelope(message.text);
   } catch (err) {
     console.error('failed to decrypt message:', err);
     message.text = UNDECRYPTABLE_MESSAGE_PLACEHOLDER;
