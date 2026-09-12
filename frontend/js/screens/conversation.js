@@ -98,7 +98,16 @@ export function renderConversation(root, handlers) {
       </div>
       <button class="scroll-to-bottom-btn" data-action="scroll-to-bottom" hidden title="К последним сообщениям">↓</button>
       <div class="composer">
+        ${state.mediaUploadError ? `<div class="composer-error">${escapeHtml(state.mediaUploadError)}</div>` : ''}
         <div class="composer-inner">
+          <button
+            class="attach-btn"
+            data-action="attach-file"
+            data-busy="${state.mediaUploadBusy}"
+            title="Прикрепить файл"
+            ${state.mediaUploadBusy ? 'disabled' : ''}
+          >📎</button>
+          <input type="file" data-input="attach-file" hidden />
           <input
             type="text"
             class="composer-input"
@@ -111,6 +120,7 @@ export function renderConversation(root, handlers) {
       </div>
     </div>
     ${renderAvatarPreview()}
+    ${renderMediaPreview()}
   `;
   restoreAvatarImages(root, avatarSnapshot);
 
@@ -173,7 +183,17 @@ export function renderConversation(root, handlers) {
     handlers.onSend();
   });
 
-  wireMessageActions(root, handlers);
+  const attachInput = root.querySelector('[data-input="attach-file"]');
+  root.querySelector('[data-action="attach-file"]')?.addEventListener('click', () => {
+    attachInput.click();
+  });
+  attachInput.addEventListener('change', () => {
+    const file = attachInput.files?.[0];
+    attachInput.value = '';
+    if (file) handlers.onSendFile(file);
+  });
+
+  wireMessageActions(root, handlers, chat.id);
 
   root.querySelector('[data-action="open-avatar"]')?.addEventListener('click', () => {
     state.avatarPreview = { userId: chat.peer.id, name };
@@ -204,8 +224,21 @@ export function renderConversation(root, handlers) {
     });
   });
 
-  root.querySelector('.avatar-preview')?.addEventListener('click', (event) => {
-    event.stopPropagation();
+  root.querySelectorAll('[data-action="close-media-preview"]').forEach((el) => {
+    el.addEventListener('click', () => {
+      // Not revoking the object URL here — it's the same one still shown
+      // inline in the message bubble (loadMediaAttachment only creates one
+      // per attachment), so revoking it on close would break that thumbnail
+      // too. It's cleaned up on page unload like any other object URL.
+      state.mediaPreview = null;
+      handlers.onDraftChange();
+    });
+  });
+
+  root.querySelectorAll('.avatar-preview').forEach((el) => {
+    el.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
   });
 
   if (hadFocus) {
@@ -225,6 +258,19 @@ function renderAvatarPreview() {
       <div class="avatar-preview" data-action="stop-propagation">
         <img class="avatar-preview-img" src="${avatarUrl(userId)}" alt="${escapeHtml(name)}" />
         <button class="modal-close avatar-preview-close" data-action="close-avatar-preview">×</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderMediaPreview() {
+  if (!state.mediaPreview) return '';
+  const { objectUrl, fileName } = state.mediaPreview;
+  return `
+    <div class="modal-backdrop" data-action="close-media-preview">
+      <div class="avatar-preview media-preview" data-action="stop-propagation">
+        <img class="avatar-preview-img" src="${objectUrl}" alt="${escapeHtml(fileName || '')}" />
+        <button class="modal-close avatar-preview-close" data-action="close-media-preview">×</button>
       </div>
     </div>
   `;
@@ -351,6 +397,10 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
     `;
   }
 
+  if (msg.media) {
+    return renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, isSelfChat);
+  }
+
   const editedTag = msg.editedAtUnix ? '<span class="message-edited-tag">изменено</span>' : '';
   const readTicks = msg.mine ? renderReadTicks(isRead) : '';
   const observeAttr = !msg.mine ? 'data-observe-read' : '';
@@ -398,11 +448,70 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
   `;
 }
 
+function formatFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+function renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, isSelfChat) {
+  const readTicks = msg.mine ? renderReadTicks(isRead) : '';
+  const observeAttr = !msg.mine ? 'data-observe-read' : '';
+  const senderName = sender ? sender.displayName || sender.tag : null;
+  const senderRoleLabel = isSenderCreator
+    ? '<span class="message-sender-role">Создатель</span>'
+    : sender?.role === 'admin'
+      ? '<span class="message-sender-role">Админ</span>'
+      : '';
+  const senderAvatar = sender
+    ? `<div class="message-sender-avatar avatar--clickable" data-action="open-sender-profile" data-user-id="${escapeHtml(sender.id)}" data-user-name="${escapeHtml(senderName)}">${renderAvatar(sender.id, sender.tag, senderName, { sizeClass: 'avatar--sm', deleted: !!sender.deleted })}</div>`
+    : '';
+  const senderLabel = senderName
+    ? `<div class="message-sender-name">${escapeHtml(senderName)}${senderRoleLabel}</div>`
+    : '';
+
+  const { mediaId, fileName, contentType, sizeBytes } = msg.media;
+  const isImage = contentType.startsWith('image/');
+  const body = isImage
+    ? `<div class="media-attachment media-attachment--image" data-action="load-media" data-autoload="true" data-media-id="${escapeHtml(mediaId)}" data-content-type="${escapeHtml(contentType)}" data-file-name="${escapeHtml(fileName)}">
+        <div class="media-attachment-placeholder">Загрузка изображения...</div>
+      </div>`
+    : `<div class="media-attachment media-attachment--file" data-action="load-media" data-media-id="${escapeHtml(mediaId)}" data-content-type="${escapeHtml(contentType)}" data-file-name="${escapeHtml(fileName)}">
+        <span class="media-attachment-icon">📎</span>
+        <span class="media-attachment-name">${escapeHtml(fileName)}</span>
+        <span class="media-attachment-size">${formatFileSize(sizeBytes)}</span>
+      </div>`;
+
+  return `
+    <div class="message-row" data-mine="${msg.mine}" data-message-id="${msg.messageId}" ${observeAttr}>
+      <div class="message-row-inner">
+        ${senderAvatar}
+        <button class="message-menu-btn" data-action="open-menu" title="Действия">⋯</button>
+        <div class="bubble bubble--media">
+          ${senderLabel}
+          ${body}
+          <div class="message-menu" data-menu hidden>${
+            isSelfChat
+              ? '<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить</div>'
+              : `${
+                  msg.mine || canModerate
+                    ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
+                    : ''
+                }<div class="message-menu-item" data-action="delete-for-me">Удалить у меня</div>`
+          }</div>
+        </div>
+      </div>
+      <div class="message-time">${formatTime(msg.createdAtUnix)}${readTicks}</div>
+    </div>
+  `;
+}
+
 function renderReadTicks(isRead) {
   return `<span class="read-ticks" data-read="${!!isRead}">${isRead ? '✓✓' : '✓'}</span>`;
 }
 
-function wireMessageActions(root, handlers) {
+function wireMessageActions(root, handlers, chatId) {
   function closeAllMenus() {
     root.querySelectorAll('[data-menu]').forEach((m) => (m.hidden = true));
     root.querySelectorAll('.message-row[data-menu-open]').forEach((r) => r.removeAttribute('data-menu-open'));
@@ -477,6 +586,14 @@ function wireMessageActions(root, handlers) {
     });
   });
 
+  root.querySelectorAll('[data-action="load-media"]').forEach((el) => {
+    if (el.dataset.autoload === 'true') {
+      loadMediaAttachment(el, handlers, chatId);
+    } else {
+      el.addEventListener('click', () => loadMediaAttachment(el, handlers, chatId));
+    }
+  });
+
   const editInput = root.querySelector('[data-input="edit"]');
   if (editInput) {
     editInput.focus();
@@ -496,6 +613,47 @@ function wireMessageActions(root, handlers) {
       state.editingMessageId = null;
       handlers.onDraftChange();
     });
+  }
+}
+
+// Images auto-load (called directly on render, see wireMessageActions) so
+// they appear inline like any other messenger; other files stay lazy and
+// wait for a click — presigned download URLs are short-lived and most
+// non-image attachments in a long history are never actually opened, so
+// there's no reason to download+decrypt them eagerly.
+async function loadMediaAttachment(el, handlers, chatId) {
+  if (el.dataset.loading === 'true' || el.dataset.loaded === 'true') return;
+  el.dataset.loading = 'true';
+
+  const mediaId = el.getAttribute('data-media-id');
+  const contentType = el.getAttribute('data-content-type');
+  const fileName = el.getAttribute('data-file-name');
+  const isImage = contentType.startsWith('image/');
+  const placeholder = el.querySelector('.media-attachment-placeholder');
+
+  try {
+    const objectUrl = await handlers.onDownloadMedia(chatId, { mediaId, contentType });
+    el.dataset.loaded = 'true';
+
+    if (isImage) {
+      el.innerHTML = `<img class="media-attachment-img" src="${objectUrl}" alt="${escapeHtml(fileName || '')}" />`;
+      el.addEventListener('click', () => {
+        state.mediaPreview = { objectUrl, fileName };
+        handlers.onDraftChange();
+      });
+    } else {
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = fileName || 'file';
+      link.click();
+      if (placeholder) placeholder.textContent = '✓ Загружено';
+      const icon = el.querySelector('.media-attachment-icon');
+      if (icon) icon.textContent = '✓';
+    }
+  } catch (err) {
+    console.error('failed to load media attachment:', err);
+    if (placeholder) placeholder.textContent = 'Не удалось загрузить, нажмите ещё раз';
+    el.dataset.loading = 'false';
   }
 }
 

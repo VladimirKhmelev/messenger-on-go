@@ -126,7 +126,7 @@ function renderChatRow(chat) {
   const avatarTag = isGroup ? chat.name : chat.peer.tag;
   const lastMessage = chat.messages[chat.messages.length - 1];
   const lastTime = lastMessage ? formatTime(lastMessage.createdAtUnix) : '';
-  const lastPreview = lastMessage ? escapeHtml(lastMessage.text) : '';
+  const lastPreview = lastMessage ? (lastMessage.media ? '📎 Файл' : escapeHtml(lastMessage.text)) : '';
   const isSelected = chat.id === state.selectedChatId;
   const dotColor = chat.online ? 'var(--dot-online)' : 'var(--dot-offline)';
   const unreadBadge =

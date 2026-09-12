@@ -9,4 +9,5 @@ var (
 	ErrEmptyContentType   = errors.New("content type must not be empty")
 	ErrInvalidSize        = errors.New("size must be greater than zero")
 	ErrSizeTooLarge       = errors.New("size exceeds maximum allowed upload size")
+	ErrContentTypeBlocked = errors.New("this file type is not allowed")
 )

@@ -79,7 +79,8 @@ func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrEmptyContentType),
 		errors.Is(err, domain.ErrInvalidSize),
-		errors.Is(err, domain.ErrSizeTooLarge):
+		errors.Is(err, domain.ErrSizeTooLarge),
+		errors.Is(err, domain.ErrContentTypeBlocked):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrMediaNotFound):
 		return status.Error(codes.NotFound, err.Error())
