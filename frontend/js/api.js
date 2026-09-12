@@ -62,6 +62,12 @@ const ERROR_TRANSLATIONS = {
   'group avatar not found': 'У группы нет фото',
   'group avatar must be a JPEG, PNG, GIF, or WebP image': 'Фото группы должно быть в формате JPEG, PNG, GIF или WebP',
   'group avatar must be smaller than 2MB': 'Фото группы должно быть меньше 2 МБ',
+  'size exceeds maximum allowed upload size': 'Файл слишком большой',
+  'size must be greater than zero': 'Файл пустой',
+  'content type must not be empty': 'Не удалось определить тип файла',
+  'media object not found': 'Файл не найден',
+  'upload has not been confirmed yet': 'Файл ещё не загружен',
+  'this file type is not allowed': 'Этот тип файла запрещён к отправке',
 };
 
 export function translateApiError(err) {
@@ -241,6 +247,36 @@ export const chatApi = {
       const text = await response.text();
       throw new ApiError(text || `Request failed (${response.status})`, response.status);
     }
+  },
+};
+
+export const mediaApi = {
+  requestUpload: (chatId, contentType, sizeBytes) =>
+    request('/v1/media/uploads', {
+      method: 'POST',
+      body: { chatId, contentType, sizeBytes },
+    }),
+
+  confirmUpload: (uploadId) =>
+    request(`/v1/media/uploads/${encodeURIComponent(uploadId)}/confirm`, { method: 'POST', body: {} }),
+
+  getDownloadUrl: (mediaId) => request(`/v1/media/${encodeURIComponent(mediaId)}/download-url`),
+
+  // Presigned URLs go straight to MinIO, not through our own /v1 API — no
+  // auth header, no JSON envelope, just the raw (already-encrypted) bytes.
+  putEncrypted: async (uploadUrl, encryptedBlob) => {
+    const response = await fetch(uploadUrl, { method: 'PUT', body: encryptedBlob });
+    if (!response.ok) {
+      throw new ApiError(`Upload failed (${response.status})`, response.status);
+    }
+  },
+
+  fetchEncrypted: async (downloadUrl) => {
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      throw new ApiError(`Download failed (${response.status})`, response.status);
+    }
+    return response.arrayBuffer();
   },
 };
 
