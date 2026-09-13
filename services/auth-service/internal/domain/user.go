@@ -22,3 +22,12 @@ type Avatar struct {
 	ContentType string    `db:"content_type"`
 	UpdatedAt   time.Time `db:"updated_at"`
 }
+
+type PushSubscription struct {
+	ID        string    `db:"id"`
+	UserID    string    `db:"user_id"`
+	Endpoint  string    `db:"endpoint"`
+	P256dhKey string    `db:"p256dh_key"`
+	AuthKey   string    `db:"auth_key"`
+	CreatedAt time.Time `db:"created_at"`
+}
