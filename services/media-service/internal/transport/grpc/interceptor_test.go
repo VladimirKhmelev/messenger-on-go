@@ -1,0 +1,142 @@
+package grpc
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+)
+
+const testJWTSecret = "test-secret"
+
+func noopHandler(ctx context.Context, req any) (any, error) {
+	return ctx, nil
+}
+
+type testClaims struct {
+	jwt.RegisteredClaims
+	UserID string `json:"user_id"`
+	Type   string `json:"type"`
+}
+
+func issueTestAccessToken(t *testing.T, userID string) string {
+	t.Helper()
+
+	claims := testClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+		},
+		UserID: userID,
+		Type:   "access",
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(testJWTSecret))
+	if err != nil {
+		t.Fatalf("failed to sign test token: %v", err)
+	}
+	return signed
+}
+
+func TestAuthInterceptor_PublicMethod_NoTokenRequired(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/media.v1.MediaService/Health"}
+
+	_, err := interceptor(context.Background(), nil, info, noopHandler)
+	if err != nil {
+		t.Errorf("interceptor() unexpected error for public method: %v", err)
+	}
+}
+
+func TestAuthInterceptor_ProtectedMethod_MissingToken(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/media.v1.MediaService/RequestUpload"}
+
+	_, err := interceptor(context.Background(), nil, info, noopHandler)
+	if status.Code(err) != codes.Unauthenticated {
+		t.Errorf("interceptor() error code = %v, want %v", status.Code(err), codes.Unauthenticated)
+	}
+}
+
+func TestAuthInterceptor_ProtectedMethod_ValidToken_SetsUserIDInContext(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	accessToken := issueTestAccessToken(t, "user-1")
+
+	md := metadata.New(map[string]string{"authorization": "Bearer " + accessToken})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/media.v1.MediaService/RequestUpload"}
+
+	result, err := interceptor(ctx, nil, info, noopHandler)
+	if err != nil {
+		t.Fatalf("interceptor() unexpected error: %v", err)
+	}
+
+	gotCtx, ok := result.(context.Context)
+	if !ok {
+		t.Fatalf("handler did not receive a context")
+	}
+
+	userID, ok := UserIDFromContext(gotCtx)
+	if !ok || userID != "user-1" {
+		t.Errorf("UserIDFromContext() = %q, %v, want %q, true", userID, ok, "user-1")
+	}
+}
+
+func TestAuthInterceptor_ProtectedMethod_InvalidToken(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	md := metadata.New(map[string]string{"authorization": "Bearer not-a-real-token"})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/media.v1.MediaService/RequestUpload"}
+
+	_, err := interceptor(ctx, nil, info, noopHandler)
+	if status.Code(err) != codes.Unauthenticated {
+		t.Errorf("interceptor() error code = %v, want %v", status.Code(err), codes.Unauthenticated)
+	}
+}
+
+func TestAuthInterceptor_ProtectedMethod_WrongScheme(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	md := metadata.New(map[string]string{"authorization": "Basic dXNlcjpwYXNz"})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/media.v1.MediaService/RequestUpload"}
+
+	_, err := interceptor(ctx, nil, info, noopHandler)
+	if status.Code(err) != codes.Unauthenticated {
+		t.Errorf("interceptor() error code = %v, want %v", status.Code(err), codes.Unauthenticated)
+	}
+}
+
+func TestAuthInterceptor_ProtectedMethod_MissingMetadata(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/media.v1.MediaService/ConfirmUpload"}
+
+	_, err := interceptor(context.Background(), nil, info, noopHandler)
+	if status.Code(err) != codes.Unauthenticated {
+		t.Errorf("interceptor() error code = %v, want %v", status.Code(err), codes.Unauthenticated)
+	}
+}
+
+func TestAuthInterceptor_HealthCheckMethod_IsPublic(t *testing.T) {
+	interceptor := AuthInterceptor(testJWTSecret)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/grpc.health.v1.Health/Check"}
+
+	_, err := interceptor(context.Background(), nil, info, noopHandler)
+	if err != nil {
+		t.Errorf("interceptor() unexpected error for grpc health check: %v", err)
+	}
+}
