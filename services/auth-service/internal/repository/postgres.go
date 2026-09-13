@@ -185,6 +185,38 @@ func (r *PostgresUserRepository) Anonymize(ctx context.Context, userID, anonymiz
 	return err
 }
 
+func (r *PostgresUserRepository) UpsertPushSubscription(ctx context.Context, sub *domain.PushSubscription) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh_key, auth_key, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (endpoint) DO UPDATE SET
+			user_id = $2, p256dh_key = $4, auth_key = $5, created_at = $6`,
+		sub.ID, sub.UserID, sub.Endpoint, sub.P256dhKey, sub.AuthKey, sub.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresUserRepository) DeletePushSubscription(ctx context.Context, userID, endpoint string) error {
+	_, err := r.conn.ExecContext(ctx, `
+		DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2`,
+		userID, endpoint,
+	)
+	return err
+}
+
+func (r *PostgresUserRepository) ListPushSubscriptions(ctx context.Context, userID string) ([]*domain.PushSubscription, error) {
+	var subs []*domain.PushSubscription
+	err := r.conn.SelectContext(ctx, &subs, `
+		SELECT id, user_id, endpoint, p256dh_key, auth_key, created_at
+		FROM push_subscriptions WHERE user_id = $1`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return subs, nil
+}
+
 func escapeLikePattern(s string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return replacer.Replace(s)
