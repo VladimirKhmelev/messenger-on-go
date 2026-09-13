@@ -1981,6 +1981,330 @@ func (x *GetWrappedPrivateKeyResponse) GetKeyWrapSalt() string {
 	return ""
 }
 
+type SavePushSubscriptionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	P256DhKey     string                 `protobuf:"bytes,2,opt,name=p256dh_key,json=p256dhKey,proto3" json:"p256dh_key,omitempty"`
+	AuthKey       string                 `protobuf:"bytes,3,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavePushSubscriptionRequest) Reset() {
+	*x = SavePushSubscriptionRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavePushSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavePushSubscriptionRequest) ProtoMessage() {}
+
+func (x *SavePushSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavePushSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*SavePushSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *SavePushSubscriptionRequest) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+func (x *SavePushSubscriptionRequest) GetP256DhKey() string {
+	if x != nil {
+		return x.P256DhKey
+	}
+	return ""
+}
+
+func (x *SavePushSubscriptionRequest) GetAuthKey() string {
+	if x != nil {
+		return x.AuthKey
+	}
+	return ""
+}
+
+type SavePushSubscriptionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavePushSubscriptionResponse) Reset() {
+	*x = SavePushSubscriptionResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavePushSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavePushSubscriptionResponse) ProtoMessage() {}
+
+func (x *SavePushSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavePushSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*SavePushSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{40}
+}
+
+type DeletePushSubscriptionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePushSubscriptionRequest) Reset() {
+	*x = DeletePushSubscriptionRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePushSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePushSubscriptionRequest) ProtoMessage() {}
+
+func (x *DeletePushSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePushSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*DeletePushSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *DeletePushSubscriptionRequest) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+type DeletePushSubscriptionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePushSubscriptionResponse) Reset() {
+	*x = DeletePushSubscriptionResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePushSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePushSubscriptionResponse) ProtoMessage() {}
+
+func (x *DeletePushSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePushSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*DeletePushSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{42}
+}
+
+type ListPushSubscriptionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPushSubscriptionsRequest) Reset() {
+	*x = ListPushSubscriptionsRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPushSubscriptionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPushSubscriptionsRequest) ProtoMessage() {}
+
+func (x *ListPushSubscriptionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPushSubscriptionsRequest.ProtoReflect.Descriptor instead.
+func (*ListPushSubscriptionsRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *ListPushSubscriptionsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListPushSubscriptionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Subscriptions []*PushSubscription    `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPushSubscriptionsResponse) Reset() {
+	*x = ListPushSubscriptionsResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPushSubscriptionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPushSubscriptionsResponse) ProtoMessage() {}
+
+func (x *ListPushSubscriptionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPushSubscriptionsResponse.ProtoReflect.Descriptor instead.
+func (*ListPushSubscriptionsResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListPushSubscriptionsResponse) GetSubscriptions() []*PushSubscription {
+	if x != nil {
+		return x.Subscriptions
+	}
+	return nil
+}
+
+type PushSubscription struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	P256DhKey     string                 `protobuf:"bytes,2,opt,name=p256dh_key,json=p256dhKey,proto3" json:"p256dh_key,omitempty"`
+	AuthKey       string                 `protobuf:"bytes,3,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushSubscription) Reset() {
+	*x = PushSubscription{}
+	mi := &file_auth_v1_auth_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushSubscription) ProtoMessage() {}
+
+func (x *PushSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushSubscription.ProtoReflect.Descriptor instead.
+func (*PushSubscription) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *PushSubscription) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+func (x *PushSubscription) GetP256DhKey() string {
+	if x != nil {
+		return x.P256DhKey
+	}
+	return ""
+}
+
+func (x *PushSubscription) GetAuthKey() string {
+	if x != nil {
+		return x.AuthKey
+	}
+	return ""
+}
+
 var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
@@ -2099,7 +2423,25 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x1bGetWrappedPrivateKeyRequest\"r\n" +
 	"\x1cGetWrappedPrivateKeyResponse\x12.\n" +
 	"\x13wrapped_private_key\x18\x01 \x01(\tR\x11wrappedPrivateKey\x12\"\n" +
-	"\rkey_wrap_salt\x18\x02 \x01(\tR\vkeyWrapSalt2\xc3\x10\n" +
+	"\rkey_wrap_salt\x18\x02 \x01(\tR\vkeyWrapSalt\"s\n" +
+	"\x1bSavePushSubscriptionRequest\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x1d\n" +
+	"\n" +
+	"p256dh_key\x18\x02 \x01(\tR\tp256dhKey\x12\x19\n" +
+	"\bauth_key\x18\x03 \x01(\tR\aauthKey\"\x1e\n" +
+	"\x1cSavePushSubscriptionResponse\";\n" +
+	"\x1dDeletePushSubscriptionRequest\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\" \n" +
+	"\x1eDeletePushSubscriptionResponse\"7\n" +
+	"\x1cListPushSubscriptionsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"`\n" +
+	"\x1dListPushSubscriptionsResponse\x12?\n" +
+	"\rsubscriptions\x18\x01 \x03(\v2\x19.auth.v1.PushSubscriptionR\rsubscriptions\"h\n" +
+	"\x10PushSubscription\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x1d\n" +
+	"\n" +
+	"p256dh_key\x18\x02 \x01(\tR\tp256dhKey\x12\x19\n" +
+	"\bauth_key\x18\x03 \x01(\tR\aauthKey2\xda\x13\n" +
 	"\vAuthService\x12R\n" +
 	"\x06Health\x12\x16.auth.v1.HealthRequest\x1a\x17.auth.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/auth/health\x12]\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12Q\n" +
@@ -2119,7 +2461,10 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/v1/users/me/password\x12n\n" +
 	"\rDeleteAccount\x12\x1d.auth.v1.DeleteAccountRequest\x1a\x1e.auth.v1.DeleteAccountResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/v1/users/me/delete\x12s\n" +
 	"\fGetPublicKey\x12\x1c.auth.v1.GetPublicKeyRequest\x1a\x1d.auth.v1.GetPublicKeyResponse\"&\x82\xd3\xe4\x93\x02 \x12\x1e/v1/users/{user_id}/public-key\x12\x8d\x01\n" +
-	"\x14GetWrappedPrivateKey\x12$.auth.v1.GetWrappedPrivateKeyRequest\x1a%.auth.v1.GetWrappedPrivateKeyResponse\"(\x82\xd3\xe4\x93\x02\"\x12 /v1/users/me/wrapped-private-keyBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
+	"\x14GetWrappedPrivateKey\x12$.auth.v1.GetWrappedPrivateKeyRequest\x1a%.auth.v1.GetWrappedPrivateKeyResponse\"(\x82\xd3\xe4\x93\x02\"\x12 /v1/users/me/wrapped-private-key\x12\x8e\x01\n" +
+	"\x14SavePushSubscription\x12$.auth.v1.SavePushSubscriptionRequest\x1a%.auth.v1.SavePushSubscriptionResponse\")\x82\xd3\xe4\x93\x02#:\x01*\"\x1e/v1/users/me/push-subscription\x12\x9b\x01\n" +
+	"\x16DeletePushSubscription\x12&.auth.v1.DeletePushSubscriptionRequest\x1a'.auth.v1.DeletePushSubscriptionResponse\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/v1/users/me/push-subscription/delete\x12f\n" +
+	"\x15ListPushSubscriptions\x12%.auth.v1.ListPushSubscriptionsRequest\x1a&.auth.v1.ListPushSubscriptionsResponseBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -2133,93 +2478,107 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 46)
 var file_auth_v1_auth_proto_goTypes = []any{
-	(*HealthRequest)(nil),                // 0: auth.v1.HealthRequest
-	(*HealthResponse)(nil),               // 1: auth.v1.HealthResponse
-	(*RegisterRequest)(nil),              // 2: auth.v1.RegisterRequest
-	(*RegisterResponse)(nil),             // 3: auth.v1.RegisterResponse
-	(*LoginRequest)(nil),                 // 4: auth.v1.LoginRequest
-	(*LoginResponse)(nil),                // 5: auth.v1.LoginResponse
-	(*GetUserByTagRequest)(nil),          // 6: auth.v1.GetUserByTagRequest
-	(*GetUserByTagResponse)(nil),         // 7: auth.v1.GetUserByTagResponse
-	(*GetUserByIDRequest)(nil),           // 8: auth.v1.GetUserByIDRequest
-	(*GetUserByIDResponse)(nil),          // 9: auth.v1.GetUserByIDResponse
-	(*SearchUsersRequest)(nil),           // 10: auth.v1.SearchUsersRequest
-	(*SearchUsersResponse)(nil),          // 11: auth.v1.SearchUsersResponse
-	(*UserSummary)(nil),                  // 12: auth.v1.UserSummary
-	(*RefreshTokenRequest)(nil),          // 13: auth.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),         // 14: auth.v1.RefreshTokenResponse
-	(*LogoutRequest)(nil),                // 15: auth.v1.LogoutRequest
-	(*LogoutResponse)(nil),               // 16: auth.v1.LogoutResponse
-	(*VerifyEmailRequest)(nil),           // 17: auth.v1.VerifyEmailRequest
-	(*VerifyEmailResponse)(nil),          // 18: auth.v1.VerifyEmailResponse
-	(*RequestPasswordResetRequest)(nil),  // 19: auth.v1.RequestPasswordResetRequest
-	(*RequestPasswordResetResponse)(nil), // 20: auth.v1.RequestPasswordResetResponse
-	(*ResetPasswordRequest)(nil),         // 21: auth.v1.ResetPasswordRequest
-	(*ResetPasswordResponse)(nil),        // 22: auth.v1.ResetPasswordResponse
-	(*LoginWithGitHubRequest)(nil),       // 23: auth.v1.LoginWithGitHubRequest
-	(*LoginWithGitHubResponse)(nil),      // 24: auth.v1.LoginWithGitHubResponse
-	(*UpdateTagRequest)(nil),             // 25: auth.v1.UpdateTagRequest
-	(*UpdateTagResponse)(nil),            // 26: auth.v1.UpdateTagResponse
-	(*CheckTagAvailableRequest)(nil),     // 27: auth.v1.CheckTagAvailableRequest
-	(*CheckTagAvailableResponse)(nil),    // 28: auth.v1.CheckTagAvailableResponse
-	(*UpdateDisplayNameRequest)(nil),     // 29: auth.v1.UpdateDisplayNameRequest
-	(*UpdateDisplayNameResponse)(nil),    // 30: auth.v1.UpdateDisplayNameResponse
-	(*ChangePasswordRequest)(nil),        // 31: auth.v1.ChangePasswordRequest
-	(*ChangePasswordResponse)(nil),       // 32: auth.v1.ChangePasswordResponse
-	(*DeleteAccountRequest)(nil),         // 33: auth.v1.DeleteAccountRequest
-	(*DeleteAccountResponse)(nil),        // 34: auth.v1.DeleteAccountResponse
-	(*GetPublicKeyRequest)(nil),          // 35: auth.v1.GetPublicKeyRequest
-	(*GetPublicKeyResponse)(nil),         // 36: auth.v1.GetPublicKeyResponse
-	(*GetWrappedPrivateKeyRequest)(nil),  // 37: auth.v1.GetWrappedPrivateKeyRequest
-	(*GetWrappedPrivateKeyResponse)(nil), // 38: auth.v1.GetWrappedPrivateKeyResponse
+	(*HealthRequest)(nil),                  // 0: auth.v1.HealthRequest
+	(*HealthResponse)(nil),                 // 1: auth.v1.HealthResponse
+	(*RegisterRequest)(nil),                // 2: auth.v1.RegisterRequest
+	(*RegisterResponse)(nil),               // 3: auth.v1.RegisterResponse
+	(*LoginRequest)(nil),                   // 4: auth.v1.LoginRequest
+	(*LoginResponse)(nil),                  // 5: auth.v1.LoginResponse
+	(*GetUserByTagRequest)(nil),            // 6: auth.v1.GetUserByTagRequest
+	(*GetUserByTagResponse)(nil),           // 7: auth.v1.GetUserByTagResponse
+	(*GetUserByIDRequest)(nil),             // 8: auth.v1.GetUserByIDRequest
+	(*GetUserByIDResponse)(nil),            // 9: auth.v1.GetUserByIDResponse
+	(*SearchUsersRequest)(nil),             // 10: auth.v1.SearchUsersRequest
+	(*SearchUsersResponse)(nil),            // 11: auth.v1.SearchUsersResponse
+	(*UserSummary)(nil),                    // 12: auth.v1.UserSummary
+	(*RefreshTokenRequest)(nil),            // 13: auth.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),           // 14: auth.v1.RefreshTokenResponse
+	(*LogoutRequest)(nil),                  // 15: auth.v1.LogoutRequest
+	(*LogoutResponse)(nil),                 // 16: auth.v1.LogoutResponse
+	(*VerifyEmailRequest)(nil),             // 17: auth.v1.VerifyEmailRequest
+	(*VerifyEmailResponse)(nil),            // 18: auth.v1.VerifyEmailResponse
+	(*RequestPasswordResetRequest)(nil),    // 19: auth.v1.RequestPasswordResetRequest
+	(*RequestPasswordResetResponse)(nil),   // 20: auth.v1.RequestPasswordResetResponse
+	(*ResetPasswordRequest)(nil),           // 21: auth.v1.ResetPasswordRequest
+	(*ResetPasswordResponse)(nil),          // 22: auth.v1.ResetPasswordResponse
+	(*LoginWithGitHubRequest)(nil),         // 23: auth.v1.LoginWithGitHubRequest
+	(*LoginWithGitHubResponse)(nil),        // 24: auth.v1.LoginWithGitHubResponse
+	(*UpdateTagRequest)(nil),               // 25: auth.v1.UpdateTagRequest
+	(*UpdateTagResponse)(nil),              // 26: auth.v1.UpdateTagResponse
+	(*CheckTagAvailableRequest)(nil),       // 27: auth.v1.CheckTagAvailableRequest
+	(*CheckTagAvailableResponse)(nil),      // 28: auth.v1.CheckTagAvailableResponse
+	(*UpdateDisplayNameRequest)(nil),       // 29: auth.v1.UpdateDisplayNameRequest
+	(*UpdateDisplayNameResponse)(nil),      // 30: auth.v1.UpdateDisplayNameResponse
+	(*ChangePasswordRequest)(nil),          // 31: auth.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),         // 32: auth.v1.ChangePasswordResponse
+	(*DeleteAccountRequest)(nil),           // 33: auth.v1.DeleteAccountRequest
+	(*DeleteAccountResponse)(nil),          // 34: auth.v1.DeleteAccountResponse
+	(*GetPublicKeyRequest)(nil),            // 35: auth.v1.GetPublicKeyRequest
+	(*GetPublicKeyResponse)(nil),           // 36: auth.v1.GetPublicKeyResponse
+	(*GetWrappedPrivateKeyRequest)(nil),    // 37: auth.v1.GetWrappedPrivateKeyRequest
+	(*GetWrappedPrivateKeyResponse)(nil),   // 38: auth.v1.GetWrappedPrivateKeyResponse
+	(*SavePushSubscriptionRequest)(nil),    // 39: auth.v1.SavePushSubscriptionRequest
+	(*SavePushSubscriptionResponse)(nil),   // 40: auth.v1.SavePushSubscriptionResponse
+	(*DeletePushSubscriptionRequest)(nil),  // 41: auth.v1.DeletePushSubscriptionRequest
+	(*DeletePushSubscriptionResponse)(nil), // 42: auth.v1.DeletePushSubscriptionResponse
+	(*ListPushSubscriptionsRequest)(nil),   // 43: auth.v1.ListPushSubscriptionsRequest
+	(*ListPushSubscriptionsResponse)(nil),  // 44: auth.v1.ListPushSubscriptionsResponse
+	(*PushSubscription)(nil),               // 45: auth.v1.PushSubscription
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	12, // 0: auth.v1.SearchUsersResponse.users:type_name -> auth.v1.UserSummary
-	0,  // 1: auth.v1.AuthService.Health:input_type -> auth.v1.HealthRequest
-	2,  // 2: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
-	4,  // 3: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
-	6,  // 4: auth.v1.AuthService.GetUserByTag:input_type -> auth.v1.GetUserByTagRequest
-	8,  // 5: auth.v1.AuthService.GetUserByID:input_type -> auth.v1.GetUserByIDRequest
-	10, // 6: auth.v1.AuthService.SearchUsers:input_type -> auth.v1.SearchUsersRequest
-	13, // 7: auth.v1.AuthService.RefreshToken:input_type -> auth.v1.RefreshTokenRequest
-	15, // 8: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	17, // 9: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
-	19, // 10: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
-	21, // 11: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
-	23, // 12: auth.v1.AuthService.LoginWithGitHub:input_type -> auth.v1.LoginWithGitHubRequest
-	25, // 13: auth.v1.AuthService.UpdateTag:input_type -> auth.v1.UpdateTagRequest
-	27, // 14: auth.v1.AuthService.CheckTagAvailable:input_type -> auth.v1.CheckTagAvailableRequest
-	29, // 15: auth.v1.AuthService.UpdateDisplayName:input_type -> auth.v1.UpdateDisplayNameRequest
-	31, // 16: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
-	33, // 17: auth.v1.AuthService.DeleteAccount:input_type -> auth.v1.DeleteAccountRequest
-	35, // 18: auth.v1.AuthService.GetPublicKey:input_type -> auth.v1.GetPublicKeyRequest
-	37, // 19: auth.v1.AuthService.GetWrappedPrivateKey:input_type -> auth.v1.GetWrappedPrivateKeyRequest
-	1,  // 20: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
-	3,  // 21: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	5,  // 22: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	7,  // 23: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
-	9,  // 24: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
-	11, // 25: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
-	14, // 26: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	16, // 27: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	18, // 28: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	20, // 29: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	22, // 30: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
-	24, // 31: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
-	26, // 32: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
-	28, // 33: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
-	30, // 34: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
-	32, // 35: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
-	34, // 36: auth.v1.AuthService.DeleteAccount:output_type -> auth.v1.DeleteAccountResponse
-	36, // 37: auth.v1.AuthService.GetPublicKey:output_type -> auth.v1.GetPublicKeyResponse
-	38, // 38: auth.v1.AuthService.GetWrappedPrivateKey:output_type -> auth.v1.GetWrappedPrivateKeyResponse
-	20, // [20:39] is the sub-list for method output_type
-	1,  // [1:20] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	45, // 1: auth.v1.ListPushSubscriptionsResponse.subscriptions:type_name -> auth.v1.PushSubscription
+	0,  // 2: auth.v1.AuthService.Health:input_type -> auth.v1.HealthRequest
+	2,  // 3: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
+	4,  // 4: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
+	6,  // 5: auth.v1.AuthService.GetUserByTag:input_type -> auth.v1.GetUserByTagRequest
+	8,  // 6: auth.v1.AuthService.GetUserByID:input_type -> auth.v1.GetUserByIDRequest
+	10, // 7: auth.v1.AuthService.SearchUsers:input_type -> auth.v1.SearchUsersRequest
+	13, // 8: auth.v1.AuthService.RefreshToken:input_type -> auth.v1.RefreshTokenRequest
+	15, // 9: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
+	17, // 10: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
+	19, // 11: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	21, // 12: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
+	23, // 13: auth.v1.AuthService.LoginWithGitHub:input_type -> auth.v1.LoginWithGitHubRequest
+	25, // 14: auth.v1.AuthService.UpdateTag:input_type -> auth.v1.UpdateTagRequest
+	27, // 15: auth.v1.AuthService.CheckTagAvailable:input_type -> auth.v1.CheckTagAvailableRequest
+	29, // 16: auth.v1.AuthService.UpdateDisplayName:input_type -> auth.v1.UpdateDisplayNameRequest
+	31, // 17: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
+	33, // 18: auth.v1.AuthService.DeleteAccount:input_type -> auth.v1.DeleteAccountRequest
+	35, // 19: auth.v1.AuthService.GetPublicKey:input_type -> auth.v1.GetPublicKeyRequest
+	37, // 20: auth.v1.AuthService.GetWrappedPrivateKey:input_type -> auth.v1.GetWrappedPrivateKeyRequest
+	39, // 21: auth.v1.AuthService.SavePushSubscription:input_type -> auth.v1.SavePushSubscriptionRequest
+	41, // 22: auth.v1.AuthService.DeletePushSubscription:input_type -> auth.v1.DeletePushSubscriptionRequest
+	43, // 23: auth.v1.AuthService.ListPushSubscriptions:input_type -> auth.v1.ListPushSubscriptionsRequest
+	1,  // 24: auth.v1.AuthService.Health:output_type -> auth.v1.HealthResponse
+	3,  // 25: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	5,  // 26: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	7,  // 27: auth.v1.AuthService.GetUserByTag:output_type -> auth.v1.GetUserByTagResponse
+	9,  // 28: auth.v1.AuthService.GetUserByID:output_type -> auth.v1.GetUserByIDResponse
+	11, // 29: auth.v1.AuthService.SearchUsers:output_type -> auth.v1.SearchUsersResponse
+	14, // 30: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	16, // 31: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	18, // 32: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	20, // 33: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	22, // 34: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	24, // 35: auth.v1.AuthService.LoginWithGitHub:output_type -> auth.v1.LoginWithGitHubResponse
+	26, // 36: auth.v1.AuthService.UpdateTag:output_type -> auth.v1.UpdateTagResponse
+	28, // 37: auth.v1.AuthService.CheckTagAvailable:output_type -> auth.v1.CheckTagAvailableResponse
+	30, // 38: auth.v1.AuthService.UpdateDisplayName:output_type -> auth.v1.UpdateDisplayNameResponse
+	32, // 39: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	34, // 40: auth.v1.AuthService.DeleteAccount:output_type -> auth.v1.DeleteAccountResponse
+	36, // 41: auth.v1.AuthService.GetPublicKey:output_type -> auth.v1.GetPublicKeyResponse
+	38, // 42: auth.v1.AuthService.GetWrappedPrivateKey:output_type -> auth.v1.GetWrappedPrivateKeyResponse
+	40, // 43: auth.v1.AuthService.SavePushSubscription:output_type -> auth.v1.SavePushSubscriptionResponse
+	42, // 44: auth.v1.AuthService.DeletePushSubscription:output_type -> auth.v1.DeletePushSubscriptionResponse
+	44, // 45: auth.v1.AuthService.ListPushSubscriptions:output_type -> auth.v1.ListPushSubscriptionsResponse
+	24, // [24:46] is the sub-list for method output_type
+	2,  // [2:24] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_auth_v1_auth_proto_init() }
@@ -2233,7 +2592,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   46,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
