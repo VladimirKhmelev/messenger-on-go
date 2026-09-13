@@ -263,6 +263,49 @@ func (s *AuthServer) GetWrappedPrivateKey(ctx context.Context, req *authv1.GetWr
 	return &authv1.GetWrappedPrivateKeyResponse{WrappedPrivateKey: wrappedPrivateKey, KeyWrapSalt: keyWrapSalt}, nil
 }
 
+func (s *AuthServer) SavePushSubscription(ctx context.Context, req *authv1.SavePushSubscriptionRequest) (*authv1.SavePushSubscriptionResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.auth.SavePushSubscription(ctx, userID, req.GetEndpoint(), req.GetP256DhKey(), req.GetAuthKey()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.SavePushSubscriptionResponse{}, nil
+}
+
+func (s *AuthServer) DeletePushSubscription(ctx context.Context, req *authv1.DeletePushSubscriptionRequest) (*authv1.DeletePushSubscriptionResponse, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.auth.DeletePushSubscription(ctx, userID, req.GetEndpoint()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &authv1.DeletePushSubscriptionResponse{}, nil
+}
+
+func (s *AuthServer) ListPushSubscriptions(ctx context.Context, req *authv1.ListPushSubscriptionsRequest) (*authv1.ListPushSubscriptionsResponse, error) {
+	subs, err := s.auth.ListPushSubscriptions(ctx, req.GetUserId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	resp := &authv1.ListPushSubscriptionsResponse{Subscriptions: make([]*authv1.PushSubscription, 0, len(subs))}
+	for _, sub := range subs {
+		resp.Subscriptions = append(resp.Subscriptions, &authv1.PushSubscription{
+			Endpoint:  sub.Endpoint,
+			P256DhKey: sub.P256dhKey,
+			AuthKey:   sub.AuthKey,
+		})
+	}
+	return resp, nil
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
@@ -271,7 +314,8 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrWeakPassword),
 		errors.Is(err, domain.ErrSamePassword),
 		errors.Is(err, domain.ErrSearchQueryTooShort),
-		errors.Is(err, domain.ErrInvalidPublicKey):
+		errors.Is(err, domain.ErrInvalidPublicKey),
+		errors.Is(err, domain.ErrInvalidPushSubscription):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailTaken),
 		errors.Is(err, domain.ErrTagTaken):
