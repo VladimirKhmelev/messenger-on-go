@@ -56,6 +56,14 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: public/coverage/notification-worker
 
+      - name: Download media-service coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-media-service
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: public/coverage/media-service
+
       - name: Build Swagger UI
         run: |
           mv public/swagger/messenger.swagger.json public/swagger/swagger.json
@@ -98,6 +106,7 @@ jobs:
             <a href="chat-service/cover.html">chat-service</a>
             <a href="ws-gateway/cover.html">ws-gateway</a>
             <a href="notification-worker/cover.html">notification-worker</a>
+            <a href="media-service/cover.html">media-service</a>
           </body>
           </html>
           EOF
