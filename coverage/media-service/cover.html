@@ -1,0 +1,877 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/media-service/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/chatclient/chatclient.go (0.0%)</option>
+				
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/minioclient/minioclient.go (0.0%)</option>
+				
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/repository/migrations.go (0.0%)</option>
+				
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/repository/postgres.go (0.0%)</option>
+				
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/service/media.go (85.7%)</option>
+				
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc/media_server.go (58.6%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/health"
+        healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+        mediav1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/media/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/chatclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/minioclient"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/repository"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/service"
+        transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc"
+)
+
+const mediaBucket = "messenger-media"
+
+func main() <span class="cov0" title="0">{
+        port := os.Getenv("GRPC_PORT")
+        if port == "" </span><span class="cov0" title="0">{
+                port = "50051"
+        }</span>
+
+        <span class="cov0" title="0">httpPort := os.Getenv("HTTP_PORT")
+        if httpPort == "" </span><span class="cov0" title="0">{
+                httpPort = "8080"
+        }</span>
+
+        <span class="cov0" title="0">dsn := os.Getenv("POSTGRES_DSN")
+        if dsn == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: POSTGRES_DSN is required")
+        }</span>
+
+        <span class="cov0" title="0">jwtSecret := os.Getenv("JWT_SECRET")
+        if jwtSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: JWT_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">internalSecret := os.Getenv("INTERNAL_SECRET")
+        if internalSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: INTERNAL_SECRET is required")
+        }</span>
+
+        <span class="cov0" title="0">chatServiceAddr := os.Getenv("CHAT_SERVICE_ADDR")
+        if chatServiceAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: CHAT_SERVICE_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">minioEndpoint := os.Getenv("MINIO_ENDPOINT")
+        if minioEndpoint == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: MINIO_ENDPOINT is required")
+        }</span>
+
+        <span class="cov0" title="0">minioAccessKey := os.Getenv("MINIO_ROOT_USER")
+        if minioAccessKey == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: MINIO_ROOT_USER is required")
+        }</span>
+
+        <span class="cov0" title="0">minioSecretKey := os.Getenv("MINIO_ROOT_PASSWORD")
+        if minioSecretKey == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: MINIO_ROOT_PASSWORD is required")
+        }</span>
+
+        <span class="cov0" title="0">publicMediaURL := os.Getenv("PUBLIC_MEDIA_URL")
+        if publicMediaURL == "" </span><span class="cov0" title="0">{
+                log.Fatal("media-service: PUBLIC_MEDIA_URL is required")
+        }</span>
+
+        <span class="cov0" title="0">tracingShutdown, err := tracing.Setup(context.Background(), "media-service", os.Getenv("JAEGER_ENDPOINT"))
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to set up tracing: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err := tracingShutdown(context.Background()); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("media-service: tracing shutdown failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">mediaRepo, err := repository.NewPostgresMediaRepository(dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to connect to postgres: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := mediaRepo.Migrate(); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to run migrations: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">store, err := minioclient.New(minioEndpoint, minioAccessKey, minioSecretKey, mediaBucket, publicMediaURL)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to create MinIO client: %v", err)
+        }</span>
+        <span class="cov0" title="0">if err := store.EnsureBucket(context.Background()); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to ensure bucket: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to dial chat-service: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = chatClient.Close() }</span>()
+
+        <span class="cov0" title="0">mediaService := service.NewMediaService(mediaRepo, store, chatClient)
+
+        lis, err := net.Listen("tcp", ":"+port)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to listen: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">grpcServer := grpc.NewServer(
+                grpc.StatsHandler(otelgrpc.NewServerHandler()),
+                grpc.ChainUnaryInterceptor(
+                        metrics.UnaryServerInterceptor("media-service"),
+                        transportgrpc.AuthInterceptor(jwtSecret),
+                ),
+        )
+
+        mediav1.RegisterMediaServiceServer(grpcServer, transportgrpc.NewMediaServer(mediaService))
+
+        healthServer := health.NewServer()
+        healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+        healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("media-service: grpc listening on :%s\n", port)
+                if err := grpcServer.Serve(lis); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("media-service: serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">gwMux := runtime.NewServeMux()
+        gwOpts := []grpc.DialOption{
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("media-service")),
+        }
+        if err := mediav1.RegisterMediaServiceHandlerFromEndpoint(context.Background(), gwMux, "localhost:"+port, gwOpts); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to register HTTP gateway: %v", err)
+        }</span>
+        <span class="cov0" title="0">if err := gwMux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, _ map[string]string) </span><span class="cov0" title="0">{
+                metrics.Handler(w, r)
+        }</span>); err != nil <span class="cov0" title="0">{
+                log.Fatalf("media-service: failed to register /metrics route: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">httpServer := &amp;http.Server{
+                Addr:    ":" + httpPort,
+                Handler: gwMux,
+        }
+
+        go func() </span><span class="cov0" title="0">{
+                fmt.Printf("media-service: http listening on :%s\n", httpPort)
+                if err := httpServer.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("media-service: http serve failed: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">stop := make(chan os.Signal, 1)
+        signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-stop
+
+        fmt.Println("media-service: shutting down")
+        grpcServer.GracefulStop()
+        _ = httpServer.Close()</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package chatclient
+
+import (
+        "context"
+        "slices"
+
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/metadata"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+)
+
+type Client struct {
+        conn           *grpc.ClientConn
+        chat           chatv1.ChatServiceClient
+        internalSecret string
+}
+
+func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := grpc.NewClient(addr,
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("media-service")),
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+func (c *Client) Close() error <span class="cov0" title="0">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) IsMember(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
+        ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
+
+        resp, err := c.chat.ListMembers(ctx, &amp;chatv1.ListMembersRequest{ChatId: chatID})
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return slices.Contains(resp.GetUserIds(), userID), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package minioclient
+
+import (
+        "context"
+        "net/url"
+        "time"
+
+        "github.com/minio/minio-go/v7"
+        "github.com/minio/minio-go/v7/pkg/credentials"
+)
+
+type Client struct {
+        raw        *minio.Client
+        bucket     string
+        publicBase *url.URL
+}
+
+func New(internalEndpoint, accessKeyID, secretAccessKey, bucket, publicBaseURL string) (*Client, error) <span class="cov0" title="0">{
+        raw, err := minio.New(internalEndpoint, &amp;minio.Options{
+                Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+                Secure: false,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">base, err := url.Parse(publicBaseURL)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;Client{raw: raw, bucket: bucket, publicBase: base}, nil</span>
+}
+
+func (c *Client) EnsureBucket(ctx context.Context) error <span class="cov0" title="0">{
+        exists, err := c.raw.BucketExists(ctx, c.bucket)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if exists </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov0" title="0">return c.raw.MakeBucket(ctx, c.bucket, minio.MakeBucketOptions{})</span>
+}
+
+func (c *Client) PresignedPutURL(ctx context.Context, objectKey string, expires time.Duration) (string, error) <span class="cov0" title="0">{
+        u, err := c.raw.PresignedPutObject(ctx, c.bucket, objectKey, expires)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">return c.rewriteToPublic(u).String(), nil</span>
+}
+
+func (c *Client) PresignedGetURL(ctx context.Context, objectKey string, expires time.Duration) (string, error) <span class="cov0" title="0">{
+        u, err := c.raw.PresignedGetObject(ctx, c.bucket, objectKey, expires, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">return c.rewriteToPublic(u).String(), nil</span>
+}
+
+func (c *Client) StatObjectExists(ctx context.Context, objectKey string) (bool, error) <span class="cov0" title="0">{
+        _, err := c.raw.StatObject(ctx, c.bucket, objectKey, minio.StatObjectOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                if resp := minio.ToErrorResponse(err); resp.Code == minio.NoSuchKey </span><span class="cov0" title="0">{
+                        return false, nil
+                }</span>
+                <span class="cov0" title="0">return false, err</span>
+        }
+        <span class="cov0" title="0">return true, nil</span>
+}
+
+func (c *Client) rewriteToPublic(u *url.URL) *url.URL <span class="cov0" title="0">{
+        out := *u
+        out.Scheme = c.publicBase.Scheme
+        out.Host = c.publicBase.Host
+        out.Path = c.publicBase.Path + trimBucketPrefix(u.Path, c.bucket)
+        return &amp;out
+}</span>
+
+func trimBucketPrefix(path, bucket string) string <span class="cov0" title="0">{
+        prefix := "/" + bucket
+        if len(path) &gt;= len(prefix) &amp;&amp; path[:len(prefix)] == prefix </span><span class="cov0" title="0">{
+                return path[len(prefix):]
+        }</span>
+        <span class="cov0" title="0">return path</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package repository
+
+import (
+        "embed"
+        "errors"
+
+        "github.com/golang-migrate/migrate/v4"
+        pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
+        "github.com/golang-migrate/migrate/v4/source/iofs"
+)
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
+func (r *PostgresMediaRepository) Migrate() error <span class="cov0" title="0">{
+        files, err := iofs.New(migrationFiles, "migrations")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">driver, err := pgxmigrate.WithInstance(r.conn.DB, &amp;pgxmigrate.Config{})
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">m, err := migrate.NewWithInstance("iofs", files, "pgx5", driver)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := m.Up(); err != nil &amp;&amp; !errors.Is(err, migrate.ErrNoChange) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package repository
+
+import (
+        "context"
+        "database/sql"
+        "errors"
+        "time"
+
+        _ "github.com/jackc/pgx/v5/stdlib"
+        "github.com/jmoiron/sqlx"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/domain"
+)
+
+const (
+        maxOpenConns    = 20
+        maxIdleConns    = 5
+        connMaxLifetime = 30 * time.Minute
+)
+
+type PostgresMediaRepository struct {
+        conn *sqlx.DB
+}
+
+func NewPostgresMediaRepository(dsn string) (*PostgresMediaRepository, error) <span class="cov0" title="0">{
+        conn, err := sqlx.Connect("pgx", dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">conn.SetMaxOpenConns(maxOpenConns)
+        conn.SetMaxIdleConns(maxIdleConns)
+        conn.SetConnMaxLifetime(connMaxLifetime)
+        return &amp;PostgresMediaRepository{conn: conn}, nil</span>
+}
+
+func (r *PostgresMediaRepository) CreatePending(ctx context.Context, obj *domain.MediaObject) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO media_objects (id, chat_id, uploader_id, object_key, content_type, size_bytes, confirmed, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, false, $7)`,
+                obj.ID, obj.ChatID, obj.UploaderID, obj.ObjectKey, obj.ContentType, obj.SizeBytes, obj.CreatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresMediaRepository) Confirm(ctx context.Context, id string) error <span class="cov0" title="0">{
+        result, err := r.conn.ExecContext(ctx, `UPDATE media_objects SET confirmed = true WHERE id = $1`, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return domain.ErrMediaNotFound
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (r *PostgresMediaRepository) Get(ctx context.Context, id string) (*domain.MediaObject, error) <span class="cov0" title="0">{
+        var obj domain.MediaObject
+        err := r.conn.GetContext(ctx, &amp;obj, `
+                SELECT id, chat_id, uploader_id, object_key, content_type, size_bytes, confirmed, created_at
+                FROM media_objects WHERE id = $1`,
+                id,
+        )
+        if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                return nil, domain.ErrMediaNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;obj, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package service
+
+import (
+        "context"
+        "time"
+
+        "github.com/google/uuid"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/repository"
+)
+
+const (
+        MaxUploadSizeBytes = 50 * 1024 * 1024 // 50MB
+
+        uploadURLTTL   = 15 * time.Minute
+        downloadURLTTL = 15 * time.Minute
+)
+
+var blockedContentTypes = map[string]bool{
+        "application/x-msdownload":                      true, // .exe, .dll
+        "application/x-msdos-program":                   true, // .exe, .com
+        "application/x-executable":                      true, // ELF binaries (Linux)
+        "application/x-mach-binary":                     true, // macOS executables
+        "application/x-sh":                              true, // .sh
+        "application/x-bat":                             true, // .bat
+        "application/x-msi":                             true, // .msi
+        "application/vnd.microsoft.portable-executable": true, // .exe, .dll (modern browsers)
+        "application/x-apple-diskimage":                 true, // .dmg
+        "application/java-archive":                      true, // .jar
+}
+
+type ChatMembership interface {
+        IsMember(ctx context.Context, chatID, userID string) (bool, error)
+}
+
+type ObjectStore interface {
+        PresignedPutURL(ctx context.Context, objectKey string, expires time.Duration) (string, error)
+        PresignedGetURL(ctx context.Context, objectKey string, expires time.Duration) (string, error)
+        StatObjectExists(ctx context.Context, objectKey string) (bool, error)
+}
+
+type MediaService struct {
+        media   repository.MediaRepository
+        store   ObjectStore
+        members ChatMembership
+}
+
+func NewMediaService(media repository.MediaRepository, store ObjectStore, members ChatMembership) *MediaService <span class="cov8" title="1">{
+        return &amp;MediaService{media: media, store: store, members: members}
+}</span>
+
+type UploadTicket struct {
+        UploadID      string
+        UploadURL     string
+        ExpiresAtUnix int64
+}
+
+func (s *MediaService) RequestUpload(ctx context.Context, chatID, requesterID, contentType string, sizeBytes int64) (*UploadTicket, error) <span class="cov8" title="1">{
+        if contentType == "" </span><span class="cov8" title="1">{
+                return nil, domain.ErrEmptyContentType
+        }</span>
+        <span class="cov8" title="1">if blockedContentTypes[contentType] </span><span class="cov8" title="1">{
+                return nil, domain.ErrContentTypeBlocked
+        }</span>
+        <span class="cov8" title="1">if sizeBytes &lt;= 0 </span><span class="cov8" title="1">{
+                return nil, domain.ErrInvalidSize
+        }</span>
+        <span class="cov8" title="1">if sizeBytes &gt; MaxUploadSizeBytes </span><span class="cov8" title="1">{
+                return nil, domain.ErrSizeTooLarge
+        }</span>
+
+        <span class="cov8" title="1">isMember, err := s.members.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+                return nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov8" title="1">id := uuid.NewString()
+        objectKey := "chats/" + chatID + "/" + id
+
+        if err := s.media.CreatePending(ctx, &amp;domain.MediaObject{
+                ID:          id,
+                ChatID:      chatID,
+                UploaderID:  requesterID,
+                ObjectKey:   objectKey,
+                ContentType: contentType,
+                SizeBytes:   sizeBytes,
+                CreatedAt:   time.Now(),
+        }); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">uploadURL, err := s.store.PresignedPutURL(ctx, objectKey, uploadURLTTL)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;UploadTicket{
+                UploadID:      id,
+                UploadURL:     uploadURL,
+                ExpiresAtUnix: time.Now().Add(uploadURLTTL).Unix(),
+        }, nil</span>
+}
+
+func (s *MediaService) ConfirmUpload(ctx context.Context, uploadID, requesterID string) (string, error) <span class="cov8" title="1">{
+        obj, err := s.media.Get(ctx, uploadID)
+        if err != nil </span><span class="cov8" title="1">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">if obj.UploaderID != requesterID </span><span class="cov8" title="1">{
+                return "", domain.ErrMediaNotFound
+        }</span>
+
+        <span class="cov8" title="1">exists, err := s.store.StatObjectExists(ctx, obj.ObjectKey)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
+                return "", domain.ErrUploadNotConfirmed
+        }</span>
+
+        <span class="cov8" title="1">if err := s.media.Confirm(ctx, uploadID); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">return obj.ID, nil</span>
+}
+
+type DownloadTicket struct {
+        DownloadURL   string
+        ExpiresAtUnix int64
+}
+
+func (s *MediaService) GetDownloadURL(ctx context.Context, mediaID, requesterID string) (*DownloadTicket, error) <span class="cov8" title="1">{
+        obj, err := s.media.Get(ctx, mediaID)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !obj.Confirmed </span><span class="cov8" title="1">{
+                return nil, domain.ErrUploadNotConfirmed
+        }</span>
+
+        <span class="cov8" title="1">isMember, err := s.members.IsMember(ctx, obj.ChatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+                return nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov8" title="1">downloadURL, err := s.store.PresignedGetURL(ctx, obj.ObjectKey, downloadURLTTL)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;DownloadTicket{
+                DownloadURL:   downloadURL,
+                ExpiresAtUnix: time.Now().Add(downloadURLTTL).Unix(),
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package grpc
+
+import (
+        "context"
+        "strings"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/metadata"
+        "google.golang.org/grpc/status"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+)
+
+type contextKey string
+
+const userIDContextKey contextKey = "user_id"
+
+var publicMethods = map[string]bool{
+        "/media.v1.MediaService/Health": true,
+        "/grpc.health.v1.Health/Check":  true,
+        "/grpc.health.v1.Health/Watch":  true,
+}
+
+func AuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
+        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
+                if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
+                        return handler(ctx, req)
+                }</span>
+
+                <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+                }</span>
+
+                <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
+                return handler(ctx, req)</span>
+        }
+}
+
+func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{
+        md, ok := metadata.FromIncomingContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return "", status.Error(codes.Unauthenticated, "missing metadata")
+        }</span>
+
+        <span class="cov8" title="1">values := md.Get("authorization")
+        if len(values) == 0 </span><span class="cov0" title="0">{
+                return "", status.Error(codes.Unauthenticated, "missing authorization header")
+        }</span>
+
+        <span class="cov8" title="1">const prefix = "Bearer "
+        if !strings.HasPrefix(values[0], prefix) </span><span class="cov8" title="1">{
+                return "", status.Error(codes.Unauthenticated, "authorization header must use Bearer scheme")
+        }</span>
+
+        <span class="cov8" title="1">return strings.TrimPrefix(values[0], prefix), nil</span>
+}
+
+func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" title="1">{
+        userID, ok := ctx.Value(userIDContextKey).(string)
+        return userID, ok
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package grpc
+
+import (
+        "context"
+        "errors"
+
+        "google.golang.org/grpc/codes"
+        "google.golang.org/grpc/status"
+
+        mediav1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/media/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/domain"
+        "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/service"
+)
+
+type MediaServer struct {
+        mediav1.UnimplementedMediaServiceServer
+
+        media *service.MediaService
+}
+
+func NewMediaServer(media *service.MediaService) *MediaServer <span class="cov8" title="1">{
+        return &amp;MediaServer{media: media}
+}</span>
+
+func (s *MediaServer) Health(ctx context.Context, req *mediav1.HealthRequest) (*mediav1.HealthResponse, error) <span class="cov8" title="1">{
+        return &amp;mediav1.HealthResponse{Ok: true}, nil
+}</span>
+
+func (s *MediaServer) RequestUpload(ctx context.Context, req *mediav1.RequestUploadRequest) (*mediav1.RequestUploadResponse, error) <span class="cov8" title="1">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">ticket, err := s.media.RequestUpload(ctx, req.GetChatId(), requesterID, req.GetContentType(), req.GetSizeBytes())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;mediav1.RequestUploadResponse{
+                UploadId:      ticket.UploadID,
+                UploadUrl:     ticket.UploadURL,
+                ExpiresAtUnix: ticket.ExpiresAtUnix,
+        }, nil</span>
+}
+
+func (s *MediaServer) ConfirmUpload(ctx context.Context, req *mediav1.ConfirmUploadRequest) (*mediav1.ConfirmUploadResponse, error) <span class="cov8" title="1">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">mediaID, err := s.media.ConfirmUpload(ctx, req.GetUploadId(), requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;mediav1.ConfirmUploadResponse{MediaId: mediaID}, nil</span>
+}
+
+func (s *MediaServer) GetDownloadURL(ctx context.Context, req *mediav1.GetDownloadURLRequest) (*mediav1.GetDownloadURLResponse, error) <span class="cov8" title="1">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov8" title="1">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">ticket, err := s.media.GetDownloadURL(ctx, req.GetMediaId(), requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;mediav1.GetDownloadURLResponse{
+                DownloadUrl:   ticket.DownloadURL,
+                ExpiresAtUnix: ticket.ExpiresAtUnix,
+        }, nil</span>
+}
+
+func toGRPCError(err error) error <span class="cov8" title="1">{
+        switch </span>{
+        case errors.Is(err, domain.ErrEmptyContentType),
+                errors.Is(err, domain.ErrInvalidSize),
+                errors.Is(err, domain.ErrSizeTooLarge),
+                errors.Is(err, domain.ErrContentTypeBlocked):<span class="cov8" title="1">
+                return status.Error(codes.InvalidArgument, err.Error())</span>
+        case errors.Is(err, domain.ErrMediaNotFound):<span class="cov8" title="1">
+                return status.Error(codes.NotFound, err.Error())</span>
+        case errors.Is(err, domain.ErrNotChatMember):<span class="cov8" title="1">
+                return status.Error(codes.PermissionDenied, err.Error())</span>
+        case errors.Is(err, domain.ErrUploadNotConfirmed):<span class="cov8" title="1">
+                return status.Error(codes.FailedPrecondition, err.Error())</span>
+        default:<span class="cov8" title="1">
+                return status.Error(codes.Internal, "internal error")</span>
+        }
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
