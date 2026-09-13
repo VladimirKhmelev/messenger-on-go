@@ -158,6 +158,7 @@ services:
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # Локально используем MailHog, в проде - реальный SMTP сервер
       ## Переопредите переменные окружения в .env файле для прода
