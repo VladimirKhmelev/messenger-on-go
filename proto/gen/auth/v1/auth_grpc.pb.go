@@ -19,25 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Health_FullMethodName               = "/auth.v1.AuthService/Health"
-	AuthService_Register_FullMethodName             = "/auth.v1.AuthService/Register"
-	AuthService_Login_FullMethodName                = "/auth.v1.AuthService/Login"
-	AuthService_GetUserByTag_FullMethodName         = "/auth.v1.AuthService/GetUserByTag"
-	AuthService_GetUserByID_FullMethodName          = "/auth.v1.AuthService/GetUserByID"
-	AuthService_SearchUsers_FullMethodName          = "/auth.v1.AuthService/SearchUsers"
-	AuthService_RefreshToken_FullMethodName         = "/auth.v1.AuthService/RefreshToken"
-	AuthService_Logout_FullMethodName               = "/auth.v1.AuthService/Logout"
-	AuthService_VerifyEmail_FullMethodName          = "/auth.v1.AuthService/VerifyEmail"
-	AuthService_RequestPasswordReset_FullMethodName = "/auth.v1.AuthService/RequestPasswordReset"
-	AuthService_ResetPassword_FullMethodName        = "/auth.v1.AuthService/ResetPassword"
-	AuthService_LoginWithGitHub_FullMethodName      = "/auth.v1.AuthService/LoginWithGitHub"
-	AuthService_UpdateTag_FullMethodName            = "/auth.v1.AuthService/UpdateTag"
-	AuthService_CheckTagAvailable_FullMethodName    = "/auth.v1.AuthService/CheckTagAvailable"
-	AuthService_UpdateDisplayName_FullMethodName    = "/auth.v1.AuthService/UpdateDisplayName"
-	AuthService_ChangePassword_FullMethodName       = "/auth.v1.AuthService/ChangePassword"
-	AuthService_DeleteAccount_FullMethodName        = "/auth.v1.AuthService/DeleteAccount"
-	AuthService_GetPublicKey_FullMethodName         = "/auth.v1.AuthService/GetPublicKey"
-	AuthService_GetWrappedPrivateKey_FullMethodName = "/auth.v1.AuthService/GetWrappedPrivateKey"
+	AuthService_Health_FullMethodName                 = "/auth.v1.AuthService/Health"
+	AuthService_Register_FullMethodName               = "/auth.v1.AuthService/Register"
+	AuthService_Login_FullMethodName                  = "/auth.v1.AuthService/Login"
+	AuthService_GetUserByTag_FullMethodName           = "/auth.v1.AuthService/GetUserByTag"
+	AuthService_GetUserByID_FullMethodName            = "/auth.v1.AuthService/GetUserByID"
+	AuthService_SearchUsers_FullMethodName            = "/auth.v1.AuthService/SearchUsers"
+	AuthService_RefreshToken_FullMethodName           = "/auth.v1.AuthService/RefreshToken"
+	AuthService_Logout_FullMethodName                 = "/auth.v1.AuthService/Logout"
+	AuthService_VerifyEmail_FullMethodName            = "/auth.v1.AuthService/VerifyEmail"
+	AuthService_RequestPasswordReset_FullMethodName   = "/auth.v1.AuthService/RequestPasswordReset"
+	AuthService_ResetPassword_FullMethodName          = "/auth.v1.AuthService/ResetPassword"
+	AuthService_LoginWithGitHub_FullMethodName        = "/auth.v1.AuthService/LoginWithGitHub"
+	AuthService_UpdateTag_FullMethodName              = "/auth.v1.AuthService/UpdateTag"
+	AuthService_CheckTagAvailable_FullMethodName      = "/auth.v1.AuthService/CheckTagAvailable"
+	AuthService_UpdateDisplayName_FullMethodName      = "/auth.v1.AuthService/UpdateDisplayName"
+	AuthService_ChangePassword_FullMethodName         = "/auth.v1.AuthService/ChangePassword"
+	AuthService_DeleteAccount_FullMethodName          = "/auth.v1.AuthService/DeleteAccount"
+	AuthService_GetPublicKey_FullMethodName           = "/auth.v1.AuthService/GetPublicKey"
+	AuthService_GetWrappedPrivateKey_FullMethodName   = "/auth.v1.AuthService/GetWrappedPrivateKey"
+	AuthService_SavePushSubscription_FullMethodName   = "/auth.v1.AuthService/SavePushSubscription"
+	AuthService_DeletePushSubscription_FullMethodName = "/auth.v1.AuthService/DeletePushSubscription"
+	AuthService_ListPushSubscriptions_FullMethodName  = "/auth.v1.AuthService/ListPushSubscriptions"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -63,6 +66,11 @@ type AuthServiceClient interface {
 	DeleteAccount(ctx context.Context, in *DeleteAccountRequest, opts ...grpc.CallOption) (*DeleteAccountResponse, error)
 	GetPublicKey(ctx context.Context, in *GetPublicKeyRequest, opts ...grpc.CallOption) (*GetPublicKeyResponse, error)
 	GetWrappedPrivateKey(ctx context.Context, in *GetWrappedPrivateKeyRequest, opts ...grpc.CallOption) (*GetWrappedPrivateKeyResponse, error)
+	SavePushSubscription(ctx context.Context, in *SavePushSubscriptionRequest, opts ...grpc.CallOption) (*SavePushSubscriptionResponse, error)
+	DeletePushSubscription(ctx context.Context, in *DeletePushSubscriptionRequest, opts ...grpc.CallOption) (*DeletePushSubscriptionResponse, error)
+	// Internal-only: called by notification-worker with x-internal-secret,
+	// never exposed over HTTP.
+	ListPushSubscriptions(ctx context.Context, in *ListPushSubscriptionsRequest, opts ...grpc.CallOption) (*ListPushSubscriptionsResponse, error)
 }
 
 type authServiceClient struct {
@@ -263,6 +271,36 @@ func (c *authServiceClient) GetWrappedPrivateKey(ctx context.Context, in *GetWra
 	return out, nil
 }
 
+func (c *authServiceClient) SavePushSubscription(ctx context.Context, in *SavePushSubscriptionRequest, opts ...grpc.CallOption) (*SavePushSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavePushSubscriptionResponse)
+	err := c.cc.Invoke(ctx, AuthService_SavePushSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) DeletePushSubscription(ctx context.Context, in *DeletePushSubscriptionRequest, opts ...grpc.CallOption) (*DeletePushSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeletePushSubscriptionResponse)
+	err := c.cc.Invoke(ctx, AuthService_DeletePushSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListPushSubscriptions(ctx context.Context, in *ListPushSubscriptionsRequest, opts ...grpc.CallOption) (*ListPushSubscriptionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPushSubscriptionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListPushSubscriptions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -286,6 +324,11 @@ type AuthServiceServer interface {
 	DeleteAccount(context.Context, *DeleteAccountRequest) (*DeleteAccountResponse, error)
 	GetPublicKey(context.Context, *GetPublicKeyRequest) (*GetPublicKeyResponse, error)
 	GetWrappedPrivateKey(context.Context, *GetWrappedPrivateKeyRequest) (*GetWrappedPrivateKeyResponse, error)
+	SavePushSubscription(context.Context, *SavePushSubscriptionRequest) (*SavePushSubscriptionResponse, error)
+	DeletePushSubscription(context.Context, *DeletePushSubscriptionRequest) (*DeletePushSubscriptionResponse, error)
+	// Internal-only: called by notification-worker with x-internal-secret,
+	// never exposed over HTTP.
+	ListPushSubscriptions(context.Context, *ListPushSubscriptionsRequest) (*ListPushSubscriptionsResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -352,6 +395,15 @@ func (UnimplementedAuthServiceServer) GetPublicKey(context.Context, *GetPublicKe
 }
 func (UnimplementedAuthServiceServer) GetWrappedPrivateKey(context.Context, *GetWrappedPrivateKeyRequest) (*GetWrappedPrivateKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetWrappedPrivateKey not implemented")
+}
+func (UnimplementedAuthServiceServer) SavePushSubscription(context.Context, *SavePushSubscriptionRequest) (*SavePushSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SavePushSubscription not implemented")
+}
+func (UnimplementedAuthServiceServer) DeletePushSubscription(context.Context, *DeletePushSubscriptionRequest) (*DeletePushSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePushSubscription not implemented")
+}
+func (UnimplementedAuthServiceServer) ListPushSubscriptions(context.Context, *ListPushSubscriptionsRequest) (*ListPushSubscriptionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPushSubscriptions not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -716,6 +768,60 @@ func _AuthService_GetWrappedPrivateKey_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_SavePushSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SavePushSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SavePushSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SavePushSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SavePushSubscription(ctx, req.(*SavePushSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_DeletePushSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePushSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).DeletePushSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_DeletePushSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).DeletePushSubscription(ctx, req.(*DeletePushSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListPushSubscriptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPushSubscriptionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListPushSubscriptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListPushSubscriptions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListPushSubscriptions(ctx, req.(*ListPushSubscriptionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -798,6 +904,18 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetWrappedPrivateKey",
 			Handler:    _AuthService_GetWrappedPrivateKey_Handler,
+		},
+		{
+			MethodName: "SavePushSubscription",
+			Handler:    _AuthService_SavePushSubscription_Handler,
+		},
+		{
+			MethodName: "DeletePushSubscription",
+			Handler:    _AuthService_DeletePushSubscription_Handler,
+		},
+		{
+			MethodName: "ListPushSubscriptions",
+			Handler:    _AuthService_ListPushSubscriptions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

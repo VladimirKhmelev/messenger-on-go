@@ -227,6 +227,7 @@ type fakeUserRepository struct {
 	usersByTag map[string]*domain.User
 	created    *domain.User
 	avatars    map[string]*domain.Avatar
+	pushSubs   map[string]*domain.PushSubscription // keyed by endpoint
 }
 
 func newFakeUserRepository() *fakeUserRepository {
@@ -236,6 +237,7 @@ func newFakeUserRepository() *fakeUserRepository {
 		users:      map[string]*domain.User{},
 		usersByTag: map[string]*domain.User{},
 		avatars:    map[string]*domain.Avatar{},
+		pushSubs:   map[string]*domain.PushSubscription{},
 	}
 }
 
@@ -412,6 +414,28 @@ func (r *fakeUserRepository) Anonymize(_ context.Context, userID, anonymizedEmai
 		return nil
 	}
 	return domain.ErrUserNotFound
+}
+
+func (r *fakeUserRepository) UpsertPushSubscription(_ context.Context, sub *domain.PushSubscription) error {
+	r.pushSubs[sub.Endpoint] = sub
+	return nil
+}
+
+func (r *fakeUserRepository) DeletePushSubscription(_ context.Context, userID, endpoint string) error {
+	if sub, ok := r.pushSubs[endpoint]; ok && sub.UserID == userID {
+		delete(r.pushSubs, endpoint)
+	}
+	return nil
+}
+
+func (r *fakeUserRepository) ListPushSubscriptions(_ context.Context, userID string) ([]*domain.PushSubscription, error) {
+	var subs []*domain.PushSubscription
+	for _, sub := range r.pushSubs {
+		if sub.UserID == userID {
+			subs = append(subs, sub)
+		}
+	}
+	return subs, nil
 }
 
 func TestAuthService_Register_Success(t *testing.T) {

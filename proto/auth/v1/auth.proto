@@ -140,6 +140,25 @@ service AuthService {
       get: "/v1/users/me/wrapped-private-key"
     };
   }
+
+  rpc SavePushSubscription(SavePushSubscriptionRequest)
+      returns (SavePushSubscriptionResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/me/push-subscription"
+      body: "*"
+    };
+  }
+
+  rpc DeletePushSubscription(DeletePushSubscriptionRequest)
+      returns (DeletePushSubscriptionResponse) {
+    option (google.api.http) = {
+      post: "/v1/users/me/push-subscription/delete"
+      body: "*"
+    };
+  }
+
+  rpc ListPushSubscriptions(ListPushSubscriptionsRequest)
+      returns (ListPushSubscriptionsResponse);
 }
 
 message HealthRequest {
@@ -329,4 +348,34 @@ message GetWrappedPrivateKeyRequest {
 message GetWrappedPrivateKeyResponse {
   string wrapped_private_key = 1;
   string key_wrap_salt = 2;
+}
+
+message SavePushSubscriptionRequest {
+  string endpoint = 1;
+  string p256dh_key = 2;
+  string auth_key = 3;
+}
+
+message SavePushSubscriptionResponse {
+}
+
+message DeletePushSubscriptionRequest {
+  string endpoint = 1;
+}
+
+message DeletePushSubscriptionResponse {
+}
+
+message ListPushSubscriptionsRequest {
+  string user_id = 1;
+}
+
+message ListPushSubscriptionsResponse {
+  repeated PushSubscription subscriptions = 1;
+}
+
+message PushSubscription {
+  string endpoint = 1;
+  string p256dh_key = 2;
+  string auth_key = 3;
 }

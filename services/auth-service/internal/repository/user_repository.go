@@ -25,4 +25,7 @@ type UserRepository interface {
 	GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error)
 	DeleteAvatar(ctx context.Context, userID string) error
 	Anonymize(ctx context.Context, userID, anonymizedEmail, anonymizedTag, anonymizedDisplayName string) error
+	UpsertPushSubscription(ctx context.Context, sub *domain.PushSubscription) error
+	DeletePushSubscription(ctx context.Context, userID, endpoint string) error
+	ListPushSubscriptions(ctx context.Context, userID string) ([]*domain.PushSubscription, error)
 }

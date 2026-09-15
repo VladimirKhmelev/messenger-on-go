@@ -27,7 +27,7 @@ func (c *fakeStaleTokenChecker) IsAccessTokenStale(_ context.Context, _ string, 
 
 func TestAuthInterceptor_PublicMethod_NoTokenRequired(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/auth.v1.AuthService/Login"}
 
@@ -39,7 +39,7 @@ func TestAuthInterceptor_PublicMethod_NoTokenRequired(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_MissingToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/auth.v1.AuthService/SearchUsers"}
 
@@ -51,7 +51,7 @@ func TestAuthInterceptor_ProtectedMethod_MissingToken(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_ValidToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
 
 	accessToken, err := issuer.IssueAccessToken("user-1")
 	if err != nil {
@@ -81,7 +81,7 @@ func TestAuthInterceptor_ProtectedMethod_ValidToken(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_InvalidToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
 
 	md := metadata.New(map[string]string{"authorization": "Bearer not-a-real-token"})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -96,7 +96,7 @@ func TestAuthInterceptor_ProtectedMethod_InvalidToken(t *testing.T) {
 
 func TestAuthInterceptor_ProtectedMethod_WrongScheme(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
 
 	md := metadata.New(map[string]string{"authorization": "Basic dXNlcjpwYXNz"})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -109,9 +109,24 @@ func TestAuthInterceptor_ProtectedMethod_WrongScheme(t *testing.T) {
 	}
 }
 
+func TestAuthInterceptor_InternalMethod_ValidSecret(t *testing.T) {
+	issuer := jwtutil.NewIssuer("test-secret")
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
+
+	md := metadata.New(map[string]string{"x-internal-secret": "test-internal-secret"})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/auth.v1.AuthService/ListPushSubscriptions"}
+
+	_, err := interceptor(ctx, nil, info, noopHandler)
+	if err != nil {
+		t.Errorf("interceptor() unexpected error for valid internal secret: %v", err)
+	}
+}
+
 func TestAuthInterceptor_ProtectedMethod_AccessTokenRejectsRefreshToken(t *testing.T) {
 	issuer := jwtutil.NewIssuer("test-secret")
-	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{})
+	interceptor := AuthInterceptor(issuer, &fakeStaleTokenChecker{}, "test-internal-secret")
 
 	refreshToken, err := issuer.IssueRefreshToken("user-1")
 	if err != nil {

@@ -87,6 +87,11 @@ func main() {
 		log.Fatal("auth-service: NATS_URL is required")
 	}
 
+	internalSecret := os.Getenv("INTERNAL_SECRET")
+	if internalSecret == "" {
+		log.Fatal("auth-service: INTERNAL_SECRET is required")
+	}
+
 	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
 
 	tracingShutdown, err := tracing.Setup(context.Background(), "auth-service", os.Getenv("JAEGER_ENDPOINT"))
@@ -136,7 +141,7 @@ func main() {
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			metrics.UnaryServerInterceptor("auth-service"),
-			transportgrpc.AuthInterceptor(tokenIssuer, authService),
+			transportgrpc.AuthInterceptor(tokenIssuer, authService, internalSecret),
 		),
 	)
 

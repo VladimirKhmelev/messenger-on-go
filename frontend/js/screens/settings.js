@@ -41,6 +41,20 @@ export function renderSettings(root, handlers) {
         </div>
         <div class="form-error">${state.settingsAvatarError || ''}</div>
 
+        ${
+          state.settingsPushSupported
+            ? `
+              <div class="field field--toggle">
+                <label>
+                  <input type="checkbox" data-input="settings-push" ${state.settingsPushEnabled ? 'checked' : ''} ${state.settingsPushBusy ? 'disabled' : ''} />
+                  Push-уведомления (когда вкладка закрыта)
+                </label>
+              </div>
+              <div class="form-error">${state.settingsPushError || ''}</div>
+            `
+            : ''
+        }
+
         <div class="field">
           <label>Имя</label>
           <input type="text" value="${escapeHtml(nameValue)}" data-input="settings-name" />
@@ -155,6 +169,10 @@ export function renderSettings(root, handlers) {
     nameInput.focus();
     nameInput.setSelectionRange(nameSelectionStart, nameSelectionEnd);
   }
+
+  root.querySelector('[data-input="settings-push"]')?.addEventListener('change', (event) => {
+    handlers.onTogglePush(event.target.checked);
+  });
 
   root.querySelector('[data-input="avatar-file"]').addEventListener('change', (event) => {
     const file = event.target.files?.[0];

@@ -17,9 +17,11 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
 )
 
 func main() {
@@ -48,6 +50,26 @@ func main() {
 		log.Fatal("notification-worker: INTERNAL_SECRET is required")
 	}
 
+	authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
+	if authServiceAddr == "" {
+		log.Fatal("notification-worker: AUTH_SERVICE_ADDR is required")
+	}
+
+	vapidPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
+	if vapidPublicKey == "" {
+		log.Fatal("notification-worker: VAPID_PUBLIC_KEY is required")
+	}
+
+	vapidPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
+	if vapidPrivateKey == "" {
+		log.Fatal("notification-worker: VAPID_PRIVATE_KEY is required")
+	}
+
+	vapidSubject := os.Getenv("VAPID_SUBJECT")
+	if vapidSubject == "" {
+		log.Fatal("notification-worker: VAPID_SUBJECT is required")
+	}
+
 	tracingShutdown, err := tracing.Setup(context.Background(), "notification-worker", os.Getenv("JAEGER_ENDPOINT"))
 	if err != nil {
 		log.Fatalf("notification-worker: failed to set up tracing: %v", err)
@@ -64,12 +86,20 @@ func main() {
 	}
 	defer func() { _ = chatClient.Close() }()
 
+	authClient, err := authclient.Dial(authServiceAddr, internalSecret)
+	if err != nil {
+		log.Fatalf("notification-worker: failed to dial auth-service: %v", err)
+	}
+	defer func() { _ = authClient.Close() }()
+
+	webpushSender := webpush.NewSender(vapidPublicKey, vapidPrivateKey, vapidSubject)
+
 	eventPublisher, err := events.Connect(context.Background(), natsURL)
 	if err != nil {
 		log.Fatalf("notification-worker: failed to connect to NATS: %v", err)
 	}
 
-	handler := notify.NewHandler(chatClient, eventPublisher)
+	handler := notify.NewHandler(chatClient, authClient, webpushSender, eventPublisher)
 
 	subs := []events.Subscription{
 		{

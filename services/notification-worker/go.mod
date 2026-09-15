@@ -3,6 +3,7 @@ module github.com/VladimirKhmelev/messenger-on-go/services/notification-worker
 go 1.26.3
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/VladimirKhmelev/messenger-on-go/pkg/metrics v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/tracing v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/proto/gen v0.0.0-00010101000000-000000000000
@@ -23,6 +24,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect

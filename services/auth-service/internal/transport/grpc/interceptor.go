@@ -37,9 +37,20 @@ var publicMethods = map[string]bool{
 	"/grpc.health.v1.Health/Watch":              true,
 }
 
-func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker) grpc.UnaryServerInterceptor {
+var internalMethods = map[string]bool{
+	"/auth.v1.AuthService/ListPushSubscriptions": true,
+}
+
+func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker, internalSecret string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if publicMethods[info.FullMethod] {
+			return handler(ctx, req)
+		}
+
+		if internalMethods[info.FullMethod] {
+			if err := checkInternalSecret(ctx, internalSecret); err != nil {
+				return nil, err
+			}
 			return handler(ctx, req)
 		}
 
@@ -66,6 +77,20 @@ func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker) grpc
 		ctx = context.WithValue(ctx, userIDContextKey, claims.UserID)
 		return handler(ctx, req)
 	}
+}
+
+func checkInternalSecret(ctx context.Context, internalSecret string) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Error(codes.Unauthenticated, "missing metadata")
+	}
+
+	values := md.Get("x-internal-secret")
+	if len(values) == 0 || values[0] != internalSecret {
+		return status.Error(codes.Unauthenticated, "invalid internal secret")
+	}
+
+	return nil
 }
 
 func bearerTokenFromContext(ctx context.Context) (string, error) {

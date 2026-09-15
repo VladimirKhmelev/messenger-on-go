@@ -13,6 +13,7 @@ import {
 } from './api.js';
 import { WsClient } from './ws.js';
 import { bumpAvatarCacheVersion } from './avatar.js';
+import { isPushSupported, subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from './push.js';
 import {
   generateAndWrapKeyPair,
   unwrapPrivateKey,
@@ -185,6 +186,7 @@ function wireZones() {
         onStartDeleteAccount: handleStartDeleteAccount,
         onCancelDeleteAccount: handleCancelDeleteAccount,
         onConfirmDeleteAccount: handleConfirmDeleteAccount,
+        onTogglePush: handleTogglePush,
       })
     );
   }
@@ -1387,6 +1389,11 @@ async function handleLogout() {
   clearInterval(presenceRefreshTimer);
   readProgress.clear();
   try {
+    await unsubscribeFromPush();
+  } catch {
+    // best-effort
+  }
+  try {
     await authApi.logout();
   } catch {
     // best-effort — even if the request fails, drop local session state
@@ -1419,8 +1426,43 @@ function handleOpenSettings() {
   state.settingsPasswordSuccess = '';
   state.settingsDeleteAccountConfirming = false;
   state.settingsDeleteAccountError = '';
+  state.settingsPushError = '';
   state.tagCheck = null;
   notify('settings');
+
+  refreshPushToggleState();
+}
+
+async function refreshPushToggleState() {
+  const supported = isPushSupported();
+  const enabled = supported && (await hasActivePushSubscription());
+
+  state.settingsPushSupported = supported;
+  state.settingsPushEnabled = enabled;
+  notify('settings');
+}
+
+async function handleTogglePush(wantEnabled) {
+  state.settingsPushBusy = true;
+  state.settingsPushError = '';
+  notify('settings');
+
+  try {
+    if (wantEnabled) {
+      await subscribeToPush(window.WISP_VAPID_PUBLIC_KEY || '');
+      state.settingsPushEnabled = true;
+    } else {
+      await unsubscribeFromPush();
+      state.settingsPushEnabled = false;
+    }
+  } catch (err) {
+    console.error('failed to toggle push subscription:', err);
+    state.settingsPushError = err instanceof Error ? err.message : 'Не удалось изменить настройку уведомлений';
+    state.settingsPushEnabled = await hasActivePushSubscription();
+  } finally {
+    state.settingsPushBusy = false;
+    notify('settings');
+  }
 }
 
 function handleCloseSettings() {
