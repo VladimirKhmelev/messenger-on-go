@@ -3,6 +3,7 @@ package webpush
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 
 	upstream "github.com/SherClockHolmes/webpush-go"
@@ -57,4 +58,10 @@ func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) {
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("notification-worker: web push rejected, status=%d body=%s", resp.StatusCode, string(body))
+		return
+	}
 }
