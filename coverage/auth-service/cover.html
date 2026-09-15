@@ -103,21 +103,23 @@
 				
 				<option value="file23">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/public_key.go (0.0%)</option>
 				
-				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (77.4%)</option>
+				<option value="file24">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/push.go (60.0%)</option>
 				
-				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
+				<option value="file25">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/register.go (77.4%)</option>
 				
-				<option value="file26">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
+				<option value="file26">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/search.go (100.0%)</option>
 				
-				<option value="file27">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
+				<option value="file27">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/tag.go (10.7%)</option>
 				
-				<option value="file28">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar/handler.go (0.0%)</option>
+				<option value="file28">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file29">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
+				<option value="file29">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar/handler.go (0.0%)</option>
 				
-				<option value="file30">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				<option value="file30">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (0.0%)</option>
 				
-				<option value="file31">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (89.7%)</option>
+				<option value="file31">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
+				
+				<option value="file32">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/interceptor.go (85.0%)</option>
 				
 				</select>
 			</div>
@@ -220,6 +222,11 @@ func main() <span class="cov0" title="0">{
                 log.Fatal("auth-service: NATS_URL is required")
         }</span>
 
+        <span class="cov0" title="0">internalSecret := os.Getenv("INTERNAL_SECRET")
+        if internalSecret == "" </span><span class="cov0" title="0">{
+                log.Fatal("auth-service: INTERNAL_SECRET is required")
+        }</span>
+
         <span class="cov0" title="0">cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
 
         tracingShutdown, err := tracing.Setup(context.Background(), "auth-service", os.Getenv("JAEGER_ENDPOINT"))
@@ -269,7 +276,7 @@ func main() <span class="cov0" title="0">{
                 grpc.StatsHandler(otelgrpc.NewServerHandler()),
                 grpc.ChainUnaryInterceptor(
                         metrics.UnaryServerInterceptor("auth-service"),
-                        transportgrpc.AuthInterceptor(tokenIssuer, authService),
+                        transportgrpc.AuthInterceptor(tokenIssuer, authService, internalSecret),
                 ),
         )
 
@@ -1316,6 +1323,38 @@ func (r *PostgresUserRepository) Anonymize(ctx context.Context, userID, anonymiz
         return err
 }</span>
 
+func (r *PostgresUserRepository) UpsertPushSubscription(ctx context.Context, sub *domain.PushSubscription) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh_key, auth_key, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (endpoint) DO UPDATE SET
+                        user_id = $2, p256dh_key = $4, auth_key = $5, created_at = $6`,
+                sub.ID, sub.UserID, sub.Endpoint, sub.P256dhKey, sub.AuthKey, sub.CreatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresUserRepository) DeletePushSubscription(ctx context.Context, userID, endpoint string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2`,
+                userID, endpoint,
+        )
+        return err
+}</span>
+
+func (r *PostgresUserRepository) ListPushSubscriptions(ctx context.Context, userID string) ([]*domain.PushSubscription, error) <span class="cov0" title="0">{
+        var subs []*domain.PushSubscription
+        err := r.conn.SelectContext(ctx, &amp;subs, `
+                SELECT id, user_id, endpoint, p256dh_key, auth_key, created_at
+                FROM push_subscriptions WHERE user_id = $1`,
+                userID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return subs, nil</span>
+}
+
 func escapeLikePattern(s string) string <span class="cov0" title="0">{
         replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
         return replacer.Replace(s)
@@ -1938,6 +1977,42 @@ func (s *AuthService) RewrapPrivateKey(ctx context.Context, userID, wrappedPriva
 
 import (
         "context"
+        "time"
+
+        "github.com/google/uuid"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+)
+
+func (s *AuthService) SavePushSubscription(ctx context.Context, userID, endpoint, p256dhKey, authKey string) error <span class="cov8" title="1">{
+
+        if endpoint == "" || p256dhKey == "" || authKey == "" </span><span class="cov0" title="0">{
+                return domain.ErrInvalidPushSubscription
+        }</span>
+
+        <span class="cov8" title="1">return s.users.UpsertPushSubscription(ctx, &amp;domain.PushSubscription{
+                ID:        uuid.NewString(),
+                UserID:    userID,
+                Endpoint:  endpoint,
+                P256dhKey: p256dhKey,
+                AuthKey:   authKey,
+                CreatedAt: time.Now(),
+        })</span>
+}
+
+func (s *AuthService) DeletePushSubscription(ctx context.Context, userID, endpoint string) error <span class="cov0" title="0">{
+        return s.users.DeletePushSubscription(ctx, userID, endpoint)
+}</span>
+
+func (s *AuthService) ListPushSubscriptions(ctx context.Context, userID string) ([]*domain.PushSubscription, error) <span class="cov8" title="1">{
+        return s.users.ListPushSubscriptions(ctx, userID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file25" style="display: none">package service
+
+import (
+        "context"
         "log"
         "strings"
         "time"
@@ -2155,7 +2230,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error
 }
 </pre>
 		
-		<pre class="file" id="file25" style="display: none">package service
+		<pre class="file" id="file26" style="display: none">package service
 
 import (
         "context"
@@ -2186,7 +2261,7 @@ func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.
 }
 </pre>
 		
-		<pre class="file" id="file26" style="display: none">package service
+		<pre class="file" id="file27" style="display: none">package service
 
 import (
         "context"
@@ -2255,7 +2330,7 @@ func (s *AuthService) CheckTagAvailable(ctx context.Context, tag string) (availa
 }
 </pre>
 		
-		<pre class="file" id="file27" style="display: none">package service
+		<pre class="file" id="file28" style="display: none">package service
 
 import (
         "net/mail"
@@ -2297,7 +2372,7 @@ func ValidateDisplayName(name string) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file28" style="display: none">package avatar
+		<pre class="file" id="file29" style="display: none">package avatar
 
 import (
         "context"
@@ -2408,7 +2483,7 @@ func writeDomainError(w http.ResponseWriter, err error) <span class="cov0" title
 }
 </pre>
 		
-		<pre class="file" id="file29" style="display: none">package grpc
+		<pre class="file" id="file30" style="display: none">package grpc
 
 import (
         "context"
@@ -2673,6 +2748,49 @@ func (s *AuthServer) GetWrappedPrivateKey(ctx context.Context, req *authv1.GetWr
         <span class="cov0" title="0">return &amp;authv1.GetWrappedPrivateKeyResponse{WrappedPrivateKey: wrappedPrivateKey, KeyWrapSalt: keyWrapSalt}, nil</span>
 }
 
+func (s *AuthServer) SavePushSubscription(ctx context.Context, req *authv1.SavePushSubscriptionRequest) (*authv1.SavePushSubscriptionResponse, error) <span class="cov0" title="0">{
+        userID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.auth.SavePushSubscription(ctx, userID, req.GetEndpoint(), req.GetP256DhKey(), req.GetAuthKey()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.SavePushSubscriptionResponse{}, nil</span>
+}
+
+func (s *AuthServer) DeletePushSubscription(ctx context.Context, req *authv1.DeletePushSubscriptionRequest) (*authv1.DeletePushSubscriptionResponse, error) <span class="cov0" title="0">{
+        userID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.auth.DeletePushSubscription(ctx, userID, req.GetEndpoint()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;authv1.DeletePushSubscriptionResponse{}, nil</span>
+}
+
+func (s *AuthServer) ListPushSubscriptions(ctx context.Context, req *authv1.ListPushSubscriptionsRequest) (*authv1.ListPushSubscriptionsResponse, error) <span class="cov0" title="0">{
+        subs, err := s.auth.ListPushSubscriptions(ctx, req.GetUserId())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">resp := &amp;authv1.ListPushSubscriptionsResponse{Subscriptions: make([]*authv1.PushSubscription, 0, len(subs))}
+        for _, sub := range subs </span><span class="cov0" title="0">{
+                resp.Subscriptions = append(resp.Subscriptions, &amp;authv1.PushSubscription{
+                        Endpoint:  sub.Endpoint,
+                        P256DhKey: sub.P256dhKey,
+                        AuthKey:   sub.AuthKey,
+                })
+        }</span>
+        <span class="cov0" title="0">return resp, nil</span>
+}
+
 func toGRPCError(err error) error <span class="cov0" title="0">{
         switch </span>{
         case errors.Is(err, domain.ErrInvalidEmail),
@@ -2681,7 +2799,8 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
                 errors.Is(err, domain.ErrWeakPassword),
                 errors.Is(err, domain.ErrSamePassword),
                 errors.Is(err, domain.ErrSearchQueryTooShort),
-                errors.Is(err, domain.ErrInvalidPublicKey):<span class="cov0" title="0">
+                errors.Is(err, domain.ErrInvalidPublicKey),
+                errors.Is(err, domain.ErrInvalidPushSubscription):<span class="cov0" title="0">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrEmailTaken),
                 errors.Is(err, domain.ErrTagTaken):<span class="cov0" title="0">
@@ -2703,7 +2822,7 @@ func toGRPCError(err error) error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file30" style="display: none">package grpc
+		<pre class="file" id="file31" style="display: none">package grpc
 
 import (
         "context"
@@ -2765,7 +2884,7 @@ func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="co
 }
 </pre>
 		
-		<pre class="file" id="file31" style="display: none">package grpc
+		<pre class="file" id="file32" style="display: none">package grpc
 
 import (
         "context"
@@ -2804,11 +2923,22 @@ var publicMethods = map[string]bool{
         "/grpc.health.v1.Health/Watch":              true,
 }
 
-func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
+var internalMethods = map[string]bool{
+        "/auth.v1.AuthService/ListPushSubscriptions": true,
+}
+
+func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker, internalSecret string) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
         return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
                 if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
                         return handler(ctx, req)
                 }</span>
+
+                <span class="cov8" title="1">if internalMethods[info.FullMethod] </span><span class="cov8" title="1">{
+                        if err := checkInternalSecret(ctx, internalSecret); err != nil </span><span class="cov0" title="0">{
+                                return nil, err
+                        }</span>
+                        <span class="cov8" title="1">return handler(ctx, req)</span>
+                }
 
                 <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
                 if err != nil </span><span class="cov8" title="1">{
@@ -2833,6 +2963,20 @@ func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker) grpc
                 <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, claims.UserID)
                 return handler(ctx, req)</span>
         }
+}
+
+func checkInternalSecret(ctx context.Context, internalSecret string) error <span class="cov8" title="1">{
+        md, ok := metadata.FromIncomingContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return status.Error(codes.Unauthenticated, "missing metadata")
+        }</span>
+
+        <span class="cov8" title="1">values := md.Get("x-internal-secret")
+        if len(values) == 0 || values[0] != internalSecret </span><span class="cov0" title="0">{
+                return status.Error(codes.Unauthenticated, "invalid internal secret")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
 }
 
 func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{

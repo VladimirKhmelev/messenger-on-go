@@ -1234,6 +1234,70 @@
         ]
       }
     },
+    "/v1/users/me/push-subscription": {
+      "post": {
+        "operationId": "AuthService_SavePushSubscription",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1SavePushSubscriptionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1SavePushSubscriptionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/users/me/push-subscription/delete": {
+      "post": {
+        "operationId": "AuthService_DeletePushSubscription",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeletePushSubscriptionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1DeletePushSubscriptionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
     "/v1/users/me/tag": {
       "patch": {
         "operationId": "AuthService_UpdateTag",
@@ -1654,6 +1718,17 @@
     "v1DeleteMessageForMeResponse": {
       "type": "object"
     },
+    "v1DeletePushSubscriptionRequest": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        }
+      }
+    },
+    "v1DeletePushSubscriptionResponse": {
+      "type": "object"
+    },
     "v1EditMessageResponse": {
       "type": "object",
       "properties": {
@@ -2025,6 +2100,23 @@
       }
     },
     "v1ResetPasswordResponse": {
+      "type": "object"
+    },
+    "v1SavePushSubscriptionRequest": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "p256dhKey": {
+          "type": "string"
+        },
+        "authKey": {
+          "type": "string"
+        }
+      }
+    },
+    "v1SavePushSubscriptionResponse": {
       "type": "object"
     },
     "v1SearchUsersResponse": {

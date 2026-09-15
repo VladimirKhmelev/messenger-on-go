@@ -57,13 +57,17 @@
 				
 				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/cmd/worker/main.go (0.0%)</option>
 				
-				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient/chatclient.go (0.0%)</option>
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient/authclient.go (0.0%)</option>
 				
-				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/consumer.go (0.0%)</option>
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient/chatclient.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/publisher.go (0.0%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify/handler.go (0.0%)</option>
+				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/publisher.go (0.0%)</option>
+				
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify/handler.go (81.6%)</option>
+				
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush/webpush.go (0.0%)</option>
 				
 				</select>
 			</div>
@@ -96,9 +100,11 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/notify"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
 )
 
 func main() <span class="cov0" title="0">{
@@ -127,6 +133,26 @@ func main() <span class="cov0" title="0">{
                 log.Fatal("notification-worker: INTERNAL_SECRET is required")
         }</span>
 
+        <span class="cov0" title="0">authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
+        if authServiceAddr == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: AUTH_SERVICE_ADDR is required")
+        }</span>
+
+        <span class="cov0" title="0">vapidPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
+        if vapidPublicKey == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: VAPID_PUBLIC_KEY is required")
+        }</span>
+
+        <span class="cov0" title="0">vapidPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
+        if vapidPrivateKey == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: VAPID_PRIVATE_KEY is required")
+        }</span>
+
+        <span class="cov0" title="0">vapidSubject := os.Getenv("VAPID_SUBJECT")
+        if vapidSubject == "" </span><span class="cov0" title="0">{
+                log.Fatal("notification-worker: VAPID_SUBJECT is required")
+        }</span>
+
         <span class="cov0" title="0">tracingShutdown, err := tracing.Setup(context.Background(), "notification-worker", os.Getenv("JAEGER_ENDPOINT"))
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("notification-worker: failed to set up tracing: %v", err)
@@ -143,12 +169,20 @@ func main() <span class="cov0" title="0">{
         }</span>
         <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = chatClient.Close() }</span>()
 
-        <span class="cov0" title="0">eventPublisher, err := events.Connect(context.Background(), natsURL)
+        <span class="cov0" title="0">authClient, err := authclient.Dial(authServiceAddr, internalSecret)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("notification-worker: failed to dial auth-service: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = authClient.Close() }</span>()
+
+        <span class="cov0" title="0">webpushSender := webpush.NewSender(vapidPublicKey, vapidPrivateKey, vapidSubject)
+
+        eventPublisher, err := events.Connect(context.Background(), natsURL)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("notification-worker: failed to connect to NATS: %v", err)
         }</span>
 
-        <span class="cov0" title="0">handler := notify.NewHandler(chatClient, eventPublisher)
+        <span class="cov0" title="0">handler := notify.NewHandler(chatClient, authClient, webpushSender, eventPublisher)
 
         subs := []events.Subscription{
                 {
@@ -216,7 +250,69 @@ func main() <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file1" style="display: none">package chatclient
+		<pre class="file" id="file1" style="display: none">package authclient
+
+import (
+        "context"
+
+        "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+        "google.golang.org/grpc/metadata"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+)
+
+type PushSubscription struct {
+        Endpoint  string
+        P256dhKey string
+        AuthKey   string
+}
+
+type Client struct {
+        conn           *grpc.ClientConn
+        auth           authv1.AuthServiceClient
+        internalSecret string
+}
+
+func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := grpc.NewClient(addr,
+                grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+                grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("notification-worker")),
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, auth: authv1.NewAuthServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+func (c *Client) Close() error <span class="cov0" title="0">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]PushSubscription, error) <span class="cov0" title="0">{
+        ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
+
+        resp, err := c.auth.ListPushSubscriptions(ctx, &amp;authv1.ListPushSubscriptionsRequest{UserId: userID})
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">subs := make([]PushSubscription, 0, len(resp.GetSubscriptions()))
+        for _, s := range resp.GetSubscriptions() </span><span class="cov0" title="0">{
+                subs = append(subs, PushSubscription{
+                        Endpoint:  s.GetEndpoint(),
+                        P256dhKey: s.GetP256DhKey(),
+                        AuthKey:   s.GetAuthKey(),
+                })
+        }</span>
+        <span class="cov0" title="0">return subs, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package chatclient
 
 import (
         "context"
@@ -277,7 +373,7 @@ func (c *Client) withInternalSecret(ctx context.Context) context.Context <span c
 }</span>
 </pre>
 		
-		<pre class="file" id="file2" style="display: none">package events
+		<pre class="file" id="file3" style="display: none">package events
 
 import (
         "context"
@@ -369,7 +465,7 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
 }
 </pre>
 		
-		<pre class="file" id="file3" style="display: none">package events
+		<pre class="file" id="file4" style="display: none">package events
 
 import (
         "context"
@@ -432,7 +528,7 @@ func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) err
 }
 </pre>
 		
-		<pre class="file" id="file4" style="display: none">package notify
+		<pre class="file" id="file5" style="display: none">package notify
 
 import (
         "context"
@@ -440,7 +536,9 @@ import (
         "log"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
 )
 
 type ChatClient interface {
@@ -448,35 +546,45 @@ type ChatClient interface {
         IsOnline(ctx context.Context, userID string) (bool, error)
 }
 
+type AuthClient interface {
+        ListPushSubscriptions(ctx context.Context, userID string) ([]authclient.PushSubscription, error)
+}
+
+type WebPushSender interface {
+        Send(ctx context.Context, sub webpush.Subscription, payload webpush.Payload)
+}
+
 type EventPublisher interface {
         PublishNotifyPush(ctx context.Context, event events.NotifyPush) error
 }
 
 type Handler struct {
-        chat   ChatClient
-        events EventPublisher
+        chat    ChatClient
+        auth    AuthClient
+        webpush WebPushSender
+        events  EventPublisher
 }
 
-func NewHandler(chat ChatClient, eventPublisher EventPublisher) *Handler <span class="cov0" title="0">{
-        return &amp;Handler{chat: chat, events: eventPublisher}
+func NewHandler(chat ChatClient, auth AuthClient, webpushSender WebPushSender, eventPublisher EventPublisher) *Handler <span class="cov8" title="1">{
+        return &amp;Handler{chat: chat, auth: auth, webpush: webpushSender, events: eventPublisher}
 }</span>
 
-func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) <span class="cov0" title="0">{
+func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) <span class="cov8" title="1">{
         var event events.MessageCreated
-        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
+        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov8" title="1">{
                 log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
                 metrics.NATSConsumeErrorsTotal.Inc()
                 return
         }</span>
 
-        <span class="cov0" title="0">recipients, err := h.recipientsNeedingNotification(ctx, event)
-        if err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">recipients, err := h.recipientsNeedingNotification(ctx, event)
+        if err != nil </span><span class="cov8" title="1">{
                 log.Printf("notification-worker: failed to resolve recipients for message %s: %v", event.MessageID, err)
                 metrics.NATSConsumeErrorsTotal.Inc()
                 return
         }</span>
 
-        <span class="cov0" title="0">for _, userID := range recipients </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, userID := range recipients </span><span class="cov8" title="1">{
                 if err := h.events.PublishNotifyPush(ctx, events.NotifyPush{
                         UserID:    userID,
                         ChatID:    event.ChatID,
@@ -486,36 +594,117 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
                         log.Printf("notification-worker: failed to publish notify.push for user %s: %v", userID, err)
                         metrics.NATSConsumeErrorsTotal.Inc()
                 }</span>
+
+                <span class="cov8" title="1">h.sendWebPush(ctx, userID, event)</span>
         }
 }
 
-func (h *Handler) recipientsNeedingNotification(ctx context.Context, event events.MessageCreated) ([]string, error) <span class="cov0" title="0">{
-        memberIDs, err := h.chat.ListMembers(ctx, event.ChatID)
+func (h *Handler) sendWebPush(ctx context.Context, userID string, event events.MessageCreated) <span class="cov8" title="1">{
+        subs, err := h.auth.ListPushSubscriptions(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
+                log.Printf("notification-worker: failed to list push subscriptions for user %s: %v", userID, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">payload := webpush.Payload{ChatID: event.ChatID, MessageID: event.MessageID}
+        for _, sub := range subs </span><span class="cov8" title="1">{
+                h.webpush.Send(ctx, webpush.Subscription{
+                        Endpoint:  sub.Endpoint,
+                        P256dhKey: sub.P256dhKey,
+                        AuthKey:   sub.AuthKey,
+                }, payload)
+        }</span>
+}
+
+func (h *Handler) recipientsNeedingNotification(ctx context.Context, event events.MessageCreated) ([]string, error) <span class="cov8" title="1">{
+        memberIDs, err := h.chat.ListMembers(ctx, event.ChatID)
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">var recipients []string
-        for _, userID := range memberIDs </span><span class="cov0" title="0">{
-                if userID == event.SenderID </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">var recipients []string
+        for _, userID := range memberIDs </span><span class="cov8" title="1">{
+                if userID == event.SenderID </span><span class="cov8" title="1">{
                         continue</span>
                 }
 
-                <span class="cov0" title="0">online, err := h.chat.IsOnline(ctx, userID)
+                <span class="cov8" title="1">online, err := h.chat.IsOnline(ctx, userID)
                 if err != nil </span><span class="cov0" title="0">{
                         log.Printf("notification-worker: failed to check presence for user %s: %v", userID, err)
                         continue</span>
                 }
-                <span class="cov0" title="0">if !online </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if !online </span><span class="cov8" title="1">{
                         recipients = append(recipients, userID)
                 }</span>
         }
-        <span class="cov0" title="0">return recipients, nil</span>
+        <span class="cov8" title="1">return recipients, nil</span>
 }
 
 func (h *Handler) HandleUserEvent(_ context.Context, subject string, data []byte) <span class="cov0" title="0">{
         log.Printf("notification-worker: received %s: %s", subject, string(data))
 }</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package webpush
+
+import (
+        "context"
+        "encoding/json"
+        "log"
+
+        upstream "github.com/SherClockHolmes/webpush-go"
+)
+
+type Payload struct {
+        ChatID    string `json:"chat_id"`
+        MessageID string `json:"message_id"`
+}
+
+type Subscription struct {
+        Endpoint  string
+        P256dhKey string
+        AuthKey   string
+}
+
+type Sender struct {
+        vapidPublicKey  string
+        vapidPrivateKey string
+        vapidSubject    string
+}
+
+func NewSender(vapidPublicKey, vapidPrivateKey, vapidSubject string) *Sender <span class="cov0" title="0">{
+        return &amp;Sender{
+                vapidPublicKey:  vapidPublicKey,
+                vapidPrivateKey: vapidPrivateKey,
+                vapidSubject:    vapidSubject,
+        }
+}</span>
+
+func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) <span class="cov0" title="0">{
+        message, err := json.Marshal(payload)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("notification-worker: failed to marshal push payload: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">resp, err := upstream.SendNotificationWithContext(ctx, message, &amp;upstream.Subscription{
+                Endpoint: sub.Endpoint,
+                Keys: upstream.Keys{
+                        P256dh: sub.P256dhKey,
+                        Auth:   sub.AuthKey,
+                },
+        }, &amp;upstream.Options{
+                Subscriber:      s.vapidSubject,
+                VAPIDPublicKey:  s.vapidPublicKey,
+                VAPIDPrivateKey: s.vapidPrivateKey,
+                TTL:             60,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("notification-worker: failed to send web push: %v", err)
+                return
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = resp.Body.Close() }</span>()
+}
 </pre>
 		
 		</div>
