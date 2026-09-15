@@ -15,7 +15,8 @@ export function isPushSupported() {
 
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
-  return navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.register('/sw.js');
+  return navigator.serviceWorker.ready;
 }
 
 export async function subscribeToPush(vapidPublicKeyBase64) {
