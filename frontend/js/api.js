@@ -280,6 +280,20 @@ export const mediaApi = {
   },
 };
 
+export const pushApi = {
+  saveSubscription: (endpoint, p256dhKey, authKey) =>
+    request('/v1/users/me/push-subscription', {
+      method: 'POST',
+      body: { endpoint, p256dhKey, authKey },
+    }),
+
+  deleteSubscription: (endpoint) =>
+    request('/v1/users/me/push-subscription/delete', {
+      method: 'POST',
+      body: { endpoint },
+    }),
+};
+
 export async function refreshAccessToken() {
   try {
     const data = await authApi.refresh();
