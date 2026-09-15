@@ -650,6 +650,7 @@ func (h *Handler) HandleUserEvent(_ context.Context, subject string, data []byte
 import (
         "context"
         "encoding/json"
+        "io"
         "log"
 
         upstream "github.com/SherClockHolmes/webpush-go"
@@ -704,6 +705,12 @@ func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) <s
                 return
         }</span>
         <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = resp.Body.Close() }</span>()
+
+        <span class="cov0" title="0">if resp.StatusCode &lt; 200 || resp.StatusCode &gt;= 300 </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                log.Printf("notification-worker: web push rejected, status=%d body=%s", resp.StatusCode, string(body))
+                return
+        }</span>
 }
 </pre>
 		
