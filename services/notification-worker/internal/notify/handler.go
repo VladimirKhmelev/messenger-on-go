@@ -6,7 +6,9 @@ import (
 	"log"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
 )
 
 type ChatClient interface {
@@ -14,17 +16,27 @@ type ChatClient interface {
 	IsOnline(ctx context.Context, userID string) (bool, error)
 }
 
+type AuthClient interface {
+	ListPushSubscriptions(ctx context.Context, userID string) ([]authclient.PushSubscription, error)
+}
+
+type WebPushSender interface {
+	Send(ctx context.Context, sub webpush.Subscription, payload webpush.Payload)
+}
+
 type EventPublisher interface {
 	PublishNotifyPush(ctx context.Context, event events.NotifyPush) error
 }
 
 type Handler struct {
-	chat   ChatClient
-	events EventPublisher
+	chat    ChatClient
+	auth    AuthClient
+	webpush WebPushSender
+	events  EventPublisher
 }
 
-func NewHandler(chat ChatClient, eventPublisher EventPublisher) *Handler {
-	return &Handler{chat: chat, events: eventPublisher}
+func NewHandler(chat ChatClient, auth AuthClient, webpushSender WebPushSender, eventPublisher EventPublisher) *Handler {
+	return &Handler{chat: chat, auth: auth, webpush: webpushSender, events: eventPublisher}
 }
 
 func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) {
@@ -52,6 +64,25 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
 			log.Printf("notification-worker: failed to publish notify.push for user %s: %v", userID, err)
 			metrics.NATSConsumeErrorsTotal.Inc()
 		}
+
+		h.sendWebPush(ctx, userID, event)
+	}
+}
+
+func (h *Handler) sendWebPush(ctx context.Context, userID string, event events.MessageCreated) {
+	subs, err := h.auth.ListPushSubscriptions(ctx, userID)
+	if err != nil {
+		log.Printf("notification-worker: failed to list push subscriptions for user %s: %v", userID, err)
+		return
+	}
+
+	payload := webpush.Payload{ChatID: event.ChatID, MessageID: event.MessageID}
+	for _, sub := range subs {
+		h.webpush.Send(ctx, webpush.Subscription{
+			Endpoint:  sub.Endpoint,
+			P256dhKey: sub.P256dhKey,
+			AuthKey:   sub.AuthKey,
+		}, payload)
 	}
 }
 
