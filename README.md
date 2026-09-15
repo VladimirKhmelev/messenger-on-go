@@ -258,6 +258,13 @@ make ci            # полный набор проверок, как в GitHub 
    MINIO_ROOT_PASSWORD=<случайная строка, openssl rand -hex 32>
    PUBLIC_MEDIA_URL=https://yourdomain.com/messenger-media
 
+   # Своя VAPID-пара для прода — dev-ключи в docker-compose.yml не переиспользовать.
+   # Сгенерировать: go run -exec "" -mod=mod - <<< '...' с webpush.GenerateVAPIDKeys(),
+   # либо любым CLI-инструментом, генерирующим VAPID-ключи (P-256 ECDSA)
+   VAPID_PUBLIC_KEY=<VAPID public key>
+   VAPID_PRIVATE_KEY=<VAPID private key>
+   VAPID_SUBJECT=mailto:admin@yourdomain.com
+
    NGINX_HTTP_PORT=80
    NGINX_HTTPS_PORT=443
    NGINX_CONF=./nginx/nginx.prod.conf
