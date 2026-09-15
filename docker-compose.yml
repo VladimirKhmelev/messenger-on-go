@@ -284,12 +284,21 @@ services:
       METRICS_PORT: "9090"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
+      AUTH_SERVICE_ADDR: auth-service:50051
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
+      # Dev-ключи для локальной разработки — сгенерированы один раз через
+      # webpush.GenerateVAPIDKeys(). На проде переопределяются в .env своей
+      # парой (та же команда сгенерирует новую).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BD4XfEvfdPPvOgk9_IR_-d1DGug4xrFR_dU8GJz1jE-cUfkSnwA6WBYD44QT92W9xHscDL3vl-MVW95VA6_dP1g}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-7jZ4PTx8vRCs8QntFPHdXcSTL5jiM5uL3qD0ceZIiF0}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@messenger-on-go.local}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
     depends_on:
       nats:
         condition: service_started
       chat-service:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
       jaeger:
         condition: service_started
