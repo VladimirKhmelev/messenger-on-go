@@ -55,6 +55,10 @@ export const state = {
   settingsDeleteAccountConfirming: false, // true while the "are you sure" confirmation form is open
   settingsDeleteAccountError: '',
   settingsDeleteAccountBusy: false,
+  settingsPushSupported: false, // set once on settings open — false hides the toggle entirely
+  settingsPushEnabled: false,
+  settingsPushBusy: false,
+  settingsPushError: '',
 };
 
 const listeners = {
