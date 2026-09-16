@@ -171,6 +171,8 @@ func TestMediaService_RequestUpload_BlockedContentType(t *testing.T) {
 		"application/vnd.microsoft.portable-executable",
 		"application/x-apple-diskimage",
 		"application/java-archive",
+		"application/vnd.android.package-archive",
+		"application/x-itunes-ipa",
 	}
 
 	for _, ct := range blocked {
