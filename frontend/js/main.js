@@ -1291,6 +1291,8 @@ const BLOCKED_FILE_EXTENSIONS = new Set([
   'ps1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh', 'hta', 'cpl', 'reg',
   'sh', 'bash', 'command', 'app', 'pkg', 'dmg', 'deb', 'rpm', 'run',
   'jar', 'lnk', 'iso', 'img', 'chm', 'url',
+  'apk', 'aab', // Android install packages
+  'ipa', // iOS install package
 ]);
 
 function fileExtension(fileName) {
