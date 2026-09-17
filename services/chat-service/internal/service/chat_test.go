@@ -20,6 +20,8 @@ type fakeChatRepository struct {
 	events   map[string][]*domain.MessageEvent
 	hidden   map[string]map[string]bool
 	avatars  map[string]*domain.ChatAvatar
+	blocked  map[string]map[string]bool
+	reports  map[string]map[string]*domain.MessageReport
 }
 
 func newFakeChatRepository() *fakeChatRepository {
@@ -30,6 +32,8 @@ func newFakeChatRepository() *fakeChatRepository {
 		events:   make(map[string][]*domain.MessageEvent),
 		hidden:   make(map[string]map[string]bool),
 		avatars:  make(map[string]*domain.ChatAvatar),
+		blocked:  make(map[string]map[string]bool),
+		reports:  make(map[string]map[string]*domain.MessageReport),
 	}
 }
 
@@ -306,6 +310,44 @@ func (r *fakeChatRepository) GetChatAvatar(_ context.Context, chatID string) (*d
 	return avatar, nil
 }
 
+func (r *fakeChatRepository) BlockUser(_ context.Context, blockerID, blockedID string) error {
+	if r.blocked[blockerID] == nil {
+		r.blocked[blockerID] = make(map[string]bool)
+	}
+	r.blocked[blockerID][blockedID] = true
+	return nil
+}
+
+func (r *fakeChatRepository) UnblockUser(_ context.Context, blockerID, blockedID string) error {
+	delete(r.blocked[blockerID], blockedID)
+	return nil
+}
+
+func (r *fakeChatRepository) IsBlocked(_ context.Context, userA, userB string) (bool, error) {
+	return r.blocked[userA][userB] || r.blocked[userB][userA], nil
+}
+
+func (r *fakeChatRepository) ListBlockedUsers(_ context.Context, blockerID string) ([]*domain.BlockedUser, error) {
+	var result []*domain.BlockedUser
+	for blockedID := range r.blocked[blockerID] {
+		result = append(result, &domain.BlockedUser{BlockerID: blockerID, BlockedID: blockedID})
+	}
+	return result, nil
+}
+
+func (r *fakeChatRepository) CreateMessageReport(_ context.Context, report *domain.MessageReport) error {
+	if r.reports[report.MessageID] == nil {
+		r.reports[report.MessageID] = make(map[string]*domain.MessageReport)
+	}
+	r.reports[report.MessageID][report.ReporterID] = report
+	return nil
+}
+
+func (r *fakeChatRepository) HasReported(_ context.Context, messageID, reporterID string) (bool, error) {
+	_, ok := r.reports[messageID][reporterID]
+	return ok, nil
+}
+
 func (r *fakeChatRepository) MarkRead(_ context.Context, chatID, userID, messageID string, readAt time.Time) error {
 	for _, m := range r.members[chatID] {
 		if m.UserID == userID {
@@ -513,6 +555,34 @@ func TestChatService_SendMessage_NotMember(t *testing.T) {
 	_, err := svc.SendMessage(context.Background(), chat.ID, "user-stranger", "hello")
 	if !errors.Is(err, domain.ErrNotChatMember) {
 		t.Errorf("SendMessage() error = %v, want %v", err, domain.ErrNotChatMember)
+	}
+}
+
+func TestChatService_SendMessage_BlockedInPrivateChat(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now(), ChatType: domain.ChatTypePrivate}
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
+	_ = repo.BlockUser(context.Background(), "user-b", "user-a")
+
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
+
+	_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if !errors.Is(err, domain.ErrUserBlocked) {
+		t.Errorf("SendMessage() error = %v, want %v", err, domain.ErrUserBlocked)
+	}
+}
+
+func TestChatService_SendMessage_NotBlockedInGroupChat(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now(), ChatType: domain.ChatTypeGroup}
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b", "user-c"))
+	_ = repo.BlockUser(context.Background(), "user-b", "user-a")
+
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
+
+	_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Errorf("SendMessage() in group chat unexpected error: %v", err)
 	}
 }
 
@@ -830,5 +900,63 @@ func TestChatService_DeleteGroupChat_Success(t *testing.T) {
 		if !gotMembers[want] {
 			t.Errorf("ChatDeleted event MemberUserIDs = %v, missing %q", event.MemberUserIDs, want)
 		}
+	}
+}
+
+func TestChatService_ReportMessage_Success(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
+
+	message, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "spam spam spam")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	if err := svc.ReportMessage(context.Background(), message.ID, "user-b", domain.ReportCategorySpam, "buy now"); err != nil {
+		t.Fatalf("ReportMessage() unexpected error: %v", err)
+	}
+
+	reported, err := repo.HasReported(context.Background(), message.ID, "user-b")
+	if err != nil {
+		t.Fatalf("HasReported() unexpected error: %v", err)
+	}
+	if !reported {
+		t.Error("HasReported() = false, want true after ReportMessage()")
+	}
+}
+
+func TestChatService_ReportMessage_InvalidCategory(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
+
+	message, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	err = svc.ReportMessage(context.Background(), message.ID, "user-b", domain.ReportCategory("bogus"), "")
+	if !errors.Is(err, domain.ErrInvalidReportCategory) {
+		t.Errorf("ReportMessage() error = %v, want %v", err, domain.ErrInvalidReportCategory)
+	}
+}
+
+func TestChatService_ReportMessage_NotChatMember(t *testing.T) {
+	repo := newFakeChatRepository()
+	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
+	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
+	svc := NewChatService(repo, newFakeAuthClient(), newFakeEventPublisher(), newFakePresenceChecker(), newFakeRateLimiter())
+
+	message, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
+	if err != nil {
+		t.Fatalf("SendMessage() unexpected error: %v", err)
+	}
+
+	err = svc.ReportMessage(context.Background(), message.ID, "user-stranger", domain.ReportCategorySpam, "")
+	if !errors.Is(err, domain.ErrNotChatMember) {
+		t.Errorf("ReportMessage() error = %v, want %v", err, domain.ErrNotChatMember)
 	}
 }

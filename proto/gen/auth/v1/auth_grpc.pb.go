@@ -68,8 +68,6 @@ type AuthServiceClient interface {
 	GetWrappedPrivateKey(ctx context.Context, in *GetWrappedPrivateKeyRequest, opts ...grpc.CallOption) (*GetWrappedPrivateKeyResponse, error)
 	SavePushSubscription(ctx context.Context, in *SavePushSubscriptionRequest, opts ...grpc.CallOption) (*SavePushSubscriptionResponse, error)
 	DeletePushSubscription(ctx context.Context, in *DeletePushSubscriptionRequest, opts ...grpc.CallOption) (*DeletePushSubscriptionResponse, error)
-	// Internal-only: called by notification-worker with x-internal-secret,
-	// never exposed over HTTP.
 	ListPushSubscriptions(ctx context.Context, in *ListPushSubscriptionsRequest, opts ...grpc.CallOption) (*ListPushSubscriptionsResponse, error)
 }
 
@@ -326,8 +324,6 @@ type AuthServiceServer interface {
 	GetWrappedPrivateKey(context.Context, *GetWrappedPrivateKeyRequest) (*GetWrappedPrivateKeyResponse, error)
 	SavePushSubscription(context.Context, *SavePushSubscriptionRequest) (*SavePushSubscriptionResponse, error)
 	DeletePushSubscription(context.Context, *DeletePushSubscriptionRequest) (*DeletePushSubscriptionResponse, error)
-	// Internal-only: called by notification-worker with x-internal-secret,
-	// never exposed over HTTP.
 	ListPushSubscriptions(context.Context, *ListPushSubscriptionsRequest) (*ListPushSubscriptionsResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }

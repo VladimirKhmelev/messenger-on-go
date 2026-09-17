@@ -29,4 +29,8 @@ var (
 	ErrInvalidGroupAvatarType     = errors.New("group avatar must be a JPEG, PNG, GIF, or WebP image")
 	ErrGroupAvatarTooLarge        = errors.New("group avatar must be smaller than 2MB")
 	ErrOnlyCreatorCanDeleteChat   = errors.New("only the group creator can delete the chat")
+	ErrCannotBlockSelf            = errors.New("cannot block yourself")
+	ErrUserBlocked                = errors.New("messaging is blocked between these users")
+	ErrInvalidReportCategory      = errors.New("report category must be spam, abuse, or other")
+	ErrAlreadyReported            = errors.New("you have already reported this message")
 )

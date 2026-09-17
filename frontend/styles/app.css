@@ -113,7 +113,7 @@ a:hover { color: var(--accent); }
   font-size: 12px; font-weight: 500; color: var(--text-muted-3);
   margin-bottom: 6px; display: block;
 }
-.field input, .text-input {
+.field input, .field textarea, .text-input {
   width: 100%;
   padding: 11px 14px;
   border-radius: 12px;
@@ -123,6 +123,14 @@ a:hover { color: var(--accent); }
   color: var(--text);
   background: var(--bg-card);
 }
+.field textarea { resize: vertical; font-family: inherit; }
+
+.report-category-option {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 400; color: var(--text);
+  margin-top: 8px; cursor: pointer;
+}
+.report-category-option input[type="radio"] { width: auto; accent-color: var(--accent); }
 .field--tag { position: relative; }
 .field--tag .at-prefix {
   position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
@@ -141,6 +149,14 @@ a:hover { color: var(--accent); }
 .settings-avatar-actions { display: flex; align-items: center; gap: 10px; }
 .settings-avatar-upload { cursor: pointer; width: auto; display: inline-block; text-align: center; }
 .settings-avatar-status { font-size: 13px; color: var(--text-muted-2); }
+
+.blocked-users-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.blocked-users-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-radius: 10px; background: var(--bg-card);
+  font-size: 14px;
+}
+.blocked-users-item .btn-secondary { width: auto; margin-top: 0; padding: 6px 12px; font-size: 13px; }
 
 .field--password { position: relative; }
 .field--password input { padding-right: 40px; }

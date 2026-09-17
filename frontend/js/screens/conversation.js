@@ -52,7 +52,7 @@ export function renderConversation(root, handlers) {
   root.innerHTML = `
     <div class="conversation">
       <div class="conversation-header">
-        <div class="conversation-header-inner" ${isGroup ? 'data-action="open-group-members"' : ''}>
+        <div class="conversation-header-inner" ${isGroup ? 'data-action="open-group-members"' : isSelfChat ? '' : 'data-action="open-user-profile"'}>
           <button class="conversation-back-btn" data-action="back-to-chats" title="К списку чатов" aria-label="Назад">‹</button>
           <div class="${isSelfChat ? '' : 'avatar--clickable'}" data-action="${isGroup || isSelfChat ? '' : 'open-avatar'}" data-user-id="${escapeHtml(avatarId)}">
             ${
@@ -195,7 +195,8 @@ export function renderConversation(root, handlers) {
 
   wireMessageActions(root, handlers, chat.id);
 
-  root.querySelector('[data-action="open-avatar"]')?.addEventListener('click', () => {
+  root.querySelector('[data-action="open-avatar"]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
     state.avatarPreview = { userId: chat.peer.id, name };
     handlers.onDraftChange();
   });
@@ -211,6 +212,11 @@ export function renderConversation(root, handlers) {
   root.querySelector('[data-action="open-group-members"]')?.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="back-to-chats"]')) return;
     handlers.onOpenGroupMembers();
+  });
+
+  root.querySelector('[data-action="open-user-profile"]')?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="back-to-chats"]')) return;
+    handlers.onOpenUserProfile();
   });
 
   root.querySelector('[data-action="back-to-chats"]')?.addEventListener('click', () => {
@@ -429,6 +435,10 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
             <div class="message-menu-item" data-action="copy">Копировать текст</div>${
               msg.mine ? '<div class="message-menu-item" data-action="edit">Редактировать</div>' : ''
             }${
+              !msg.mine && !isSelfChat
+                ? '<div class="message-menu-item" data-action="report-message">Пожаловаться</div>'
+                : ''
+            }${
               isSelfChat
                 ? // "for all" vs "for me" is a distinction between two people —
                   // meaningless when you're the only participant, so collapse
@@ -492,6 +502,10 @@ function renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, i
           ${senderLabel}
           ${body}
           <div class="message-menu" data-menu hidden>${
+            !msg.mine && !isSelfChat
+              ? '<div class="message-menu-item" data-action="report-message">Пожаловаться</div>'
+              : ''
+          }${
             isSelfChat
               ? '<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить</div>'
               : `${
@@ -583,6 +597,13 @@ function wireMessageActions(root, handlers, chatId) {
     item.addEventListener('click', () => {
       const row = item.closest('[data-message-id]');
       handlers.onDeleteMessageForMe(row.getAttribute('data-message-id'));
+    });
+  });
+
+  root.querySelectorAll('[data-action="report-message"]').forEach((item) => {
+    item.addEventListener('click', () => {
+      const row = item.closest('[data-message-id]');
+      handlers.onOpenReportMessage(row.getAttribute('data-message-id'));
     });
   });
 

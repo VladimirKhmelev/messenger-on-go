@@ -40,6 +40,17 @@ export const state = {
   avatarPreview: null, // { userId, name } — set while the full-size avatar viewer is open
   mediaPreview: null, // { objectUrl, fileName } — set while the full-size media image viewer is open
 
+  userProfileOpen: false, // true while the "block/unblock" panel is open for the private chat's peer
+  userProfileBlocked: false, // whether the peer is currently blocked — set when the panel opens
+  userProfileBusy: false,
+  userProfileError: '',
+
+  reportMessageId: null, // messageId being reported — set while the report modal is open
+  reportMessageCategory: 'spam',
+  reportMessageComment: '',
+  reportMessageBusy: false,
+  reportMessageError: '',
+
   toast: null, // { chatId, name, text }
 
   settingsOpen: false,
@@ -59,6 +70,9 @@ export const state = {
   settingsPushEnabled: false,
   settingsPushBusy: false,
   settingsPushError: '',
+  settingsBlockedUsers: [], // [{ id, tag, displayName }] — loaded when settings opens
+  settingsBlockedUsersError: '',
+  settingsUnblockingUserId: null, // set while an unblock request for this user is in flight
 };
 
 const listeners = {
@@ -69,6 +83,8 @@ const listeners = {
   settings: [],
   groupCreator: [],
   groupMembers: [],
+  userProfile: [],
+  reportMessage: [],
 };
 
 export function onZone(zone, fn) {

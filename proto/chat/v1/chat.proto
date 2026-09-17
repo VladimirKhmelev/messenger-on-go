@@ -146,6 +146,33 @@ service ChatService {
       body: "*"
     };
   }
+
+  rpc BlockUser(BlockUserRequest) returns (BlockUserResponse) {
+    option (google.api.http) = {
+      post: "/v1/chats/blocked/{user_id}"
+      body: "*"
+    };
+  }
+
+  rpc UnblockUser(UnblockUserRequest) returns (UnblockUserResponse) {
+    option (google.api.http) = {
+      delete: "/v1/chats/blocked/{user_id}"
+    };
+  }
+
+  rpc ListBlockedUsers(ListBlockedUsersRequest)
+      returns (ListBlockedUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/chats/blocked"
+    };
+  }
+
+  rpc ReportMessage(ReportMessageRequest) returns (ReportMessageResponse) {
+    option (google.api.http) = {
+      post: "/v1/chat/messages/{message_id}/report"
+      body: "*"
+    };
+  }
 }
 
 message HealthRequest {
@@ -412,4 +439,34 @@ message UpdateChatKeyRequest {
 }
 
 message UpdateChatKeyResponse {
+}
+
+message BlockUserRequest {
+  string user_id = 1;
+}
+
+message BlockUserResponse {
+}
+
+message UnblockUserRequest {
+  string user_id = 1;
+}
+
+message UnblockUserResponse {
+}
+
+message ListBlockedUsersRequest {
+}
+
+message ListBlockedUsersResponse {
+  repeated string user_ids = 1;
+}
+
+message ReportMessageRequest {
+  string message_id = 1;
+  string category = 2;
+  string comment = 3;
+}
+
+message ReportMessageResponse {
 }

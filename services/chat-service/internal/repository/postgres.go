@@ -397,3 +397,70 @@ func (r *PostgresChatRepository) GetChatAvatar(ctx context.Context, chatID strin
 	}
 	return &avatar, nil
 }
+
+func (r *PostgresChatRepository) BlockUser(ctx context.Context, blockerID, blockedID string) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO blocked_users (blocker_id, blocked_id, created_at)
+		VALUES ($1, $2, now())
+		ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
+		blockerID, blockedID,
+	)
+	return err
+}
+
+func (r *PostgresChatRepository) UnblockUser(ctx context.Context, blockerID, blockedID string) error {
+	_, err := r.conn.ExecContext(ctx, `
+		DELETE FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`,
+		blockerID, blockedID,
+	)
+	return err
+}
+
+func (r *PostgresChatRepository) IsBlocked(ctx context.Context, userA, userB string) (bool, error) {
+	var exists bool
+	err := r.conn.GetContext(ctx, &exists, `
+		SELECT EXISTS(
+			SELECT 1 FROM blocked_users
+			WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
+		)`,
+		userA, userB,
+	)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (r *PostgresChatRepository) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) {
+	var blocked []*domain.BlockedUser
+	err := r.conn.SelectContext(ctx, &blocked, `
+		SELECT blocker_id, blocked_id, created_at FROM blocked_users WHERE blocker_id = $1`,
+		blockerID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return blocked, nil
+}
+
+func (r *PostgresChatRepository) CreateMessageReport(ctx context.Context, report *domain.MessageReport) error {
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO message_reports (id, message_id, chat_id, reporter_id, category, comment, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (message_id, reporter_id) DO NOTHING`,
+		report.ID, report.MessageID, report.ChatID, report.ReporterID, report.Category, report.Comment, report.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresChatRepository) HasReported(ctx context.Context, messageID, reporterID string) (bool, error) {
+	var exists bool
+	err := r.conn.GetContext(ctx, &exists, `
+		SELECT EXISTS(SELECT 1 FROM message_reports WHERE message_id = $1 AND reporter_id = $2)`,
+		messageID, reporterID,
+	)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}

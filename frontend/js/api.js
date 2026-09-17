@@ -68,6 +68,10 @@ const ERROR_TRANSLATIONS = {
   'media object not found': 'Файл не найден',
   'upload has not been confirmed yet': 'Файл ещё не загружен',
   'this file type is not allowed': 'Этот тип файла запрещён к отправке',
+  'cannot block yourself': 'Нельзя заблокировать самого себя',
+  'messaging is blocked between these users': 'Переписка заблокирована',
+  'report category must be spam, abuse, or other': 'Некорректная причина жалобы',
+  'you have already reported this message': 'Вы уже жаловались на это сообщение',
 };
 
 export function translateApiError(err) {
@@ -248,6 +252,20 @@ export const chatApi = {
       throw new ApiError(text || `Request failed (${response.status})`, response.status);
     }
   },
+
+  blockUser: (userId) =>
+    request(`/v1/chats/blocked/${encodeURIComponent(userId)}`, { method: 'POST', body: {} }),
+
+  unblockUser: (userId) =>
+    request(`/v1/chats/blocked/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+
+  listBlockedUsers: () => request('/v1/chats/blocked'),
+
+  reportMessage: (messageId, category, comment) =>
+    request(`/v1/chat/messages/${encodeURIComponent(messageId)}/report`, {
+      method: 'POST',
+      body: { category, comment },
+    }),
 };
 
 export const mediaApi = {

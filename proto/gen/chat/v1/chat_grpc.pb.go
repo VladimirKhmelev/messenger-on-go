@@ -47,6 +47,10 @@ const (
 	ChatService_GetChatKey_FullMethodName          = "/chat.v1.ChatService/GetChatKey"
 	ChatService_ListChatKeys_FullMethodName        = "/chat.v1.ChatService/ListChatKeys"
 	ChatService_UpdateChatKey_FullMethodName       = "/chat.v1.ChatService/UpdateChatKey"
+	ChatService_BlockUser_FullMethodName           = "/chat.v1.ChatService/BlockUser"
+	ChatService_UnblockUser_FullMethodName         = "/chat.v1.ChatService/UnblockUser"
+	ChatService_ListBlockedUsers_FullMethodName    = "/chat.v1.ChatService/ListBlockedUsers"
+	ChatService_ReportMessage_FullMethodName       = "/chat.v1.ChatService/ReportMessage"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -81,6 +85,10 @@ type ChatServiceClient interface {
 	GetChatKey(ctx context.Context, in *GetChatKeyRequest, opts ...grpc.CallOption) (*GetChatKeyResponse, error)
 	ListChatKeys(ctx context.Context, in *ListChatKeysRequest, opts ...grpc.CallOption) (*ListChatKeysResponse, error)
 	UpdateChatKey(ctx context.Context, in *UpdateChatKeyRequest, opts ...grpc.CallOption) (*UpdateChatKeyResponse, error)
+	BlockUser(ctx context.Context, in *BlockUserRequest, opts ...grpc.CallOption) (*BlockUserResponse, error)
+	UnblockUser(ctx context.Context, in *UnblockUserRequest, opts ...grpc.CallOption) (*UnblockUserResponse, error)
+	ListBlockedUsers(ctx context.Context, in *ListBlockedUsersRequest, opts ...grpc.CallOption) (*ListBlockedUsersResponse, error)
+	ReportMessage(ctx context.Context, in *ReportMessageRequest, opts ...grpc.CallOption) (*ReportMessageResponse, error)
 }
 
 type chatServiceClient struct {
@@ -371,6 +379,46 @@ func (c *chatServiceClient) UpdateChatKey(ctx context.Context, in *UpdateChatKey
 	return out, nil
 }
 
+func (c *chatServiceClient) BlockUser(ctx context.Context, in *BlockUserRequest, opts ...grpc.CallOption) (*BlockUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockUserResponse)
+	err := c.cc.Invoke(ctx, ChatService_BlockUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) UnblockUser(ctx context.Context, in *UnblockUserRequest, opts ...grpc.CallOption) (*UnblockUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnblockUserResponse)
+	err := c.cc.Invoke(ctx, ChatService_UnblockUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListBlockedUsers(ctx context.Context, in *ListBlockedUsersRequest, opts ...grpc.CallOption) (*ListBlockedUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBlockedUsersResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListBlockedUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ReportMessage(ctx context.Context, in *ReportMessageRequest, opts ...grpc.CallOption) (*ReportMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReportMessageResponse)
+	err := c.cc.Invoke(ctx, ChatService_ReportMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -403,6 +451,10 @@ type ChatServiceServer interface {
 	GetChatKey(context.Context, *GetChatKeyRequest) (*GetChatKeyResponse, error)
 	ListChatKeys(context.Context, *ListChatKeysRequest) (*ListChatKeysResponse, error)
 	UpdateChatKey(context.Context, *UpdateChatKeyRequest) (*UpdateChatKeyResponse, error)
+	BlockUser(context.Context, *BlockUserRequest) (*BlockUserResponse, error)
+	UnblockUser(context.Context, *UnblockUserRequest) (*UnblockUserResponse, error)
+	ListBlockedUsers(context.Context, *ListBlockedUsersRequest) (*ListBlockedUsersResponse, error)
+	ReportMessage(context.Context, *ReportMessageRequest) (*ReportMessageResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -496,6 +548,18 @@ func (UnimplementedChatServiceServer) ListChatKeys(context.Context, *ListChatKey
 }
 func (UnimplementedChatServiceServer) UpdateChatKey(context.Context, *UpdateChatKeyRequest) (*UpdateChatKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateChatKey not implemented")
+}
+func (UnimplementedChatServiceServer) BlockUser(context.Context, *BlockUserRequest) (*BlockUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BlockUser not implemented")
+}
+func (UnimplementedChatServiceServer) UnblockUser(context.Context, *UnblockUserRequest) (*UnblockUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnblockUser not implemented")
+}
+func (UnimplementedChatServiceServer) ListBlockedUsers(context.Context, *ListBlockedUsersRequest) (*ListBlockedUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBlockedUsers not implemented")
+}
+func (UnimplementedChatServiceServer) ReportMessage(context.Context, *ReportMessageRequest) (*ReportMessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReportMessage not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -1022,6 +1086,78 @@ func _ChatService_UpdateChatKey_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_BlockUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).BlockUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_BlockUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).BlockUser(ctx, req.(*BlockUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_UnblockUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnblockUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).UnblockUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_UnblockUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).UnblockUser(ctx, req.(*UnblockUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListBlockedUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBlockedUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListBlockedUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListBlockedUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListBlockedUsers(ctx, req.(*ListBlockedUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ReportMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ReportMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ReportMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ReportMessage(ctx, req.(*ReportMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1140,6 +1276,22 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateChatKey",
 			Handler:    _ChatService_UpdateChatKey_Handler,
+		},
+		{
+			MethodName: "BlockUser",
+			Handler:    _ChatService_BlockUser_Handler,
+		},
+		{
+			MethodName: "UnblockUser",
+			Handler:    _ChatService_UnblockUser_Handler,
+		},
+		{
+			MethodName: "ListBlockedUsers",
+			Handler:    _ChatService_ListBlockedUsers_Handler,
+		},
+		{
+			MethodName: "ReportMessage",
+			Handler:    _ChatService_ReportMessage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

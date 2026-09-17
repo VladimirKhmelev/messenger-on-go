@@ -71,3 +71,27 @@ type MessageEvent struct {
 	NewBody   *string          `db:"new_body"`
 	CreatedAt time.Time        `db:"created_at"`
 }
+
+type BlockedUser struct {
+	BlockerID string    `db:"blocker_id"`
+	BlockedID string    `db:"blocked_id"`
+	CreatedAt time.Time `db:"created_at"`
+}
+
+type ReportCategory string
+
+const (
+	ReportCategorySpam  ReportCategory = "spam"
+	ReportCategoryAbuse ReportCategory = "abuse"
+	ReportCategoryOther ReportCategory = "other"
+)
+
+type MessageReport struct {
+	ID         string         `db:"id"`
+	MessageID  string         `db:"message_id"`
+	ChatID     string         `db:"chat_id"`
+	ReporterID string         `db:"reporter_id"`
+	Category   ReportCategory `db:"category"`
+	Comment    string         `db:"comment"`
+	CreatedAt  time.Time      `db:"created_at"`
+}
