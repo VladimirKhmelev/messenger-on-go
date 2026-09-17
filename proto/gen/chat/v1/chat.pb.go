@@ -2870,6 +2870,342 @@ func (*UpdateChatKeyResponse) Descriptor() ([]byte, []int) {
 	return file_chat_v1_chat_proto_rawDescGZIP(), []int{59}
 }
 
+type BlockUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BlockUserRequest) Reset() {
+	*x = BlockUserRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BlockUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockUserRequest) ProtoMessage() {}
+
+func (x *BlockUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockUserRequest.ProtoReflect.Descriptor instead.
+func (*BlockUserRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *BlockUserRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type BlockUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BlockUserResponse) Reset() {
+	*x = BlockUserResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BlockUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockUserResponse) ProtoMessage() {}
+
+func (x *BlockUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockUserResponse.ProtoReflect.Descriptor instead.
+func (*BlockUserResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{61}
+}
+
+type UnblockUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnblockUserRequest) Reset() {
+	*x = UnblockUserRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnblockUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnblockUserRequest) ProtoMessage() {}
+
+func (x *UnblockUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnblockUserRequest.ProtoReflect.Descriptor instead.
+func (*UnblockUserRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *UnblockUserRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type UnblockUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnblockUserResponse) Reset() {
+	*x = UnblockUserResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnblockUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnblockUserResponse) ProtoMessage() {}
+
+func (x *UnblockUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnblockUserResponse.ProtoReflect.Descriptor instead.
+func (*UnblockUserResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{63}
+}
+
+type ListBlockedUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBlockedUsersRequest) Reset() {
+	*x = ListBlockedUsersRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBlockedUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBlockedUsersRequest) ProtoMessage() {}
+
+func (x *ListBlockedUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBlockedUsersRequest.ProtoReflect.Descriptor instead.
+func (*ListBlockedUsersRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{64}
+}
+
+type ListBlockedUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserIds       []string               `protobuf:"bytes,1,rep,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBlockedUsersResponse) Reset() {
+	*x = ListBlockedUsersResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBlockedUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBlockedUsersResponse) ProtoMessage() {}
+
+func (x *ListBlockedUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBlockedUsersResponse.ProtoReflect.Descriptor instead.
+func (*ListBlockedUsersResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ListBlockedUsersResponse) GetUserIds() []string {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+type ReportMessageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Category      string                 `protobuf:"bytes,2,opt,name=category,proto3" json:"category,omitempty"`
+	Comment       string                 `protobuf:"bytes,3,opt,name=comment,proto3" json:"comment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReportMessageRequest) Reset() {
+	*x = ReportMessageRequest{}
+	mi := &file_chat_v1_chat_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportMessageRequest) ProtoMessage() {}
+
+func (x *ReportMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportMessageRequest.ProtoReflect.Descriptor instead.
+func (*ReportMessageRequest) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ReportMessageRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ReportMessageRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ReportMessageRequest) GetComment() string {
+	if x != nil {
+		return x.Comment
+	}
+	return ""
+}
+
+type ReportMessageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReportMessageResponse) Reset() {
+	*x = ReportMessageResponse{}
+	mi := &file_chat_v1_chat_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportMessageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportMessageResponse) ProtoMessage() {}
+
+func (x *ReportMessageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_v1_chat_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportMessageResponse.ProtoReflect.Descriptor instead.
+func (*ReportMessageResponse) Descriptor() ([]byte, []int) {
+	return file_chat_v1_chat_proto_rawDescGZIP(), []int{67}
+}
+
 var File_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_chat_v1_chat_proto_rawDesc = "" +
@@ -3041,7 +3377,22 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12,\n" +
 	"\x12encrypted_chat_key\x18\x03 \x01(\tR\x10encryptedChatKey\x123\n" +
 	"\x16wrapped_for_public_key\x18\x04 \x01(\tR\x13wrappedForPublicKey\"\x17\n" +
-	"\x15UpdateChatKeyResponse2\xa6\x16\n" +
+	"\x15UpdateChatKeyResponse\"+\n" +
+	"\x10BlockUserRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x13\n" +
+	"\x11BlockUserResponse\"-\n" +
+	"\x12UnblockUserRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x15\n" +
+	"\x13UnblockUserResponse\"\x19\n" +
+	"\x17ListBlockedUsersRequest\"5\n" +
+	"\x18ListBlockedUsersResponse\x12\x19\n" +
+	"\buser_ids\x18\x01 \x03(\tR\auserIds\"k\n" +
+	"\x14ReportMessageRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1a\n" +
+	"\bcategory\x18\x02 \x01(\tR\bcategory\x12\x18\n" +
+	"\acomment\x18\x03 \x01(\tR\acomment\"\x17\n" +
+	"\x15ReportMessageResponse2\xf8\x19\n" +
 	"\vChatService\x12R\n" +
 	"\x06Health\x12\x16.chat.v1.HealthRequest\x1a\x17.chat.v1.HealthResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/chat/health\x12[\n" +
 	"\n" +
@@ -3075,7 +3426,11 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
 	"GetChatKey\x12\x1a.chat.v1.GetChatKeyRequest\x1a\x1b.chat.v1.GetChatKeyResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/v1/chats/{chat_id}/key\x12m\n" +
 	"\fListChatKeys\x12\x1c.chat.v1.ListChatKeysRequest\x1a\x1d.chat.v1.ListChatKeysResponse\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/v1/chats/{chat_id}/keys\x12}\n" +
-	"\rUpdateChatKey\x12\x1d.chat.v1.UpdateChatKeyRequest\x1a\x1e.chat.v1.UpdateChatKeyResponse\"-\x82\xd3\xe4\x93\x02':\x01*\x1a\"/v1/chats/{chat_id}/keys/{user_id}BEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1b\x06proto3"
+	"\rUpdateChatKey\x12\x1d.chat.v1.UpdateChatKeyRequest\x1a\x1e.chat.v1.UpdateChatKeyResponse\"-\x82\xd3\xe4\x93\x02':\x01*\x1a\"/v1/chats/{chat_id}/keys/{user_id}\x12j\n" +
+	"\tBlockUser\x12\x19.chat.v1.BlockUserRequest\x1a\x1a.chat.v1.BlockUserResponse\"&\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/v1/chats/blocked/{user_id}\x12m\n" +
+	"\vUnblockUser\x12\x1b.chat.v1.UnblockUserRequest\x1a\x1c.chat.v1.UnblockUserResponse\"#\x82\xd3\xe4\x93\x02\x1d*\x1b/v1/chats/blocked/{user_id}\x12r\n" +
+	"\x10ListBlockedUsers\x12 .chat.v1.ListBlockedUsersRequest\x1a!.chat.v1.ListBlockedUsersResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/v1/chats/blocked\x12\x80\x01\n" +
+	"\rReportMessage\x12\x1d.chat.v1.ReportMessageRequest\x1a\x1e.chat.v1.ReportMessageResponse\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/v1/chat/messages/{message_id}/reportBEZCgithub.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1;chatv1b\x06proto3"
 
 var (
 	file_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -3089,7 +3444,7 @@ func file_chat_v1_chat_proto_rawDescGZIP() []byte {
 	return file_chat_v1_chat_proto_rawDescData
 }
 
-var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
+var file_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_chat_v1_chat_proto_goTypes = []any{
 	(*HealthRequest)(nil),               // 0: chat.v1.HealthRequest
 	(*HealthResponse)(nil),              // 1: chat.v1.HealthResponse
@@ -3151,16 +3506,24 @@ var file_chat_v1_chat_proto_goTypes = []any{
 	(*ListChatKeysResponse)(nil),        // 57: chat.v1.ListChatKeysResponse
 	(*UpdateChatKeyRequest)(nil),        // 58: chat.v1.UpdateChatKeyRequest
 	(*UpdateChatKeyResponse)(nil),       // 59: chat.v1.UpdateChatKeyResponse
-	nil,                                 // 60: chat.v1.CreateChatRequest.EncryptedChatKeyEntry
-	nil,                                 // 61: chat.v1.CreateChatRequest.WrappedForPublicKeyEntry
-	nil,                                 // 62: chat.v1.CreateGroupChatRequest.EncryptedChatKeyEntry
-	nil,                                 // 63: chat.v1.CreateGroupChatRequest.WrappedForPublicKeyEntry
+	(*BlockUserRequest)(nil),            // 60: chat.v1.BlockUserRequest
+	(*BlockUserResponse)(nil),           // 61: chat.v1.BlockUserResponse
+	(*UnblockUserRequest)(nil),          // 62: chat.v1.UnblockUserRequest
+	(*UnblockUserResponse)(nil),         // 63: chat.v1.UnblockUserResponse
+	(*ListBlockedUsersRequest)(nil),     // 64: chat.v1.ListBlockedUsersRequest
+	(*ListBlockedUsersResponse)(nil),    // 65: chat.v1.ListBlockedUsersResponse
+	(*ReportMessageRequest)(nil),        // 66: chat.v1.ReportMessageRequest
+	(*ReportMessageResponse)(nil),       // 67: chat.v1.ReportMessageResponse
+	nil,                                 // 68: chat.v1.CreateChatRequest.EncryptedChatKeyEntry
+	nil,                                 // 69: chat.v1.CreateChatRequest.WrappedForPublicKeyEntry
+	nil,                                 // 70: chat.v1.CreateGroupChatRequest.EncryptedChatKeyEntry
+	nil,                                 // 71: chat.v1.CreateGroupChatRequest.WrappedForPublicKeyEntry
 }
 var file_chat_v1_chat_proto_depIdxs = []int32{
-	60, // 0: chat.v1.CreateChatRequest.encrypted_chat_key:type_name -> chat.v1.CreateChatRequest.EncryptedChatKeyEntry
-	61, // 1: chat.v1.CreateChatRequest.wrapped_for_public_key:type_name -> chat.v1.CreateChatRequest.WrappedForPublicKeyEntry
-	62, // 2: chat.v1.CreateGroupChatRequest.encrypted_chat_key:type_name -> chat.v1.CreateGroupChatRequest.EncryptedChatKeyEntry
-	63, // 3: chat.v1.CreateGroupChatRequest.wrapped_for_public_key:type_name -> chat.v1.CreateGroupChatRequest.WrappedForPublicKeyEntry
+	68, // 0: chat.v1.CreateChatRequest.encrypted_chat_key:type_name -> chat.v1.CreateChatRequest.EncryptedChatKeyEntry
+	69, // 1: chat.v1.CreateChatRequest.wrapped_for_public_key:type_name -> chat.v1.CreateChatRequest.WrappedForPublicKeyEntry
+	70, // 2: chat.v1.CreateGroupChatRequest.encrypted_chat_key:type_name -> chat.v1.CreateGroupChatRequest.EncryptedChatKeyEntry
+	71, // 3: chat.v1.CreateGroupChatRequest.wrapped_for_public_key:type_name -> chat.v1.CreateGroupChatRequest.WrappedForPublicKeyEntry
 	20, // 4: chat.v1.GetHistoryResponse.messages:type_name -> chat.v1.Message
 	20, // 5: chat.v1.EditMessageResponse.message:type_name -> chat.v1.Message
 	29, // 6: chat.v1.ListChatsResponse.chats:type_name -> chat.v1.ChatSummary
@@ -3197,36 +3560,44 @@ var file_chat_v1_chat_proto_depIdxs = []int32{
 	53, // 37: chat.v1.ChatService.GetChatKey:input_type -> chat.v1.GetChatKeyRequest
 	55, // 38: chat.v1.ChatService.ListChatKeys:input_type -> chat.v1.ListChatKeysRequest
 	58, // 39: chat.v1.ChatService.UpdateChatKey:input_type -> chat.v1.UpdateChatKeyRequest
-	1,  // 40: chat.v1.ChatService.Health:output_type -> chat.v1.HealthResponse
-	3,  // 41: chat.v1.ChatService.CreateChat:output_type -> chat.v1.CreateChatResponse
-	5,  // 42: chat.v1.ChatService.CreateGroupChat:output_type -> chat.v1.CreateGroupChatResponse
-	7,  // 43: chat.v1.ChatService.AddMember:output_type -> chat.v1.AddMemberResponse
-	9,  // 44: chat.v1.ChatService.RemoveMember:output_type -> chat.v1.RemoveMemberResponse
-	11, // 45: chat.v1.ChatService.SetMemberRole:output_type -> chat.v1.SetMemberRoleResponse
-	13, // 46: chat.v1.ChatService.LeaveChat:output_type -> chat.v1.LeaveChatResponse
-	15, // 47: chat.v1.ChatService.DeleteGroupChat:output_type -> chat.v1.DeleteGroupChatResponse
-	17, // 48: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
-	19, // 49: chat.v1.ChatService.GetHistory:output_type -> chat.v1.GetHistoryResponse
-	28, // 50: chat.v1.ChatService.ListChats:output_type -> chat.v1.ListChatsResponse
-	22, // 51: chat.v1.ChatService.EditMessage:output_type -> chat.v1.EditMessageResponse
-	24, // 52: chat.v1.ChatService.DeleteMessageForAll:output_type -> chat.v1.DeleteMessageForAllResponse
-	26, // 53: chat.v1.ChatService.DeleteMessageForMe:output_type -> chat.v1.DeleteMessageForMeResponse
-	31, // 54: chat.v1.ChatService.ListMembers:output_type -> chat.v1.ListMembersResponse
-	34, // 55: chat.v1.ChatService.ListChatMembers:output_type -> chat.v1.ListChatMembersResponse
-	36, // 56: chat.v1.ChatService.GetMessage:output_type -> chat.v1.GetMessageResponse
-	38, // 57: chat.v1.ChatService.GetPresence:output_type -> chat.v1.GetPresenceResponse
-	40, // 58: chat.v1.ChatService.SetOnline:output_type -> chat.v1.SetOnlineResponse
-	42, // 59: chat.v1.ChatService.SetOffline:output_type -> chat.v1.SetOfflineResponse
-	44, // 60: chat.v1.ChatService.ListContacts:output_type -> chat.v1.ListContactsResponse
-	46, // 61: chat.v1.ChatService.SetTyping:output_type -> chat.v1.SetTypingResponse
-	48, // 62: chat.v1.ChatService.GetTyping:output_type -> chat.v1.GetTypingResponse
-	50, // 63: chat.v1.ChatService.MarkRead:output_type -> chat.v1.MarkReadResponse
-	52, // 64: chat.v1.ChatService.GetReadStatus:output_type -> chat.v1.GetReadStatusResponse
-	54, // 65: chat.v1.ChatService.GetChatKey:output_type -> chat.v1.GetChatKeyResponse
-	57, // 66: chat.v1.ChatService.ListChatKeys:output_type -> chat.v1.ListChatKeysResponse
-	59, // 67: chat.v1.ChatService.UpdateChatKey:output_type -> chat.v1.UpdateChatKeyResponse
-	40, // [40:68] is the sub-list for method output_type
-	12, // [12:40] is the sub-list for method input_type
+	60, // 40: chat.v1.ChatService.BlockUser:input_type -> chat.v1.BlockUserRequest
+	62, // 41: chat.v1.ChatService.UnblockUser:input_type -> chat.v1.UnblockUserRequest
+	64, // 42: chat.v1.ChatService.ListBlockedUsers:input_type -> chat.v1.ListBlockedUsersRequest
+	66, // 43: chat.v1.ChatService.ReportMessage:input_type -> chat.v1.ReportMessageRequest
+	1,  // 44: chat.v1.ChatService.Health:output_type -> chat.v1.HealthResponse
+	3,  // 45: chat.v1.ChatService.CreateChat:output_type -> chat.v1.CreateChatResponse
+	5,  // 46: chat.v1.ChatService.CreateGroupChat:output_type -> chat.v1.CreateGroupChatResponse
+	7,  // 47: chat.v1.ChatService.AddMember:output_type -> chat.v1.AddMemberResponse
+	9,  // 48: chat.v1.ChatService.RemoveMember:output_type -> chat.v1.RemoveMemberResponse
+	11, // 49: chat.v1.ChatService.SetMemberRole:output_type -> chat.v1.SetMemberRoleResponse
+	13, // 50: chat.v1.ChatService.LeaveChat:output_type -> chat.v1.LeaveChatResponse
+	15, // 51: chat.v1.ChatService.DeleteGroupChat:output_type -> chat.v1.DeleteGroupChatResponse
+	17, // 52: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
+	19, // 53: chat.v1.ChatService.GetHistory:output_type -> chat.v1.GetHistoryResponse
+	28, // 54: chat.v1.ChatService.ListChats:output_type -> chat.v1.ListChatsResponse
+	22, // 55: chat.v1.ChatService.EditMessage:output_type -> chat.v1.EditMessageResponse
+	24, // 56: chat.v1.ChatService.DeleteMessageForAll:output_type -> chat.v1.DeleteMessageForAllResponse
+	26, // 57: chat.v1.ChatService.DeleteMessageForMe:output_type -> chat.v1.DeleteMessageForMeResponse
+	31, // 58: chat.v1.ChatService.ListMembers:output_type -> chat.v1.ListMembersResponse
+	34, // 59: chat.v1.ChatService.ListChatMembers:output_type -> chat.v1.ListChatMembersResponse
+	36, // 60: chat.v1.ChatService.GetMessage:output_type -> chat.v1.GetMessageResponse
+	38, // 61: chat.v1.ChatService.GetPresence:output_type -> chat.v1.GetPresenceResponse
+	40, // 62: chat.v1.ChatService.SetOnline:output_type -> chat.v1.SetOnlineResponse
+	42, // 63: chat.v1.ChatService.SetOffline:output_type -> chat.v1.SetOfflineResponse
+	44, // 64: chat.v1.ChatService.ListContacts:output_type -> chat.v1.ListContactsResponse
+	46, // 65: chat.v1.ChatService.SetTyping:output_type -> chat.v1.SetTypingResponse
+	48, // 66: chat.v1.ChatService.GetTyping:output_type -> chat.v1.GetTypingResponse
+	50, // 67: chat.v1.ChatService.MarkRead:output_type -> chat.v1.MarkReadResponse
+	52, // 68: chat.v1.ChatService.GetReadStatus:output_type -> chat.v1.GetReadStatusResponse
+	54, // 69: chat.v1.ChatService.GetChatKey:output_type -> chat.v1.GetChatKeyResponse
+	57, // 70: chat.v1.ChatService.ListChatKeys:output_type -> chat.v1.ListChatKeysResponse
+	59, // 71: chat.v1.ChatService.UpdateChatKey:output_type -> chat.v1.UpdateChatKeyResponse
+	61, // 72: chat.v1.ChatService.BlockUser:output_type -> chat.v1.BlockUserResponse
+	63, // 73: chat.v1.ChatService.UnblockUser:output_type -> chat.v1.UnblockUserResponse
+	65, // 74: chat.v1.ChatService.ListBlockedUsers:output_type -> chat.v1.ListBlockedUsersResponse
+	67, // 75: chat.v1.ChatService.ReportMessage:output_type -> chat.v1.ReportMessageResponse
+	44, // [44:76] is the sub-list for method output_type
+	12, // [12:44] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
 	12, // [12:12] is the sub-list for extension extendee
 	0,  // [0:12] is the sub-list for field type_name
@@ -3243,7 +3614,7 @@ func file_chat_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_v1_chat_proto_rawDesc), len(file_chat_v1_chat_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   64,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

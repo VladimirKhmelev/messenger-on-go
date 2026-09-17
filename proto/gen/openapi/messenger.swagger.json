@@ -322,6 +322,44 @@
         ]
       }
     },
+    "/v1/chat/messages/{messageId}/report": {
+      "post": {
+        "operationId": "ChatService_ReportMessage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ReportMessageResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceReportMessageBody"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
     "/v1/chats": {
       "get": {
         "operationId": "ChatService_ListChats",
@@ -366,6 +404,94 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/v1CreateChatRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/blocked": {
+      "get": {
+        "operationId": "ChatService_ListBlockedUsers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListBlockedUsersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "ChatService"
+        ]
+      }
+    },
+    "/v1/chats/blocked/{userId}": {
+      "delete": {
+        "operationId": "ChatService_UnblockUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UnblockUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ChatService"
+        ]
+      },
+      "post": {
+        "operationId": "ChatService_BlockUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1BlockUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceBlockUserBody"
             }
           }
         ],
@@ -1458,6 +1584,9 @@
         }
       }
     },
+    "ChatServiceBlockUserBody": {
+      "type": "object"
+    },
     "ChatServiceEditMessageBody": {
       "type": "object",
       "properties": {
@@ -1473,6 +1602,17 @@
       "type": "object",
       "properties": {
         "messageId": {
+          "type": "string"
+        }
+      }
+    },
+    "ChatServiceReportMessageBody": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "comment": {
           "type": "string"
         }
       }
@@ -1560,6 +1700,9 @@
       }
     },
     "v1AddMemberResponse": {
+      "type": "object"
+    },
+    "v1BlockUserResponse": {
       "type": "object"
     },
     "v1ChangePasswordRequest": {
@@ -1837,6 +1980,17 @@
     "v1LeaveChatResponse": {
       "type": "object"
     },
+    "v1ListBlockedUsersResponse": {
+      "type": "object",
+      "properties": {
+        "userIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "v1ListChatKeysResponse": {
       "type": "object",
       "properties": {
@@ -2038,6 +2192,9 @@
     "v1RemoveMemberResponse": {
       "type": "object"
     },
+    "v1ReportMessageResponse": {
+      "type": "object"
+    },
     "v1RequestPasswordResetRequest": {
       "type": "object",
       "properties": {
@@ -2140,6 +2297,9 @@
       }
     },
     "v1SetMemberRoleResponse": {
+      "type": "object"
+    },
+    "v1UnblockUserResponse": {
       "type": "object"
     },
     "v1UpdateChatKeyResponse": {
