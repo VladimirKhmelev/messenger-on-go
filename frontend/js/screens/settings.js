@@ -93,6 +93,31 @@ export function renderSettings(root, handlers) {
           Сменить пароль
         </button>
 
+        ${
+          state.settingsBlockedUsers.length > 0
+            ? `
+              <div class="field">
+                <label>Заблокированные пользователи</label>
+              </div>
+              <div class="form-error">${state.settingsBlockedUsersError || ''}</div>
+              <div class="blocked-users-list">
+                ${state.settingsBlockedUsers
+                  .map(
+                    (u) => `
+                      <div class="blocked-users-item">
+                        <span>${escapeHtml(u.displayName || u.tag)}</span>
+                        <button class="btn-secondary" data-action="unblock-user" data-user-id="${escapeHtml(u.id)}" ${state.settingsUnblockingUserId === u.id ? 'disabled' : ''}>
+                          Разблокировать
+                        </button>
+                      </div>
+                    `
+                  )
+                  .join('')}
+              </div>
+            `
+            : ''
+        }
+
         <div class="settings-danger-zone">
           <div class="settings-danger-title">Опасная зона</div>
           ${
@@ -172,6 +197,12 @@ export function renderSettings(root, handlers) {
 
   root.querySelector('[data-input="settings-push"]')?.addEventListener('change', (event) => {
     handlers.onTogglePush(event.target.checked);
+  });
+
+  root.querySelectorAll('[data-action="unblock-user"]').forEach((el) => {
+    el.addEventListener('click', () => {
+      handlers.onUnblockUser(el.getAttribute('data-user-id'));
+    });
   });
 
   root.querySelector('[data-input="avatar-file"]').addEventListener('change', (event) => {

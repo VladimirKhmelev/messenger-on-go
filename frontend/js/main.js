@@ -36,6 +36,8 @@ import { renderToast } from './screens/toast.js';
 import { renderSettings } from './screens/settings.js';
 import { renderGroupCreator } from './screens/groupCreator.js';
 import { renderGroupMembers } from './screens/groupMembers.js';
+import { renderUserProfile } from './screens/userProfile.js';
+import { renderReportMessage } from './screens/reportMessage.js';
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
 const HISTORY_PAGE_SIZE = 50;
@@ -131,6 +133,8 @@ function renderRoot() {
       <div data-zone="settings"></div>
       <div data-zone="groupCreator"></div>
       <div data-zone="groupMembers"></div>
+      <div data-zone="userProfile"></div>
+      <div data-zone="reportMessage"></div>
     `;
   }
   wireZones();
@@ -187,6 +191,7 @@ function wireZones() {
         onCancelDeleteAccount: handleCancelDeleteAccount,
         onConfirmDeleteAccount: handleConfirmDeleteAccount,
         onTogglePush: handleTogglePush,
+        onUnblockUser: handleUnblockUserFromSettings,
       })
     );
   }
@@ -207,6 +212,8 @@ function wireZones() {
         onBack: handleBackToChats,
         onTyping: handleTyping,
         onOpenGroupMembers: handleOpenGroupMembers,
+        onOpenUserProfile: handleOpenUserProfile,
+        onOpenReportMessage: handleOpenReportMessage,
       })
     );
   }
@@ -246,6 +253,27 @@ function wireZones() {
           notify('conversation');
           notify('groupMembers');
         },
+      })
+    );
+  }
+
+  const userProfileRoot = app.querySelector('[data-zone="userProfile"]');
+  if (userProfileRoot) {
+    onZoneOnce('userProfile', () =>
+      renderUserProfile(userProfileRoot, {
+        onClose: handleCloseUserProfile,
+        onBlock: handleBlockUser,
+        onUnblock: handleUnblockUser,
+      })
+    );
+  }
+
+  const reportMessageRoot = app.querySelector('[data-zone="reportMessage"]');
+  if (reportMessageRoot) {
+    onZoneOnce('reportMessage', () =>
+      renderReportMessage(reportMessageRoot, {
+        onClose: handleCloseReportMessage,
+        onSubmit: handleSubmitReportMessage,
       })
     );
   }
@@ -912,6 +940,97 @@ function handleCloseGroupMembers() {
   notify('groupMembers');
 }
 
+async function handleOpenUserProfile() {
+  state.userProfileOpen = true;
+  state.userProfileError = '';
+  notify('userProfile');
+
+  const chat = state.chats.find((c) => c.id === state.selectedChatId);
+  if (!chat || chat.type === 'group' || chat.isSelfChat) return;
+
+  try {
+    const data = await chatApi.listBlockedUsers();
+    state.userProfileBlocked = (data?.userIds ?? []).includes(chat.peer.id);
+  } catch (err) {
+    console.error('failed to load blocked users:', err);
+  }
+  notify('userProfile');
+}
+
+function handleCloseUserProfile() {
+  state.userProfileOpen = false;
+  state.userProfileError = '';
+  notify('userProfile');
+}
+
+async function handleBlockUser(userId) {
+  state.userProfileBusy = true;
+  state.userProfileError = '';
+  notify('userProfile');
+
+  try {
+    await chatApi.blockUser(userId);
+    state.userProfileBlocked = true;
+  } catch (err) {
+    console.error('failed to block user:', err);
+    state.userProfileError = translateApiError(err) ?? 'Не удалось заблокировать пользователя';
+  } finally {
+    state.userProfileBusy = false;
+    notify('userProfile');
+  }
+}
+
+async function handleUnblockUser(userId) {
+  state.userProfileBusy = true;
+  state.userProfileError = '';
+  notify('userProfile');
+
+  try {
+    await chatApi.unblockUser(userId);
+    state.userProfileBlocked = false;
+  } catch (err) {
+    console.error('failed to unblock user:', err);
+    state.userProfileError = translateApiError(err) ?? 'Не удалось разблокировать пользователя';
+  } finally {
+    state.userProfileBusy = false;
+    notify('userProfile');
+  }
+}
+
+function handleOpenReportMessage(messageId) {
+  state.reportMessageId = messageId;
+  state.reportMessageCategory = 'spam';
+  state.reportMessageComment = '';
+  state.reportMessageError = '';
+  notify('reportMessage');
+}
+
+function handleCloseReportMessage() {
+  state.reportMessageId = null;
+  state.reportMessageError = '';
+  notify('reportMessage');
+}
+
+async function handleSubmitReportMessage(category, comment) {
+  const messageId = state.reportMessageId;
+  if (!messageId) return;
+
+  state.reportMessageBusy = true;
+  state.reportMessageError = '';
+  notify('reportMessage');
+
+  try {
+    await chatApi.reportMessage(messageId, category, comment);
+    state.reportMessageId = null;
+  } catch (err) {
+    console.error('failed to report message:', err);
+    state.reportMessageError = translateApiError(err) ?? 'Не удалось отправить жалобу';
+  } finally {
+    state.reportMessageBusy = false;
+    notify('reportMessage');
+  }
+}
+
 async function handleSetMemberRole(userId, role) {
   const chat = state.chats.find((c) => c.id === state.selectedChatId);
   if (!chat || chat.type !== 'group') return;
@@ -1429,10 +1548,51 @@ function handleOpenSettings() {
   state.settingsDeleteAccountConfirming = false;
   state.settingsDeleteAccountError = '';
   state.settingsPushError = '';
+  state.settingsBlockedUsersError = '';
   state.tagCheck = null;
   notify('settings');
 
   refreshPushToggleState();
+  refreshBlockedUsersList();
+}
+
+async function refreshBlockedUsersList() {
+  try {
+    const data = await chatApi.listBlockedUsers();
+    const userIds = data?.userIds ?? [];
+    const users = await Promise.all(
+      userIds.map(async (id) => {
+        try {
+          const user = await authApi.getUserByID(id);
+          return { id, tag: user.tag, displayName: user.displayName };
+        } catch {
+          return { id, tag: id, displayName: '' };
+        }
+      })
+    );
+    state.settingsBlockedUsers = users;
+  } catch (err) {
+    console.error('failed to load blocked users:', err);
+    state.settingsBlockedUsersError = 'Не удалось загрузить список заблокированных';
+  }
+  notify('settings');
+}
+
+async function handleUnblockUserFromSettings(userId) {
+  state.settingsUnblockingUserId = userId;
+  state.settingsBlockedUsersError = '';
+  notify('settings');
+
+  try {
+    await chatApi.unblockUser(userId);
+    state.settingsBlockedUsers = state.settingsBlockedUsers.filter((u) => u.id !== userId);
+  } catch (err) {
+    console.error('failed to unblock user:', err);
+    state.settingsBlockedUsersError = translateApiError(err) ?? 'Не удалось разблокировать пользователя';
+  } finally {
+    state.settingsUnblockingUserId = null;
+    notify('settings');
+  }
 }
 
 async function refreshPushToggleState() {
