@@ -40,4 +40,12 @@ type ChatRepository interface {
 
 	UpsertChatAvatar(ctx context.Context, avatar *domain.ChatAvatar) error
 	GetChatAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error)
+
+	BlockUser(ctx context.Context, blockerID, blockedID string) error
+	UnblockUser(ctx context.Context, blockerID, blockedID string) error
+	IsBlocked(ctx context.Context, userA, userB string) (bool, error)
+	ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error)
+
+	CreateMessageReport(ctx context.Context, report *domain.MessageReport) error
+	HasReported(ctx context.Context, messageID, reporterID string) (bool, error)
 }
