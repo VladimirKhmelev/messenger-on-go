@@ -71,11 +71,11 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (32.4%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (36.7%)</option>
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (33.0%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (28.8%)</option>
 				
 				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
@@ -1006,6 +1006,73 @@ func (r *PostgresChatRepository) GetChatAvatar(ctx context.Context, chatID strin
         }</span>
         <span class="cov0" title="0">return &amp;avatar, nil</span>
 }
+
+func (r *PostgresChatRepository) BlockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO blocked_users (blocker_id, blocked_id, created_at)
+                VALUES ($1, $2, now())
+                ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
+                blockerID, blockedID,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) UnblockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                DELETE FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`,
+                blockerID, blockedID,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) IsBlocked(ctx context.Context, userA, userB string) (bool, error) <span class="cov0" title="0">{
+        var exists bool
+        err := r.conn.GetContext(ctx, &amp;exists, `
+                SELECT EXISTS(
+                        SELECT 1 FROM blocked_users
+                        WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
+                )`,
+                userA, userB,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return exists, nil</span>
+}
+
+func (r *PostgresChatRepository) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) <span class="cov0" title="0">{
+        var blocked []*domain.BlockedUser
+        err := r.conn.SelectContext(ctx, &amp;blocked, `
+                SELECT blocker_id, blocked_id, created_at FROM blocked_users WHERE blocker_id = $1`,
+                blockerID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return blocked, nil</span>
+}
+
+func (r *PostgresChatRepository) CreateMessageReport(ctx context.Context, report *domain.MessageReport) error <span class="cov0" title="0">{
+        _, err := r.conn.ExecContext(ctx, `
+                INSERT INTO message_reports (id, message_id, chat_id, reporter_id, category, comment, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (message_id, reporter_id) DO NOTHING`,
+                report.ID, report.MessageID, report.ChatID, report.ReporterID, report.Category, report.Comment, report.CreatedAt,
+        )
+        return err
+}</span>
+
+func (r *PostgresChatRepository) HasReported(ctx context.Context, messageID, reporterID string) (bool, error) <span class="cov0" title="0">{
+        var exists bool
+        err := r.conn.GetContext(ctx, &amp;exists, `
+                SELECT EXISTS(SELECT 1 FROM message_reports WHERE message_id = $1 AND reporter_id = $2)`,
+                messageID, reporterID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return false, err
+        }</span>
+        <span class="cov0" title="0">return exists, nil</span>
+}
 </pre>
 		
 		<pre class="file" id="file8" style="display: none">package service
@@ -1077,6 +1144,14 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
                 }</span>
                 <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
                         return nil, domain.ErrTargetUserNotFound
+                }</span>
+
+                <span class="cov8" title="1">blocked, err := s.chats.IsBlocked(ctx, requesterID, targetID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">if blocked </span><span class="cov0" title="0">{
+                        return nil, domain.ErrUserBlocked
                 }</span>
         }
 
@@ -1401,6 +1476,10 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
                 return nil, domain.ErrNotChatMember
         }</span>
 
+        <span class="cov8" title="1">if err := s.checkNotBlockedInPrivateChat(ctx, chatID, senderID); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
         <span class="cov8" title="1">message := &amp;domain.Message{
                 ID:        uuid.NewString(),
                 ChatID:    chatID,
@@ -1424,6 +1503,41 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
         }</span>
 
         <span class="cov8" title="1">return message, nil</span>
+}
+
+func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, senderID string) error <span class="cov8" title="1">{
+        chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypePrivate </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">var otherID string
+        for _, m := range members </span><span class="cov8" title="1">{
+                if m.UserID != senderID </span><span class="cov8" title="1">{
+                        otherID = m.UserID
+                        break</span>
+                }
+        }
+        <span class="cov8" title="1">if otherID == "" </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">blocked, err := s.chats.IsBlocked(ctx, senderID, otherID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if blocked </span><span class="cov8" title="1">{
+                return domain.ErrUserBlocked
+        }</span>
+        <span class="cov0" title="0">return nil</span>
 }
 
 func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) <span class="cov8" title="1">{
@@ -1600,6 +1714,49 @@ func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, request
         }</span>
 
         <span class="cov0" title="0">return s.chats.HideMessageForUser(ctx, messageID, requesterID)</span>
+}
+
+var validReportCategories = map[domain.ReportCategory]bool{
+        domain.ReportCategorySpam:  true,
+        domain.ReportCategoryAbuse: true,
+        domain.ReportCategoryOther: true,
+}
+
+func (s *ChatService) ReportMessage(ctx context.Context, messageID, reporterID string, category domain.ReportCategory, comment string) error <span class="cov8" title="1">{
+        if !validReportCategories[category] </span><span class="cov8" title="1">{
+                return domain.ErrInvalidReportCategory
+        }</span>
+
+        <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, message.ChatID, reporterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+                return domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov8" title="1">alreadyReported, err := s.chats.HasReported(ctx, messageID, reporterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if alreadyReported </span><span class="cov0" title="0">{
+                return domain.ErrAlreadyReported
+        }</span>
+
+        <span class="cov8" title="1">return s.chats.CreateMessageReport(ctx, &amp;domain.MessageReport{
+                ID:         uuid.NewString(),
+                MessageID:  messageID,
+                ChatID:     message.ChatID,
+                ReporterID: reporterID,
+                Category:   category,
+                Comment:    comment,
+                CreatedAt:  time.Now(),
+        })</span>
 }
 
 type ChatSummary struct {
@@ -1792,6 +1949,21 @@ func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID
 
 func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov8" title="1">{
         return s.chats.GetChatAvatar(ctx, chatID)
+}</span>
+
+func (s *ChatService) BlockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
+        if blockerID == blockedID </span><span class="cov0" title="0">{
+                return domain.ErrCannotBlockSelf
+        }</span>
+        <span class="cov0" title="0">return s.chats.BlockUser(ctx, blockerID, blockedID)</span>
+}
+
+func (s *ChatService) UnblockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
+        return s.chats.UnblockUser(ctx, blockerID, blockedID)
+}</span>
+
+func (s *ChatService) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) <span class="cov0" title="0">{
+        return s.chats.ListBlockedUsers(ctx, blockerID)
 }</span>
 </pre>
 		
@@ -2268,6 +2440,63 @@ func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKe
         <span class="cov0" title="0">return &amp;chatv1.UpdateChatKeyResponse{}, nil</span>
 }
 
+func (s *ChatServer) BlockUser(ctx context.Context, req *chatv1.BlockUserRequest) (*chatv1.BlockUserResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.BlockUser(ctx, requesterID, req.GetUserId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.BlockUserResponse{}, nil</span>
+}
+
+func (s *ChatServer) UnblockUser(ctx context.Context, req *chatv1.UnblockUserRequest) (*chatv1.UnblockUserResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.UnblockUser(ctx, requesterID, req.GetUserId()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.UnblockUserResponse{}, nil</span>
+}
+
+func (s *ChatServer) ListBlockedUsers(ctx context.Context, req *chatv1.ListBlockedUsersRequest) (*chatv1.ListBlockedUsersResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">blocked, err := s.chat.ListBlockedUsers(ctx, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">userIDs := make([]string, 0, len(blocked))
+        for _, b := range blocked </span><span class="cov0" title="0">{
+                userIDs = append(userIDs, b.BlockedID)
+        }</span>
+        <span class="cov0" title="0">return &amp;chatv1.ListBlockedUsersResponse{UserIds: userIDs}, nil</span>
+}
+
+func (s *ChatServer) ReportMessage(ctx context.Context, req *chatv1.ReportMessageRequest) (*chatv1.ReportMessageResponse, error) <span class="cov0" title="0">{
+        requesterID, ok := UserIDFromContext(ctx)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+        }</span>
+
+        <span class="cov0" title="0">if err := s.chat.ReportMessage(ctx, req.GetMessageId(), requesterID, domain.ReportCategory(req.GetCategory()), req.GetComment()); err != nil </span><span class="cov0" title="0">{
+                return nil, toGRPCError(err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;chatv1.ReportMessageResponse{}, nil</span>
+}
+
 func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov8" title="1">{
         result := &amp;chatv1.Message{
                 MessageId:     m.ID,
@@ -2344,8 +2573,12 @@ func toGRPCError(err error) error <span class="cov8" title="1">{
                 errors.Is(err, domain.ErrGroupNameRequired),
                 errors.Is(err, domain.ErrAlreadyMember),
                 errors.Is(err, domain.ErrNotGroupChat),
-                errors.Is(err, domain.ErrInvalidRole):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrInvalidRole),
+                errors.Is(err, domain.ErrCannotBlockSelf),
+                errors.Is(err, domain.ErrInvalidReportCategory):<span class="cov8" title="1">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
+        case errors.Is(err, domain.ErrAlreadyReported):<span class="cov0" title="0">
+                return status.Error(codes.AlreadyExists, err.Error())</span>
         case errors.Is(err, domain.ErrTargetUserNotFound),
                 errors.Is(err, domain.ErrChatNotFound),
                 errors.Is(err, domain.ErrMessageNotFound):<span class="cov8" title="1">
@@ -2357,7 +2590,8 @@ func toGRPCError(err error) error <span class="cov8" title="1">{
                 errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins),
                 errors.Is(err, domain.ErrOnlyCreatorCanDeleteChat):<span class="cov8" title="1">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
-        case errors.Is(err, domain.ErrMessageDeleted):<span class="cov8" title="1">
+        case errors.Is(err, domain.ErrMessageDeleted),
+                errors.Is(err, domain.ErrUserBlocked):<span class="cov8" title="1">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
         case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov8" title="1">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
