@@ -359,6 +359,63 @@ func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKe
 	return &chatv1.UpdateChatKeyResponse{}, nil
 }
 
+func (s *ChatServer) BlockUser(ctx context.Context, req *chatv1.BlockUserRequest) (*chatv1.BlockUserResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.BlockUser(ctx, requesterID, req.GetUserId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.BlockUserResponse{}, nil
+}
+
+func (s *ChatServer) UnblockUser(ctx context.Context, req *chatv1.UnblockUserRequest) (*chatv1.UnblockUserResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.UnblockUser(ctx, requesterID, req.GetUserId()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.UnblockUserResponse{}, nil
+}
+
+func (s *ChatServer) ListBlockedUsers(ctx context.Context, req *chatv1.ListBlockedUsersRequest) (*chatv1.ListBlockedUsersResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	blocked, err := s.chat.ListBlockedUsers(ctx, requesterID)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	userIDs := make([]string, 0, len(blocked))
+	for _, b := range blocked {
+		userIDs = append(userIDs, b.BlockedID)
+	}
+	return &chatv1.ListBlockedUsersResponse{UserIds: userIDs}, nil
+}
+
+func (s *ChatServer) ReportMessage(ctx context.Context, req *chatv1.ReportMessageRequest) (*chatv1.ReportMessageResponse, error) {
+	requesterID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
+	}
+
+	if err := s.chat.ReportMessage(ctx, req.GetMessageId(), requesterID, domain.ReportCategory(req.GetCategory()), req.GetComment()); err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &chatv1.ReportMessageResponse{}, nil
+}
+
 func toProtoMessage(m *domain.Message) *chatv1.Message {
 	result := &chatv1.Message{
 		MessageId:     m.ID,
@@ -435,8 +492,12 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrGroupNameRequired),
 		errors.Is(err, domain.ErrAlreadyMember),
 		errors.Is(err, domain.ErrNotGroupChat),
-		errors.Is(err, domain.ErrInvalidRole):
+		errors.Is(err, domain.ErrInvalidRole),
+		errors.Is(err, domain.ErrCannotBlockSelf),
+		errors.Is(err, domain.ErrInvalidReportCategory):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrAlreadyReported):
+		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, domain.ErrTargetUserNotFound),
 		errors.Is(err, domain.ErrChatNotFound),
 		errors.Is(err, domain.ErrMessageNotFound):
@@ -448,7 +509,8 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins),
 		errors.Is(err, domain.ErrOnlyCreatorCanDeleteChat):
 		return status.Error(codes.PermissionDenied, err.Error())
-	case errors.Is(err, domain.ErrMessageDeleted):
+	case errors.Is(err, domain.ErrMessageDeleted),
+		errors.Is(err, domain.ErrUserBlocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrMessageNotInChat):
 		return status.Error(codes.InvalidArgument, err.Error())
