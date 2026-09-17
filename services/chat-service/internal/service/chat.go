@@ -68,6 +68,14 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
 		if !exists {
 			return nil, domain.ErrTargetUserNotFound
 		}
+
+		blocked, err := s.chats.IsBlocked(ctx, requesterID, targetID)
+		if err != nil {
+			return nil, err
+		}
+		if blocked {
+			return nil, domain.ErrUserBlocked
+		}
 	}
 
 	existing, err := s.chats.FindPrivateChat(ctx, requesterID, targetID)
@@ -391,6 +399,10 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 		return nil, domain.ErrNotChatMember
 	}
 
+	if err := s.checkNotBlockedInPrivateChat(ctx, chatID, senderID); err != nil {
+		return nil, err
+	}
+
 	message := &domain.Message{
 		ID:        uuid.NewString(),
 		ChatID:    chatID,
@@ -414,6 +426,41 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 	}
 
 	return message, nil
+}
+
+func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, senderID string) error {
+	chat, err := s.chats.GetChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if chat.ChatType != domain.ChatTypePrivate {
+		return nil
+	}
+
+	members, err := s.chats.ListMembers(ctx, chatID)
+	if err != nil {
+		return err
+	}
+
+	var otherID string
+	for _, m := range members {
+		if m.UserID != senderID {
+			otherID = m.UserID
+			break
+		}
+	}
+	if otherID == "" {
+		return nil
+	}
+
+	blocked, err := s.chats.IsBlocked(ctx, senderID, otherID)
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return domain.ErrUserBlocked
+	}
+	return nil
 }
 
 func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) {
@@ -590,6 +637,49 @@ func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, request
 	}
 
 	return s.chats.HideMessageForUser(ctx, messageID, requesterID)
+}
+
+var validReportCategories = map[domain.ReportCategory]bool{
+	domain.ReportCategorySpam:  true,
+	domain.ReportCategoryAbuse: true,
+	domain.ReportCategoryOther: true,
+}
+
+func (s *ChatService) ReportMessage(ctx context.Context, messageID, reporterID string, category domain.ReportCategory, comment string) error {
+	if !validReportCategories[category] {
+		return domain.ErrInvalidReportCategory
+	}
+
+	message, err := s.chats.GetMessage(ctx, messageID)
+	if err != nil {
+		return err
+	}
+
+	isMember, err := s.chats.IsMember(ctx, message.ChatID, reporterID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return domain.ErrNotChatMember
+	}
+
+	alreadyReported, err := s.chats.HasReported(ctx, messageID, reporterID)
+	if err != nil {
+		return err
+	}
+	if alreadyReported {
+		return domain.ErrAlreadyReported
+	}
+
+	return s.chats.CreateMessageReport(ctx, &domain.MessageReport{
+		ID:         uuid.NewString(),
+		MessageID:  messageID,
+		ChatID:     message.ChatID,
+		ReporterID: reporterID,
+		Category:   category,
+		Comment:    comment,
+		CreatedAt:  time.Now(),
+	})
 }
 
 type ChatSummary struct {
@@ -782,4 +872,19 @@ func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID
 
 func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) {
 	return s.chats.GetChatAvatar(ctx, chatID)
+}
+
+func (s *ChatService) BlockUser(ctx context.Context, blockerID, blockedID string) error {
+	if blockerID == blockedID {
+		return domain.ErrCannotBlockSelf
+	}
+	return s.chats.BlockUser(ctx, blockerID, blockedID)
+}
+
+func (s *ChatService) UnblockUser(ctx context.Context, blockerID, blockedID string) error {
+	return s.chats.UnblockUser(ctx, blockerID, blockedID)
+}
+
+func (s *ChatService) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) {
+	return s.chats.ListBlockedUsers(ctx, blockerID)
 }
