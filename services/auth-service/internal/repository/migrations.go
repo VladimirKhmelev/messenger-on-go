@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/pgx"
+	pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
@@ -18,12 +18,12 @@ func (r *PostgresUserRepository) Migrate() error {
 		return err
 	}
 
-	driver, err := pgx.WithInstance(r.conn.DB, &pgx.Config{})
+	driver, err := pgxmigrate.WithInstance(r.conn.DB, &pgxmigrate.Config{})
 	if err != nil {
 		return err
 	}
 
-	m, err := migrate.NewWithInstance("iofs", files, "pgx", driver)
+	m, err := migrate.NewWithInstance("iofs", files, "pgx5", driver)
 	if err != nil {
 		return err
 	}
