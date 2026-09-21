@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 function bufToBase64(buf) {
   let binary = '';
   const bytes = new Uint8Array(buf);
@@ -23,9 +25,7 @@ const GCM_IV_LENGTH = 12;
 // WebCrypto call.
 function requireSubtleCrypto() {
   if (!window.isSecureContext || !crypto.subtle) {
-    throw new Error(
-      'Шифрование недоступно: откройте сайт по HTTPS (crypto.subtle работает только в защищённом контексте)'
-    );
+    throw new Error(t('crypto.insecureContext'));
   }
 }
 

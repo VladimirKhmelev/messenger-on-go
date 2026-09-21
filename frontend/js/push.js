@@ -1,4 +1,5 @@
 import { pushApi } from './api.js';
+import { t } from './i18n.js';
 
 function urlBase64ToUint8Array(base64) {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
@@ -21,17 +22,17 @@ export async function registerServiceWorker() {
 
 export async function subscribeToPush(vapidPublicKeyBase64) {
   if (!isPushSupported()) {
-    throw new Error('Push-уведомления не поддерживаются в этом браузере');
+    throw new Error(t('push.unsupported'));
   }
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
-    throw new Error('Уведомления заблокированы в настройках браузера');
+    throw new Error(t('push.denied'));
   }
 
   const registration = await registerServiceWorker();
   if (!registration) {
-    throw new Error('Не удалось зарегистрировать service worker');
+    throw new Error(t('push.serviceWorkerFailed'));
   }
 
   let subscription = await registration.pushManager.getSubscription();
