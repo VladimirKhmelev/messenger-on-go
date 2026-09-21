@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { renderAvatar } from '../avatar.js';
+import { t, getLocale, setLocale } from '../i18n.js';
 
 export function renderSettings(root, handlers) {
   if (!state.settingsOpen) {
@@ -23,7 +24,7 @@ export function renderSettings(root, handlers) {
     <div class="modal-backdrop" data-action="close-backdrop">
       <div class="modal" data-action="stop-propagation">
         <div class="modal-header">
-          <div class="modal-title">Настройки</div>
+          <div class="modal-title">${t('settings.title')}</div>
           <button class="modal-close" data-action="close">×</button>
         </div>
 
@@ -33,13 +34,21 @@ export function renderSettings(root, handlers) {
           })}
           <div class="settings-avatar-actions">
             <label class="btn-secondary settings-avatar-upload">
-              Изменить фото
+              ${t('settings.changePhoto')}
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-input="avatar-file" hidden />
             </label>
-            ${state.settingsAvatarBusy ? '<span class="settings-avatar-status">Загрузка...</span>' : ''}
+            ${state.settingsAvatarBusy ? `<span class="settings-avatar-status">${t('settings.uploading')}</span>` : ''}
           </div>
         </div>
         <div class="form-error">${state.settingsAvatarError || ''}</div>
+
+        <div class="field">
+          <label>${t('language.label')}</label>
+          <select data-input="settings-language">
+            <option value="ru" ${getLocale() === 'ru' ? 'selected' : ''}>${t('language.ru')}</option>
+            <option value="en" ${getLocale() === 'en' ? 'selected' : ''}>${t('language.en')}</option>
+          </select>
+        </div>
 
         ${
           state.settingsPushSupported
@@ -47,7 +56,7 @@ export function renderSettings(root, handlers) {
               <div class="field field--toggle">
                 <label>
                   <input type="checkbox" data-input="settings-push" ${state.settingsPushEnabled ? 'checked' : ''} ${state.settingsPushBusy ? 'disabled' : ''} />
-                  Push-уведомления (когда вкладка закрыта)
+                  ${t('settings.pushNotifications')}
                 </label>
               </div>
               <div class="form-error">${state.settingsPushError || ''}</div>
@@ -56,48 +65,48 @@ export function renderSettings(root, handlers) {
         }
 
         <div class="field">
-          <label>Имя</label>
+          <label>${t('settings.nameLabel')}</label>
           <input type="text" value="${escapeHtml(nameValue)}" data-input="settings-name" />
         </div>
         <div class="form-error">${state.settingsNameError || ''}</div>
         <button class="btn-primary" data-action="save-name" ${state.settingsNameBusy ? 'disabled' : ''}>
-          Сохранить имя
+          ${t('settings.saveName')}
         </button>
 
         <div class="field field--tag">
-          <label>Тег</label>
+          <label>${t('settings.tagLabel')}</label>
           <span class="at-prefix">@</span>
           <input type="text" value="${escapeHtml(tagValue)}" data-input="settings-tag" />
         </div>
         <div class="tag-availability" data-tag-availability>${renderTagAvailability()}</div>
         <div class="form-error">${state.settingsError || ''}</div>
         <button class="btn-primary" data-action="save-tag" ${state.settingsBusy ? 'disabled' : ''}>
-          Сохранить тег
+          ${t('settings.saveTag')}
         </button>
 
         <div class="field">
-          <label>Текущий пароль</label>
+          <label>${t('settings.oldPasswordLabel')}</label>
           <input type="password" data-input="settings-old-password" autocomplete="current-password" />
         </div>
         <div class="field">
-          <label>Новый пароль</label>
+          <label>${t('settings.newPasswordLabel')}</label>
           <input type="password" data-input="settings-new-password" autocomplete="new-password" />
         </div>
         <div class="field">
-          <label>Подтвердите новый пароль</label>
+          <label>${t('settings.newPasswordConfirmLabel')}</label>
           <input type="password" data-input="settings-new-password-confirm" autocomplete="new-password" />
         </div>
         <div class="form-error">${state.settingsPasswordError || ''}</div>
         <div class="form-success">${state.settingsPasswordSuccess || ''}</div>
         <button class="btn-primary" data-action="save-password" ${state.settingsPasswordBusy ? 'disabled' : ''}>
-          Сменить пароль
+          ${t('settings.changePassword')}
         </button>
 
         ${
           state.settingsBlockedUsers.length > 0
             ? `
               <div class="field">
-                <label>Заблокированные пользователи</label>
+                <label>${t('settings.blockedUsersLabel')}</label>
               </div>
               <div class="form-error">${state.settingsBlockedUsersError || ''}</div>
               <div class="blocked-users-list">
@@ -107,7 +116,7 @@ export function renderSettings(root, handlers) {
                       <div class="blocked-users-item">
                         <span>${escapeHtml(u.displayName || u.tag)}</span>
                         <button class="btn-secondary" data-action="unblock-user" data-user-id="${escapeHtml(u.id)}" ${state.settingsUnblockingUserId === u.id ? 'disabled' : ''}>
-                          Разблокировать
+                          ${t('settings.unblock')}
                         </button>
                       </div>
                     `
@@ -119,29 +128,28 @@ export function renderSettings(root, handlers) {
         }
 
         <div class="settings-danger-zone">
-          <div class="settings-danger-title">Опасная зона</div>
+          <div class="settings-danger-title">${t('settings.dangerZone.title')}</div>
           ${
             state.settingsDeleteAccountConfirming
               ? `
                 <div class="settings-danger-warning">
-                  Аккаунт нельзя будет восстановить. Тег и email освободятся — их сможет занять
-                  кто угодно, включая вас при повторной регистрации.
+                  ${t('settings.dangerZone.warning')}
                 </div>
                 <div class="field">
-                  <label>Пароль</label>
-                  <input type="password" data-input="delete-account-password" autocomplete="current-password" placeholder="Оставьте пустым, если вход только через GitHub" />
+                  <label>${t('settings.dangerZone.passwordLabel')}</label>
+                  <input type="password" data-input="delete-account-password" autocomplete="current-password" placeholder="${t('settings.dangerZone.passwordPlaceholder')}" />
                 </div>
                 <div class="form-error">${state.settingsDeleteAccountError || ''}</div>
                 <div class="settings-danger-actions">
                   <button class="btn-secondary" data-action="cancel-delete-account" ${state.settingsDeleteAccountBusy ? 'disabled' : ''}>
-                    Отмена
+                    ${t('settings.dangerZone.cancel')}
                   </button>
                   <button class="btn-danger" data-action="confirm-delete-account" ${state.settingsDeleteAccountBusy ? 'disabled' : ''}>
-                    Удалить аккаунт навсегда
+                    ${t('settings.dangerZone.confirmDelete')}
                   </button>
                 </div>
               `
-              : `<button class="btn-danger" data-action="start-delete-account">Удалить аккаунт</button>`
+              : `<button class="btn-danger" data-action="start-delete-account">${t('settings.dangerZone.startDelete')}</button>`
           }
         </div>
       </div>
@@ -156,6 +164,11 @@ export function renderSettings(root, handlers) {
   });
   root.querySelector('.modal').addEventListener('click', (event) => {
     event.stopPropagation();
+  });
+
+  root.querySelector('[data-input="settings-language"]').addEventListener('change', (event) => {
+    setLocale(event.target.value);
+    handlers.onRerenderAll();
   });
 
   const tagInput = root.querySelector('[data-input="settings-tag"]');
@@ -235,13 +248,13 @@ function renderTagAvailability() {
   if (!check) return '';
 
   if (check.available) {
-    return '<span class="tag-availability--ok">Тег свободен</span>';
+    return `<span class="tag-availability--ok">${t('auth.register.tagAvailable')}</span>`;
   }
 
   const suggestion = check.suggestedTag
-    ? ` Попробуйте <span class="action" data-action="use-suggested-tag">@${escapeHtml(check.suggestedTag)}</span>`
+    ? ` ${t('auth.register.tagTrySuggestion')} <span class="action" data-action="use-suggested-tag">@${escapeHtml(check.suggestedTag)}</span>`
     : '';
-  return `<span class="tag-availability--taken">Тег уже занят.</span>${suggestion}`;
+  return `<span class="tag-availability--taken">${t('auth.register.tagTaken')}</span>${suggestion}`;
 }
 
 function escapeHtml(str) {
