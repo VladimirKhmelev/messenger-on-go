@@ -1,10 +1,11 @@
 import { state } from '../state.js';
 import { escapeHtml } from './sidebar.js';
+import { t } from '../i18n.js';
 
 const CATEGORIES = [
-  { value: 'spam', label: 'Спам' },
-  { value: 'abuse', label: 'Оскорбления или угрозы' },
-  { value: 'other', label: 'Другое' },
+  { value: 'spam', label: () => t('reportMessage.categories.spam') },
+  { value: 'abuse', label: () => t('reportMessage.categories.abuse') },
+  { value: 'other', label: () => t('reportMessage.categories.other') },
 ];
 
 export function renderReportMessage(root, handlers) {
@@ -19,31 +20,31 @@ export function renderReportMessage(root, handlers) {
     <div class="modal-backdrop" data-action="close-backdrop">
       <div class="modal" data-action="stop-propagation">
         <div class="modal-header">
-          <div class="modal-title">Пожаловаться на сообщение</div>
+          <div class="modal-title">${t('reportMessage.title')}</div>
           <button class="modal-close" data-action="close">×</button>
         </div>
 
         <div class="field">
-          <label>Причина</label>
+          <label>${t('reportMessage.reasonLabel')}</label>
           ${CATEGORIES.map(
             (c) => `
               <label class="report-category-option">
                 <input type="radio" name="report-category" value="${c.value}" ${category === c.value ? 'checked' : ''} />
-                ${c.label}
+                ${escapeHtml(c.label())}
               </label>
             `
           ).join('')}
         </div>
 
         <div class="field">
-          <label>Комментарий (необязательно)</label>
-          <textarea data-input="report-comment" rows="3" placeholder="Что произошло?">${escapeHtml(state.reportMessageComment || '')}</textarea>
+          <label>${t('reportMessage.commentLabel')}</label>
+          <textarea data-input="report-comment" rows="3" placeholder="${t('reportMessage.commentPlaceholder')}">${escapeHtml(state.reportMessageComment || '')}</textarea>
         </div>
 
         <div class="form-error">${state.reportMessageError || ''}</div>
 
         <button class="btn-primary" data-action="submit-report" ${state.reportMessageBusy ? 'disabled' : ''}>
-          Отправить жалобу
+          ${t('reportMessage.submit')}
         </button>
       </div>
     </div>

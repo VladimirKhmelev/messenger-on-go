@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { renderAvatar, groupAvatarUrl } from '../avatar.js';
 import { escapeHtml } from './sidebar.js';
 import { presenceText } from './conversation.js';
+import { t } from '../i18n.js';
 
 export function renderGroupMembers(root, handlers) {
   if (!state.groupMembersOpen) {
@@ -34,12 +35,12 @@ export function renderGroupMembers(root, handlers) {
         </div>
 
         <div class="group-avatar-section">
-          <div class="avatar--clickable ${isAdmin ? 'avatar--editable' : ''}" data-action="${isAdmin ? 'upload-group-avatar' : ''}" title="${isAdmin ? 'Изменить фото группы' : ''}">
+          <div class="avatar--clickable ${isAdmin ? 'avatar--editable' : ''}" data-action="${isAdmin ? 'upload-group-avatar' : ''}" title="${isAdmin ? t('groupMembers.changeGroupPhoto') : ''}">
             ${renderAvatar(chat.id, chat.name, chat.name, { sizeClass: 'avatar--lg', src: groupAvatarUrl(chat.id) })}
-            ${isAdmin ? '<div class="avatar-edit-overlay">Изменить</div>' : ''}
+            ${isAdmin ? `<div class="avatar-edit-overlay">${t('groupMembers.changePhoto')}</div>` : ''}
           </div>
           ${isAdmin ? '<input type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-input="group-avatar-file" hidden />' : ''}
-          ${state.groupMembersAvatarBusy ? '<div class="group-avatar-status">Загрузка...</div>' : ''}
+          ${state.groupMembersAvatarBusy ? `<div class="group-avatar-status">${t('groupMembers.uploading')}</div>` : ''}
           ${state.groupMembersAvatarError ? `<div class="form-error">${escapeHtml(state.groupMembersAvatarError)}</div>` : ''}
         </div>
 
@@ -54,8 +55,8 @@ export function renderGroupMembers(root, handlers) {
         ${
           isAdmin
             ? `<div class="field">
-                <label>Добавить участника</label>
-                <input type="text" value="${escapeHtml(state.groupMembersAddQuery || '')}" data-input="add-member-search" placeholder="Поиск по тегу" />
+                <label>${t('groupMembers.addMemberLabel')}</label>
+                <input type="text" value="${escapeHtml(state.groupMembersAddQuery || '')}" data-input="add-member-search" placeholder="${t('groupMembers.searchPlaceholder')}" />
               </div>
               <div class="chat-list group-search-results">
                 ${(state.groupMembersAddFoundUsers || []).map((user) => renderCandidateRow(user)).join('')}
@@ -66,7 +67,7 @@ export function renderGroupMembers(root, handlers) {
         ${
           !isCreator
             ? `<button class="btn-secondary" data-action="leave" ${state.groupMembersBusy ? 'disabled' : ''}>
-                Покинуть группу
+                ${t('groupMembers.leaveGroup')}
               </button>`
             : ''
         }
@@ -77,20 +78,20 @@ export function renderGroupMembers(root, handlers) {
               ? `
                 <div class="settings-danger-zone">
                   <div class="settings-danger-warning">
-                    Группа будет удалена безвозвратно — все сообщения и участники пропадут для всех.
+                    ${t('groupMembers.deleteWarning')}
                   </div>
                   <div class="settings-danger-actions">
                     <button class="btn-secondary" data-action="cancel-delete-chat" ${state.groupMembersBusy ? 'disabled' : ''}>
-                      Отмена
+                      ${t('groupMembers.cancel')}
                     </button>
                     <button class="btn-danger" data-action="confirm-delete-chat" ${state.groupMembersBusy ? 'disabled' : ''}>
-                      Расформировать
+                      ${t('groupMembers.confirmDelete')}
                     </button>
                   </div>
                 </div>
               `
               : `<div class="settings-danger-zone">
-                  <button class="btn-danger" data-action="start-delete-chat">Расформировать группу</button>
+                  <button class="btn-danger" data-action="start-delete-chat">${t('groupMembers.startDelete')}</button>
                 </div>`
             : ''
         }
@@ -180,9 +181,9 @@ function renderMemberRow(member, { isCreator, isAdmin, myId, chatCreatedBy }) {
   const name = member.displayName || member.tag;
   const isTargetCreator = member.id === chatCreatedBy;
   const isMe = member.id === myId;
-  const roleLabel = isTargetCreator ? 'Создатель' : member.role === 'admin' ? 'Админ' : '';
+  const roleLabel = isTargetCreator ? t('groupMembers.creator') : member.role === 'admin' ? t('groupMembers.admin') : '';
   const badge = roleLabel ? `<span class="group-member-role">${roleLabel}</span>` : '';
-  const meBadge = isMe ? '<span class="group-member-you">Вы</span>' : '';
+  const meBadge = isMe ? `<span class="group-member-you">${t('groupMembers.you')}</span>` : '';
 
   const canManage = !isTargetCreator && member.id !== myId && (isCreator || (isAdmin && member.role !== 'admin'));
   const canChangeRole = !isTargetCreator && member.id !== myId && isCreator;
@@ -191,11 +192,11 @@ function renderMemberRow(member, { isCreator, isAdmin, myId, chatCreatedBy }) {
   if (canChangeRole) {
     actions +=
       member.role === 'admin'
-        ? `<span class="action" data-action="demote" data-user-id="${escapeHtml(member.id)}">Разжаловать</span>`
-        : `<span class="action" data-action="promote" data-user-id="${escapeHtml(member.id)}">Сделать админом</span>`;
+        ? `<span class="action" data-action="demote" data-user-id="${escapeHtml(member.id)}">${t('groupMembers.demote')}</span>`
+        : `<span class="action" data-action="promote" data-user-id="${escapeHtml(member.id)}">${t('groupMembers.promote')}</span>`;
   }
   if (canManage) {
-    actions += `<span class="action action--danger" data-action="remove-member" data-user-id="${escapeHtml(member.id)}">Удалить</span>`;
+    actions += `<span class="action action--danger" data-action="remove-member" data-user-id="${escapeHtml(member.id)}">${t('groupMembers.remove')}</span>`;
   }
 
   const status = isMe ? '' : presenceText(member);
