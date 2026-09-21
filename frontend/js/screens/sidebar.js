@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
 import { renderAvatar, groupAvatarUrl, avatarUrl, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
+import { t } from '../i18n.js';
 
 export function renderSidebar(root, handlers) {
   const isDark = getTheme() === 'dark';
@@ -27,16 +28,16 @@ export function renderSidebar(root, handlers) {
         <div class="sidebar-top-row">
           <div class="brand">
             <div class="brand-mark brand-mark--sm"></div>
-            <div class="brand-name brand-name--sm">Wisply</div>
+            <div class="brand-name brand-name--sm">${t('brand.name')}</div>
           </div>
           <div class="sidebar-top-actions">
-            <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
+            <button class="theme-toggle" data-on="${isDark}" title="${t('sidebar.toggleThemeTitle')}" data-action="toggle-theme">
               <span class="knob"></span>
             </button>
-            <button class="settings-btn" title="Избранное" data-action="open-saved-messages">🔖</button>
-            <button class="settings-btn" title="Новая группа" data-action="open-group-creator">☰</button>
-            <button class="settings-btn" title="Настройки" data-action="open-settings">⚙</button>
-            <button class="logout-btn" title="Выйти" data-action="logout">Выход</button>
+            <button class="settings-btn" title="${t('sidebar.savedMessagesTitle')}" data-action="open-saved-messages">🔖</button>
+            <button class="settings-btn" title="${t('sidebar.newGroupTitle')}" data-action="open-group-creator">☰</button>
+            <button class="settings-btn" title="${t('sidebar.settingsTitle')}" data-action="open-settings">⚙</button>
+            <button class="logout-btn" title="${t('sidebar.logout')}" data-action="logout">${t('sidebar.logout')}</button>
           </div>
         </div>
         <div class="search-wrap">
@@ -45,7 +46,7 @@ export function renderSidebar(root, handlers) {
           <input
             type="text"
             class="search-input"
-            placeholder="Найти по тегу"
+            placeholder="${t('sidebar.searchPlaceholder')}"
             value="${escapeHtml(state.searchQuery)}"
             data-input="search"
           />
@@ -111,7 +112,7 @@ function renderCreateChatRow(user) {
     <button class="chat-row" data-action="create-chat" data-user-id="${escapeHtml(user.id)}">
       ${renderAvatar(user.id, user.tag, name)}
       <div class="chat-row-body">
-        <div class="chat-row-name">Создать чат с ${escapeHtml(name)}</div>
+        <div class="chat-row-name">${t('sidebar.createChatWith', { name: escapeHtml(name) })}</div>
         <div class="chat-row-tag">@${escapeHtml(user.tag)}</div>
       </div>
     </button>
@@ -121,12 +122,12 @@ function renderCreateChatRow(user) {
 function renderChatRow(chat) {
   const isGroup = chat.type === 'group';
   const isSelfChat = !isGroup && !!chat.isSelfChat;
-  const name = isGroup ? chat.name : isSelfChat ? 'Избранное' : chat.peer.displayName || chat.peer.tag;
+  const name = isGroup ? chat.name : isSelfChat ? t('sidebar.savedMessages') : chat.peer.displayName || chat.peer.tag;
   const avatarId = isGroup ? chat.id : chat.peer.id;
   const avatarTag = isGroup ? chat.name : chat.peer.tag;
   const lastMessage = chat.messages[chat.messages.length - 1];
   const lastTime = lastMessage ? formatTime(lastMessage.createdAtUnix) : '';
-  const lastPreview = lastMessage ? (lastMessage.media ? '📎 Файл' : escapeHtml(lastMessage.text)) : '';
+  const lastPreview = lastMessage ? (lastMessage.media ? t('sidebar.file') : escapeHtml(lastMessage.text)) : '';
   const isSelected = chat.id === state.selectedChatId;
   const dotColor = chat.online ? 'var(--dot-online)' : 'var(--dot-offline)';
   const unreadBadge =
@@ -172,14 +173,14 @@ function formatDateLabel(unixSeconds) {
   const date = new Date(Number(unixSeconds) * 1000);
   const now = new Date();
 
-  if (isSameDay(date, now)) return 'Сегодня';
+  if (isSameDay(date, now)) return t('sidebar.today');
 
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (isSameDay(date, yesterday)) return 'Вчера';
+  if (isSameDay(date, yesterday)) return t('sidebar.yesterday');
 
   const sameYear = date.getFullYear() === now.getFullYear();
-  return date.toLocaleDateString('ru-RU', {
+  return date.toLocaleDateString(t('sidebar.dateLocale'), {
     day: 'numeric',
     month: 'long',
     year: sameYear ? undefined : 'numeric',
