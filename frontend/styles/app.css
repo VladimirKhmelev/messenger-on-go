@@ -96,6 +96,18 @@ a:hover { color: var(--accent); }
   justify-content: space-between;
   margin-bottom: 32px;
 }
+.auth-header-actions { display: flex; align-items: center; gap: 10px; }
+.locale-select {
+  padding: 5px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
   width: 30px; height: 30px; border-radius: 50%;
@@ -113,7 +125,7 @@ a:hover { color: var(--accent); }
   font-size: 12px; font-weight: 500; color: var(--text-muted-3);
   margin-bottom: 6px; display: block;
 }
-.field input, .field textarea, .text-input {
+.field input, .field textarea, .field select, .text-input {
   width: 100%;
   padding: 11px 14px;
   border-radius: 12px;
@@ -124,6 +136,7 @@ a:hover { color: var(--accent); }
   background: var(--bg-card);
 }
 .field textarea { resize: vertical; font-family: inherit; }
+.field select { font-family: inherit; cursor: pointer; }
 
 .report-category-option {
   display: flex; align-items: center; gap: 8px;

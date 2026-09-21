@@ -1,5 +1,6 @@
 import { state, onZone, notify, notifyAll } from './state.js';
 import { initTheme } from './theme.js';
+import { t } from './i18n.js';
 import {
   authApi,
   chatApi,
@@ -182,6 +183,7 @@ function wireZones() {
     onZoneOnce('settings', () =>
       renderSettings(settingsRoot, {
         onClose: handleCloseSettings,
+        onRerenderAll: notifyAll,
         onTagInput: handleSettingsTagInput,
         onSaveTag: handleSaveTag,
         onSaveDisplayName: handleSaveDisplayName,
@@ -306,7 +308,7 @@ async function handleAuthSubmit({ email, password, tag, displayName, isRegister 
   notify('auth');
 
   if (isRegister && !passwordMeetsRules(password)) {
-    state.authError = 'Пароль не соответствует требованиям ниже';
+    state.authError = t('app.passwordRulesNotMet');
     state.authBusy = false;
     notify('auth');
     return;
@@ -345,7 +347,7 @@ async function handleAuthSubmit({ email, password, tag, displayName, isRegister 
     await enterApp();
   } catch (err) {
     console.error('login failed:', err);
-    state.authError = translateApiError(err) ?? `Что-то пошло не так: ${err?.message || err}`;
+    state.authError = translateApiError(err) ?? t('app.somethingWentWrong', { message: err?.message || err });
     state.authBusy = false;
     notify('auth');
   }
@@ -359,12 +361,12 @@ async function handleVerifyEmail({ email, code }) {
   try {
     await authApi.verifyEmail(email, code);
     state.authMode = 'login';
-    state.authError = 'Email подтверждён. Теперь войдите.';
+    state.authError = t('app.emailVerifiedNowLogin');
     state.pendingVerifyEmail = '';
     state.authBusy = false;
     notify('auth');
   } catch (err) {
-    state.authError = translateApiError(err) ?? 'Не удалось подтвердить код';
+    state.authError = translateApiError(err) ?? t('app.verifyFailed');
     state.authBusy = false;
     notify('auth');
   }
@@ -382,7 +384,7 @@ async function handleRequestPasswordReset(email) {
     state.authBusy = false;
     notify('auth');
   } catch (err) {
-    state.authError = translateApiError(err) ?? 'Не удалось отправить код';
+    state.authError = translateApiError(err) ?? t('app.sendCodeFailed');
     state.authBusy = false;
     notify('auth');
   }
@@ -411,11 +413,11 @@ async function handleResetPassword({ token, newPassword }) {
       keyWrapSaltBase64
     );
     state.authMode = 'login';
-    state.authError = 'Пароль изменён. Теперь войдите.';
+    state.authError = t('app.passwordChangedNowLogin');
     state.authBusy = false;
     notify('auth');
   } catch (err) {
-    state.authError = translateApiError(err) ?? 'Не удалось изменить пароль';
+    state.authError = translateApiError(err) ?? t('app.changePasswordFailed');
     state.authBusy = false;
     notify('auth');
   }
@@ -511,7 +513,7 @@ async function handleUnlock(password) {
     await unwrapPrivateKey(userId, password, wrappedKeyData.wrappedPrivateKey, wrappedKeyData.keyWrapSalt);
     await enterApp();
   } catch (err) {
-    state.authError = translateApiError(err) ?? 'Неверный пароль';
+    state.authError = translateApiError(err) ?? t('app.wrongPassword');
     state.authBusy = false;
     notify('auth');
   }
@@ -571,7 +573,7 @@ async function handleGitHubPassphrase(password) {
     await enterApp();
   } catch (err) {
     console.error('GitHub login failed:', err);
-    state.authError = translateApiError(err) ?? 'Не удалось войти через GitHub';
+    state.authError = translateApiError(err) ?? t('app.githubLoginFailed');
     state.authBusy = false;
     notify('auth');
   }
@@ -603,7 +605,7 @@ async function chatSummaryToChat(summary, myUserId) {
     return {
       id: summary.chatId,
       type: 'group',
-      name: summary.name || 'Группа',
+      name: summary.name || t('app.defaultGroupName'),
       members,
       createdBy,
       messages: lastMessage ? [lastMessage] : [],
@@ -866,7 +868,7 @@ async function handleCreateGroupChat() {
     for (const user of targetUsers) {
       const keyData = await authApi.getPublicKey(user.id);
       if (!keyData?.publicKey) {
-        throw new Error(`У ${user.displayName || user.tag} нет ключа шифрования`);
+        throw new Error(t('app.userHasNoEncryptionKey', { name: user.displayName || user.tag }));
       }
       targetKeyDataById.set(user.id, keyData.publicKey);
     }
@@ -912,7 +914,7 @@ async function handleCreateGroupChat() {
     notify('groupCreator');
   } catch (err) {
     console.error('failed to create group chat:', err);
-    state.groupCreatorError = translateApiError(err) ?? err.message ?? 'Не удалось создать группу';
+    state.groupCreatorError = translateApiError(err) ?? err.message ?? t('app.createGroupFailed');
     state.groupCreatorBusy = false;
     notify('groupCreator');
   }
@@ -973,7 +975,7 @@ async function handleBlockUser(userId) {
     state.userProfileBlocked = true;
   } catch (err) {
     console.error('failed to block user:', err);
-    state.userProfileError = translateApiError(err) ?? 'Не удалось заблокировать пользователя';
+    state.userProfileError = translateApiError(err) ?? t('app.blockUserFailed');
   } finally {
     state.userProfileBusy = false;
     notify('userProfile');
@@ -990,7 +992,7 @@ async function handleUnblockUser(userId) {
     state.userProfileBlocked = false;
   } catch (err) {
     console.error('failed to unblock user:', err);
-    state.userProfileError = translateApiError(err) ?? 'Не удалось разблокировать пользователя';
+    state.userProfileError = translateApiError(err) ?? t('app.unblockUserFailed');
   } finally {
     state.userProfileBusy = false;
     notify('userProfile');
@@ -1024,7 +1026,7 @@ async function handleSubmitReportMessage(category, comment) {
     state.reportMessageId = null;
   } catch (err) {
     console.error('failed to report message:', err);
-    state.reportMessageError = translateApiError(err) ?? 'Не удалось отправить жалобу';
+    state.reportMessageError = translateApiError(err) ?? t('app.reportFailed');
   } finally {
     state.reportMessageBusy = false;
     notify('reportMessage');
@@ -1047,7 +1049,7 @@ async function handleSetMemberRole(userId, role) {
     notify('groupMembers');
   } catch (err) {
     console.error('failed to change member role:', err);
-    state.groupMembersError = translateApiError(err) ?? 'Не удалось изменить роль';
+    state.groupMembersError = translateApiError(err) ?? t('app.changeRoleFailed');
     state.groupMembersBusy = false;
     notify('groupMembers');
   }
@@ -1069,7 +1071,7 @@ async function handleRemoveMember(userId) {
     notify('conversation');
   } catch (err) {
     console.error('failed to remove member:', err);
-    state.groupMembersError = translateApiError(err) ?? 'Не удалось удалить участника';
+    state.groupMembersError = translateApiError(err) ?? t('app.removeMemberFailed');
     state.groupMembersBusy = false;
     notify('groupMembers');
   }
@@ -1118,7 +1120,7 @@ async function handleAddGroupMember(userId) {
   try {
     const targetKeyData = await authApi.getPublicKey(userId);
     if (!targetKeyData?.publicKey) {
-      throw new Error(`У ${candidate.displayName || candidate.tag} нет ключа шифрования`);
+      throw new Error(t('app.userHasNoEncryptionKey', { name: candidate.displayName || candidate.tag }));
     }
 
     const chatKey = await getChatKey(chat.id);
@@ -1136,7 +1138,7 @@ async function handleAddGroupMember(userId) {
     ws?.getPresence(userId);
   } catch (err) {
     console.error('failed to add member:', err);
-    state.groupMembersError = translateApiError(err) ?? err.message ?? 'Не удалось добавить участника';
+    state.groupMembersError = translateApiError(err) ?? err.message ?? t('app.addMemberFailed');
     state.groupMembersBusy = false;
     notify('groupMembers');
   }
@@ -1149,7 +1151,7 @@ async function handleUploadGroupAvatar(file) {
   state.groupMembersAvatarError = '';
 
   if (file.size > MAX_AVATAR_SIZE_BYTES) {
-    state.groupMembersAvatarError = 'Файл слишком большой (максимум 2МБ)';
+    state.groupMembersAvatarError = t('app.fileTooLarge2MB');
     notify('groupMembers');
     return;
   }
@@ -1165,7 +1167,7 @@ async function handleUploadGroupAvatar(file) {
     notify('sidebar');
     notify('conversation');
   } catch (err) {
-    state.groupMembersAvatarError = translateApiError(err) ?? 'Не удалось загрузить фото';
+    state.groupMembersAvatarError = translateApiError(err) ?? t('app.uploadPhotoFailed');
     state.groupMembersAvatarBusy = false;
     notify('groupMembers');
   }
@@ -1193,7 +1195,7 @@ async function handleLeaveChat() {
     notify('groupMembers');
   } catch (err) {
     console.error('failed to leave chat:', err);
-    state.groupMembersError = translateApiError(err) ?? 'Не удалось покинуть группу';
+    state.groupMembersError = translateApiError(err) ?? t('app.leaveGroupFailed');
     state.groupMembersBusy = false;
     notify('groupMembers');
   }
@@ -1234,7 +1236,7 @@ async function handleConfirmDeleteChat() {
     notify('groupMembers');
   } catch (err) {
     console.error('failed to delete group chat:', err);
-    state.groupMembersError = translateApiError(err) ?? 'Не удалось расформировать группу';
+    state.groupMembersError = translateApiError(err) ?? t('app.deleteGroupFailed');
     state.groupMembersBusy = false;
     notify('groupMembers');
   }
@@ -1430,13 +1432,13 @@ async function handleSendFile(file) {
   if (!file || !chatId) return;
 
   if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
-    state.mediaUploadError = 'Файл слишком большой (максимум 50 МБ)';
+    state.mediaUploadError = t('app.fileTooLarge50MB');
     notify('conversation');
     return;
   }
 
   if (BLOCKED_FILE_EXTENSIONS.has(fileExtension(file.name))) {
-    state.mediaUploadError = 'Этот тип файла запрещён к отправке';
+    state.mediaUploadError = t('app.fileTypeNotAllowed');
     notify('conversation');
     return;
   }
@@ -1465,7 +1467,7 @@ async function handleSendFile(file) {
     ws?.sendMessage(chatId, ciphertext);
   } catch (err) {
     console.error('failed to upload file:', err);
-    state.mediaUploadError = translateApiError(err) || 'Не удалось загрузить файл';
+    state.mediaUploadError = translateApiError(err) || t('app.uploadFileFailed');
   } finally {
     state.mediaUploadBusy = false;
     notify('conversation');
@@ -1573,7 +1575,7 @@ async function refreshBlockedUsersList() {
     state.settingsBlockedUsers = users;
   } catch (err) {
     console.error('failed to load blocked users:', err);
-    state.settingsBlockedUsersError = 'Не удалось загрузить список заблокированных';
+    state.settingsBlockedUsersError = t('app.loadBlockedListFailed');
   }
   notify('settings');
 }
@@ -1588,7 +1590,7 @@ async function handleUnblockUserFromSettings(userId) {
     state.settingsBlockedUsers = state.settingsBlockedUsers.filter((u) => u.id !== userId);
   } catch (err) {
     console.error('failed to unblock user:', err);
-    state.settingsBlockedUsersError = translateApiError(err) ?? 'Не удалось разблокировать пользователя';
+    state.settingsBlockedUsersError = translateApiError(err) ?? t('app.unblockUserFailed');
   } finally {
     state.settingsUnblockingUserId = null;
     notify('settings');
@@ -1619,7 +1621,7 @@ async function handleTogglePush(wantEnabled) {
     }
   } catch (err) {
     console.error('failed to toggle push subscription:', err);
-    state.settingsPushError = err instanceof Error ? err.message : 'Не удалось изменить настройку уведомлений';
+    state.settingsPushError = err instanceof Error ? err.message : t('app.togglePushFailed');
     state.settingsPushEnabled = await hasActivePushSubscription();
   } finally {
     state.settingsPushBusy = false;
@@ -1650,7 +1652,7 @@ async function handleSaveTag(tag) {
     notify('settings');
     notify('sidebar');
   } catch (err) {
-    state.settingsError = translateApiError(err) ?? 'Не удалось изменить тег';
+    state.settingsError = translateApiError(err) ?? t('app.changeTagFailed');
     state.settingsBusy = false;
     notify('settings');
   }
@@ -1669,7 +1671,7 @@ async function handleSaveDisplayName(displayName) {
     notify('sidebar');
     if (state.selectedChatId) notify('conversation');
   } catch (err) {
-    state.settingsNameError = translateApiError(err) ?? 'Не удалось изменить имя';
+    state.settingsNameError = translateApiError(err) ?? t('app.changeNameFailed');
     state.settingsNameBusy = false;
     notify('settings');
   }
@@ -1680,12 +1682,12 @@ async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
   state.settingsPasswordSuccess = '';
 
   if (!oldPassword || !newPassword || !confirmPassword) {
-    state.settingsPasswordError = 'Заполните все поля';
+    state.settingsPasswordError = t('app.fillAllFields');
     notify('settings');
     return;
   }
   if (newPassword !== confirmPassword) {
-    state.settingsPasswordError = 'Пароли не совпадают';
+    state.settingsPasswordError = t('app.passwordsDoNotMatch');
     notify('settings');
     return;
   }
@@ -1701,10 +1703,10 @@ async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
     await authApi.changePassword(oldPassword, newPassword, wrappedPrivateKeyBase64, keyWrapSaltBase64);
 
     state.settingsPasswordBusy = false;
-    state.settingsPasswordSuccess = 'Пароль изменён';
+    state.settingsPasswordSuccess = t('app.passwordChanged');
     notify('settings');
   } catch (err) {
-    state.settingsPasswordError = translateApiError(err) ?? 'Не удалось изменить пароль';
+    state.settingsPasswordError = translateApiError(err) ?? t('app.changePasswordFailed');
     state.settingsPasswordBusy = false;
     notify('settings');
   }
@@ -1716,7 +1718,7 @@ async function handleUploadAvatar(file) {
   state.settingsAvatarError = '';
 
   if (file.size > MAX_AVATAR_SIZE_BYTES) {
-    state.settingsAvatarError = 'Файл слишком большой (максимум 2МБ)';
+    state.settingsAvatarError = t('app.fileTooLarge2MB');
     notify('settings');
     return;
   }
@@ -1732,7 +1734,7 @@ async function handleUploadAvatar(file) {
     notify('sidebar');
     if (state.selectedChatId) notify('conversation');
   } catch (err) {
-    state.settingsAvatarError = translateApiError(err) ?? 'Не удалось загрузить фото';
+    state.settingsAvatarError = translateApiError(err) ?? t('app.uploadPhotoFailed');
     state.settingsAvatarBusy = false;
     notify('settings');
   }
@@ -1761,8 +1763,8 @@ async function handleConfirmDeleteAccount(password) {
     // translateApiError's generic "email or password" wording doesn't fit —
     // this form only ever asks for a password.
     state.settingsDeleteAccountError = err instanceof ApiError && err.status === 401
-      ? 'Неверный пароль'
-      : (translateApiError(err) ?? 'Не удалось удалить аккаунт');
+      ? t('app.wrongPassword')
+      : (translateApiError(err) ?? t('app.deleteAccountFailed'));
     state.settingsDeleteAccountBusy = false;
     notify('settings');
     return;
@@ -1808,7 +1810,7 @@ async function decryptMessageInPlace(chatId, message) {
     message.media = parseMediaEnvelope(message.text);
   } catch (err) {
     console.error('failed to decrypt message:', err);
-    message.text = UNDECRYPTABLE_MESSAGE_PLACEHOLDER;
+    message.text = undecryptableMessagePlaceholder();
   }
   return message;
 }
@@ -1820,8 +1822,9 @@ async function decryptMessageInPlace(chatId, message) {
 // old key re-seals it for the new one (see reKeyChatForStalePeers), which
 // only happens once that peer opens the chat. Framed as "waiting", not a
 // dead end, since it usually resolves itself without user action.
-const UNDECRYPTABLE_MESSAGE_PLACEHOLDER =
-  '[Не удалось расшифровать — если вы недавно сбросили пароль, дождитесь, пока собеседник откроет этот чат]';
+function undecryptableMessagePlaceholder() {
+  return t('app.decryptFailed');
+}
 
 function connectWs() {
   ws = new WsClient({
@@ -1953,7 +1956,7 @@ function connectWs() {
             message.text = await decryptMessage(chatKey, newText);
           } catch (err) {
             console.error('failed to decrypt edited message:', err);
-            message.text = UNDECRYPTABLE_MESSAGE_PLACEHOLDER;
+            message.text = undecryptableMessagePlaceholder();
           }
           message.editedAtUnix = Math.floor(Date.now() / 1000);
         }
@@ -2115,7 +2118,7 @@ async function appendMessage(chatId, message) {
 // decrypted text, even though we technically hold the key to show it.
 function unreadPreviewText(chat) {
   const count = chat.unreadCount || 0;
-  return count > 1 ? `Новые сообщения (${count})` : 'Новое сообщение';
+  return count > 1 ? t('app.newMessages', { count }) : t('app.newMessage');
 }
 
 let toastTimer = null;

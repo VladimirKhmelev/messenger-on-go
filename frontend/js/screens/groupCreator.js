@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { renderAvatar } from '../avatar.js';
 import { escapeHtml } from './sidebar.js';
+import { t } from '../i18n.js';
 
 export function renderGroupCreator(root, handlers) {
   if (!state.groupCreatorOpen) {
@@ -24,13 +25,13 @@ export function renderGroupCreator(root, handlers) {
     <div class="modal-backdrop" data-action="close-backdrop">
       <div class="modal" data-action="stop-propagation">
         <div class="modal-header">
-          <div class="modal-title">Новая группа</div>
+          <div class="modal-title">${t('groupCreator.title')}</div>
           <button class="modal-close" data-action="close">×</button>
         </div>
 
         <div class="field">
-          <label>Название группы</label>
-          <input type="text" value="${escapeHtml(state.groupCreatorName)}" data-input="group-name" placeholder="Например, Прайм 2026" />
+          <label>${t('groupCreator.nameLabel')}</label>
+          <input type="text" value="${escapeHtml(state.groupCreatorName)}" data-input="group-name" placeholder="${t('groupCreator.namePlaceholder')}" />
         </div>
 
         ${
@@ -51,8 +52,8 @@ export function renderGroupCreator(root, handlers) {
         }
 
         <div class="field">
-          <label>Добавить участников</label>
-          <input type="text" value="${escapeHtml(state.groupCreatorQuery)}" data-input="group-search" placeholder="Поиск по тегу" />
+          <label>${t('groupCreator.addMembersLabel')}</label>
+          <input type="text" value="${escapeHtml(state.groupCreatorQuery)}" data-input="group-search" placeholder="${t('groupCreator.searchPlaceholder')}" />
         </div>
 
         <div class="chat-list group-search-results">
@@ -61,7 +62,7 @@ export function renderGroupCreator(root, handlers) {
 
         <div class="form-error">${state.groupCreatorError || ''}</div>
         <button class="btn-primary" data-action="submit" ${canSubmit ? '' : 'disabled'} ${state.groupCreatorBusy ? 'disabled' : ''}>
-          ${state.groupCreatorBusy ? 'Создание...' : 'Создать группу'}
+          ${state.groupCreatorBusy ? t('groupCreator.creating') : t('groupCreator.submit')}
         </button>
       </div>
     </div>

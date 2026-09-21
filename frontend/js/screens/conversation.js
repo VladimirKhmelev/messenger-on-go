@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { renderAvatar, avatarUrl, groupAvatarUrl, snapshotAvatarImages, restoreAvatarImages } from '../avatar.js';
 import { formatTime, formatDateLabel, escapeHtml } from './sidebar.js';
+import { t } from '../i18n.js';
 
 document.addEventListener('click', () => {
   document.querySelectorAll('[data-menu]:not([hidden])').forEach((m) => (m.hidden = true));
@@ -22,8 +23,8 @@ export function renderConversation(root, handlers) {
           <div class="rect-a"></div>
           <div class="rect-b"></div>
         </div>
-        <div class="empty-title">Выберите чат</div>
-        <div class="empty-subtitle">Выберите диалог слева, чтобы начать переписку</div>
+        <div class="empty-title">${t('conversation.selectChat')}</div>
+        <div class="empty-subtitle">${t('conversation.selectChatSubtitle')}</div>
       </div>
     `;
     return;
@@ -31,10 +32,10 @@ export function renderConversation(root, handlers) {
 
   const isGroup = chat.type === 'group';
   const isSelfChat = !isGroup && !!chat.isSelfChat;
-  const name = isGroup ? chat.name : isSelfChat ? 'Избранное' : chat.peer.displayName || chat.peer.tag;
+  const name = isGroup ? chat.name : isSelfChat ? t('conversation.savedMessages') : chat.peer.displayName || chat.peer.tag;
   const avatarId = isGroup ? chat.id : chat.peer.id;
   const avatarTag = isGroup ? chat.name : chat.peer.tag;
-  const statusText = isGroup ? `${chat.members.length} участников` : isSelfChat ? '' : presenceText(chat);
+  const statusText = isGroup ? t('conversation.membersCount', { count: chat.members.length }) : isSelfChat ? '' : presenceText(chat);
   const sendDisabled = !state.draft.trim();
 
   const prevInput = root.querySelector('[data-input="draft"]');
@@ -53,7 +54,7 @@ export function renderConversation(root, handlers) {
     <div class="conversation">
       <div class="conversation-header">
         <div class="conversation-header-inner" ${isGroup ? 'data-action="open-group-members"' : isSelfChat ? '' : 'data-action="open-user-profile"'}>
-          <button class="conversation-back-btn" data-action="back-to-chats" title="К списку чатов" aria-label="Назад">‹</button>
+          <button class="conversation-back-btn" data-action="back-to-chats" title="${t('conversation.backToChats')}" aria-label="${t('conversation.back')}">‹</button>
           <div class="${isSelfChat ? '' : 'avatar--clickable'}" data-action="${isGroup || isSelfChat ? '' : 'open-avatar'}" data-user-id="${escapeHtml(avatarId)}">
             ${
               isSelfChat
@@ -96,7 +97,7 @@ export function renderConversation(root, handlers) {
           })()
         }
       </div>
-      <button class="scroll-to-bottom-btn" data-action="scroll-to-bottom" hidden title="К последним сообщениям">↓</button>
+      <button class="scroll-to-bottom-btn" data-action="scroll-to-bottom" hidden title="${t('conversation.scrollToBottom')}">↓</button>
       <div class="composer">
         ${state.mediaUploadError ? `<div class="composer-error">${escapeHtml(state.mediaUploadError)}</div>` : ''}
         <div class="composer-inner">
@@ -104,14 +105,14 @@ export function renderConversation(root, handlers) {
             class="attach-btn"
             data-action="attach-file"
             data-busy="${state.mediaUploadBusy}"
-            title="Прикрепить файл"
+            title="${t('conversation.attachFile')}"
             ${state.mediaUploadBusy ? 'disabled' : ''}
           >📎</button>
           <input type="file" data-input="attach-file" hidden />
           <input
             type="text"
             class="composer-input"
-            placeholder="Написать сообщение..."
+            placeholder="${t('conversation.messagePlaceholder')}"
             value="${escapeHtml(state.draft)}"
             data-input="draft"
           />
@@ -367,24 +368,24 @@ function renderDateDivider(label) {
 }
 
 export function presenceText(chat) {
-  if (chat.peerTyping) return 'печатает...';
-  if (chat.online) return 'В сети';
-  if (!chat.lastSeenUnix) return 'Не в сети';
+  if (chat.peerTyping) return t('conversation.typing');
+  if (chat.online) return t('conversation.online');
+  if (!chat.lastSeenUnix) return t('conversation.offline');
 
   const dateLabel = formatDateLabel(chat.lastSeenUnix);
   const time = formatTime(chat.lastSeenUnix);
-  // Same-day is common enough (recent activity) that spelling out "Сегодня"
+  // Same-day is common enough (recent activity) that spelling out "today"
   // every time would just be noise — only prefix the date once it's no
   // longer obvious from context, same threshold as the message dividers.
-  if (dateLabel === 'Сегодня') return `Был(а) в сети в ${time}`;
-  return `Был(а) в сети ${dateLabel.toLowerCase()} в ${time}`;
+  if (dateLabel === t('sidebar.today')) return t('conversation.lastSeenToday', { time });
+  return t('conversation.lastSeenOther', { date: dateLabel.toLowerCase(), time });
 }
 
 function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModerate, isSelfChat = false) {
   if (msg.deleted) {
     return `
       <div class="message-row" data-mine="${msg.mine}">
-        <div class="bubble bubble--deleted">Сообщение удалено</div>
+        <div class="bubble bubble--deleted">${t('conversation.deleted')}</div>
       </div>
     `;
   }
@@ -395,8 +396,8 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
         <div class="bubble bubble--editing">
           <input type="text" class="edit-input" data-input="edit" value="${escapeHtml(msg.text)}" />
           <div class="edit-actions">
-            <span class="action" data-action="save-edit">Сохранить</span>
-            <span class="action" data-action="cancel-edit">Отмена</span>
+            <span class="action" data-action="save-edit">${t('conversation.save')}</span>
+            <span class="action" data-action="cancel-edit">${t('conversation.cancel')}</span>
           </div>
         </div>
       </div>
@@ -407,14 +408,14 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
     return renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, isSelfChat);
   }
 
-  const editedTag = msg.editedAtUnix ? '<span class="message-edited-tag">изменено</span>' : '';
+  const editedTag = msg.editedAtUnix ? `<span class="message-edited-tag">${t('conversation.edited')}</span>` : '';
   const readTicks = msg.mine ? renderReadTicks(isRead) : '';
   const observeAttr = !msg.mine ? 'data-observe-read' : '';
   const senderName = sender ? sender.displayName || sender.tag : null;
   const senderRoleLabel = isSenderCreator
-    ? '<span class="message-sender-role">Создатель</span>'
+    ? `<span class="message-sender-role">${t('conversation.creator')}</span>`
     : sender?.role === 'admin'
-      ? '<span class="message-sender-role">Админ</span>'
+      ? `<span class="message-sender-role">${t('conversation.admin')}</span>`
       : '';
   const senderAvatar = sender
     ? `<div class="message-sender-avatar avatar--clickable" data-action="open-sender-profile" data-user-id="${escapeHtml(sender.id)}" data-user-name="${escapeHtml(senderName)}">${renderAvatar(sender.id, sender.tag, senderName, { sizeClass: 'avatar--sm', deleted: !!sender.deleted })}</div>`
@@ -427,28 +428,28 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
     <div class="message-row" data-mine="${msg.mine}" data-message-id="${msg.messageId}" ${observeAttr}>
       <div class="message-row-inner">
         ${senderAvatar}
-        <button class="message-menu-btn" data-action="open-menu" title="Действия">⋯</button>
+        <button class="message-menu-btn" data-action="open-menu" title="${t('conversation.actionsTitle')}">⋯</button>
         <div class="bubble">
           ${senderLabel}
           <span class="bubble-text">${escapeHtml(msg.text)}</span>
           <div class="message-menu" data-menu hidden>
-            <div class="message-menu-item" data-action="copy">Копировать текст</div>${
-              msg.mine ? '<div class="message-menu-item" data-action="edit">Редактировать</div>' : ''
+            <div class="message-menu-item" data-action="copy">${t('conversation.copyText')}</div>${
+              msg.mine ? `<div class="message-menu-item" data-action="edit">${t('conversation.edit')}</div>` : ''
             }${
               !msg.mine && !isSelfChat
-                ? '<div class="message-menu-item" data-action="report-message">Пожаловаться</div>'
+                ? `<div class="message-menu-item" data-action="report-message">${t('conversation.report')}</div>`
                 : ''
             }${
               isSelfChat
                 ? // "for all" vs "for me" is a distinction between two people —
                   // meaningless when you're the only participant, so collapse
                   // to a single delete that removes the note outright.
-                  '<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить</div>'
+                  `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">${t('conversation.delete')}</div>`
                 : `${
                     msg.mine || canModerate
-                      ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
+                      ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">${t('conversation.deleteForAll')}</div>`
                       : ''
-                  }<div class="message-menu-item" data-action="delete-for-me">Удалить у меня</div>`
+                  }<div class="message-menu-item" data-action="delete-for-me">${t('conversation.deleteForMe')}</div>`
             }
           </div>
         </div>
@@ -460,9 +461,9 @@ function renderMessage(msg, isEditing, isRead, sender, isSenderCreator, canModer
 
 function formatFileSize(bytes) {
   if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+  if (bytes < 1024) return t('conversation.fileSize.bytes', { value: bytes });
+  if (bytes < 1024 * 1024) return t('conversation.fileSize.kb', { value: (bytes / 1024).toFixed(1) });
+  return t('conversation.fileSize.mb', { value: (bytes / (1024 * 1024)).toFixed(1) });
 }
 
 function renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, isSelfChat) {
@@ -470,9 +471,9 @@ function renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, i
   const observeAttr = !msg.mine ? 'data-observe-read' : '';
   const senderName = sender ? sender.displayName || sender.tag : null;
   const senderRoleLabel = isSenderCreator
-    ? '<span class="message-sender-role">Создатель</span>'
+    ? `<span class="message-sender-role">${t('conversation.creator')}</span>`
     : sender?.role === 'admin'
-      ? '<span class="message-sender-role">Админ</span>'
+      ? `<span class="message-sender-role">${t('conversation.admin')}</span>`
       : '';
   const senderAvatar = sender
     ? `<div class="message-sender-avatar avatar--clickable" data-action="open-sender-profile" data-user-id="${escapeHtml(sender.id)}" data-user-name="${escapeHtml(senderName)}">${renderAvatar(sender.id, sender.tag, senderName, { sizeClass: 'avatar--sm', deleted: !!sender.deleted })}</div>`
@@ -485,7 +486,7 @@ function renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, i
   const isImage = contentType.startsWith('image/');
   const body = isImage
     ? `<div class="media-attachment media-attachment--image" data-action="load-media" data-autoload="true" data-media-id="${escapeHtml(mediaId)}" data-content-type="${escapeHtml(contentType)}" data-file-name="${escapeHtml(fileName)}">
-        <div class="media-attachment-placeholder">Загрузка изображения...</div>
+        <div class="media-attachment-placeholder">${t('conversation.loadingImage')}</div>
       </div>`
     : `<div class="media-attachment media-attachment--file" data-action="load-media" data-media-id="${escapeHtml(mediaId)}" data-content-type="${escapeHtml(contentType)}" data-file-name="${escapeHtml(fileName)}">
         <span class="media-attachment-icon">📎</span>
@@ -497,22 +498,22 @@ function renderMediaMessage(msg, isRead, sender, isSenderCreator, canModerate, i
     <div class="message-row" data-mine="${msg.mine}" data-message-id="${msg.messageId}" ${observeAttr}>
       <div class="message-row-inner">
         ${senderAvatar}
-        <button class="message-menu-btn" data-action="open-menu" title="Действия">⋯</button>
+        <button class="message-menu-btn" data-action="open-menu" title="${t('conversation.actionsTitle')}">⋯</button>
         <div class="bubble bubble--media">
           ${senderLabel}
           ${body}
           <div class="message-menu" data-menu hidden>${
             !msg.mine && !isSelfChat
-              ? '<div class="message-menu-item" data-action="report-message">Пожаловаться</div>'
+              ? `<div class="message-menu-item" data-action="report-message">${t('conversation.report')}</div>`
               : ''
           }${
             isSelfChat
-              ? '<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить</div>'
+              ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">${t('conversation.delete')}</div>`
               : `${
                   msg.mine || canModerate
-                    ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">Удалить у всех</div>`
+                    ? `<div class="message-menu-item message-menu-item--danger" data-action="delete-for-all">${t('conversation.deleteForAll')}</div>`
                     : ''
-                }<div class="message-menu-item" data-action="delete-for-me">Удалить у меня</div>`
+                }<div class="message-menu-item" data-action="delete-for-me">${t('conversation.deleteForMe')}</div>`
           }</div>
         </div>
       </div>
@@ -667,13 +668,13 @@ async function loadMediaAttachment(el, handlers, chatId) {
       link.href = objectUrl;
       link.download = fileName || 'file';
       link.click();
-      if (placeholder) placeholder.textContent = '✓ Загружено';
+      if (placeholder) placeholder.textContent = t('conversation.loaded');
       const icon = el.querySelector('.media-attachment-icon');
       if (icon) icon.textContent = '✓';
     }
   } catch (err) {
     console.error('failed to load media attachment:', err);
-    if (placeholder) placeholder.textContent = 'Не удалось загрузить, нажмите ещё раз';
+    if (placeholder) placeholder.textContent = t('conversation.loadFailed');
     el.dataset.loading = 'false';
   }
 }
@@ -693,12 +694,12 @@ function submitEdit(root, handlers) {
 function renderNoMessagesYet() {
   return `
     <div class="empty-state" style="height:100%;padding:0">
-      <div class="empty-title">Сообщений пока нет</div>
-      <div class="empty-subtitle">Напишите первое сообщение, чтобы начать переписку</div>
+      <div class="empty-title">${t('conversation.noMessagesYet')}</div>
+      <div class="empty-subtitle">${t('conversation.noMessagesYetSubtitle')}</div>
     </div>
   `;
 }
 
 function renderLoadingMoreHistory() {
-  return `<div class="history-loading">Загрузка...</div>`;
+  return `<div class="history-loading">${t('conversation.loadingMore')}</div>`;
 }

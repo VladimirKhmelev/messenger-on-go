@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { getTheme, toggleTheme } from '../theme.js';
+import { t, getLocale, setLocale } from '../i18n.js';
 
 // Mirrors auth-service's own rule (services/auth-service/internal/service/password.go):
 // 8+ chars, ASCII-only, at least one letter, at least one digit. ASCII-only
@@ -7,14 +8,49 @@ import { getTheme, toggleTheme } from '../theme.js';
 // non-ASCII input is subject to Unicode normalization that can differ across
 // devices/keyboards, silently locking a user out of their own key elsewhere.
 export const PASSWORD_RULES = [
-  { key: 'length', label: 'Минимум 8 символов', test: (pw) => pw.length >= 8 },
-  { key: 'letter', label: 'Хотя бы одна буква', test: (pw) => /[a-zA-Z]/.test(pw) },
-  { key: 'digit', label: 'Хотя бы одна цифра', test: (pw) => /\d/.test(pw) },
-  { key: 'ascii', label: 'Только латиница и цифры', test: (pw) => /^[\x20-\x7e]*$/.test(pw) },
+  { key: 'length', label: () => t('auth.passwordRules.length'), test: (pw) => pw.length >= 8 },
+  { key: 'letter', label: () => t('auth.passwordRules.letter'), test: (pw) => /[a-zA-Z]/.test(pw) },
+  { key: 'digit', label: () => t('auth.passwordRules.digit'), test: (pw) => /\d/.test(pw) },
+  { key: 'ascii', label: () => t('auth.passwordRules.ascii'), test: (pw) => /^[\x20-\x7e]*$/.test(pw) },
 ];
 
 export function passwordMeetsRules(password) {
   return PASSWORD_RULES.every((rule) => rule.test(password));
+}
+
+// The auth screens are the only place a user can pick a language before
+// logging in — Settings (the other switcher) is behind the login wall.
+function renderAuthHeader() {
+  const isDark = getTheme() === 'dark';
+  return `
+    <div class="auth-header">
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div class="brand-name">${t('brand.name')}</div>
+      </div>
+      <div class="auth-header-actions">
+        <select class="locale-select" data-input="locale" title="${t('language.label')}">
+          <option value="ru" ${getLocale() === 'ru' ? 'selected' : ''}>RU</option>
+          <option value="en" ${getLocale() === 'en' ? 'selected' : ''}>EN</option>
+        </select>
+        <button class="theme-toggle" data-on="${isDark}" title="${t('theme.toggleTitle')}" data-action="toggle-theme">
+          <span class="knob"></span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function wireAuthHeader(root, handlers) {
+  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
+    toggleTheme();
+    handlers.onRerender();
+  });
+
+  root.querySelector('[data-input="locale"]').addEventListener('change', (event) => {
+    setLocale(event.target.value);
+    handlers.onRerender();
+  });
 }
 
 export function renderAuth(root, handlers) {
@@ -40,7 +76,6 @@ export function renderAuth(root, handlers) {
   }
 
   const isRegister = state.authMode === 'register';
-  const isDark = getTheme() === 'dark';
 
   const prevTagInput = root.querySelector('[data-input="tag"]');
   const tagHadFocus = document.activeElement === prevTagInput;
@@ -61,42 +96,32 @@ export function renderAuth(root, handlers) {
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <div class="auth-header">
-          <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-name">Wisply</div>
-          </div>
-          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
-            <span class="knob"></span>
-          </button>
-        </div>
+        ${renderAuthHeader()}
 
-        <div class="auth-title">${isRegister ? 'Создать аккаунт' : 'С возвращением'}</div>
-        <div class="auth-subtitle">${
-          isRegister ? 'Заполните данные, чтобы начать переписку' : 'Войдите, чтобы продолжить переписку'
-        }</div>
+        <div class="auth-title">${isRegister ? t('auth.register.title') : t('auth.login.title')}</div>
+        <div class="auth-subtitle">${isRegister ? t('auth.register.subtitle') : t('auth.login.subtitle')}</div>
 
         <form class="field-list" data-form="auth">
           ${
             isRegister
               ? `<div class="field">
-                   <label>Имя</label>
-                   <input type="text" name="displayName" placeholder="Как вас называть" required autocomplete="name" value="${escapeHtml(
+                   <label>${t('auth.register.nameLabel')}</label>
+                   <input type="text" name="displayName" placeholder="${t('auth.register.namePlaceholder')}" required autocomplete="name" value="${escapeHtml(
                      displayNameValue
                    )}" />
                  </div>`
               : ''
           }
           <div class="field">
-            <label>Email</label>
-            <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" value="${escapeHtml(emailValue)}" />
+            <label>${t('auth.fields.emailLabel')}</label>
+            <input type="email" name="email" placeholder="${t('auth.fields.emailPlaceholder')}" required autocomplete="email" value="${escapeHtml(emailValue)}" />
           </div>
           <div class="field field--password">
-            <label>Пароль</label>
-            <input type="password" name="password" placeholder="••••••••" required autocomplete="${
+            <label>${t('auth.fields.passwordLabel')}</label>
+            <input type="password" name="password" placeholder="${t('auth.fields.passwordPlaceholder')}" required autocomplete="${
               isRegister ? 'new-password' : 'current-password'
             }" value="${escapeHtml(passwordValue)}" data-input="password" />
-            <button type="button" class="password-toggle" data-action="toggle-password" title="Показать пароль">${eyeIcon(
+            <button type="button" class="password-toggle" data-action="toggle-password" title="${t('auth.fields.showPassword')}">${eyeIcon(
               false
             )}</button>
           </div>
@@ -104,44 +129,41 @@ export function renderAuth(root, handlers) {
           ${
             !isRegister
               ? `<div class="auth-forgot-password">
-                   <span class="action" data-action="forgot-password">Забыли пароль?</span>
+                   <span class="action" data-action="forgot-password">${t('auth.forgotPassword')}</span>
                  </div>`
               : ''
           }
           ${
             isRegister
               ? `<div class="field field--tag">
-                   <label>Тег</label>
+                   <label>${t('auth.register.tagLabel')}</label>
                    <span class="at-prefix">@</span>
-                   <input type="text" name="tag" placeholder="username" required data-input="tag" value="${escapeHtml(tagValue)}" />
+                   <input type="text" name="tag" placeholder="${t('auth.register.tagPlaceholder')}" required data-input="tag" value="${escapeHtml(tagValue)}" />
                  </div>
-                 <div class="field-hint">Только строчные латинские буквы, цифры и _, от 3 до 20 символов</div>
+                 <div class="field-hint">${t('auth.register.tagHint')}</div>
                  <div class="tag-availability" data-tag-availability>${renderTagAvailability()}</div>`
               : ''
           }
           <div class="form-error">${state.authError || ''}</div>
           <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>
-            ${isRegister ? 'Создать аккаунт' : 'Войти'}
+            ${isRegister ? t('auth.register.submit') : t('auth.login.submit')}
           </button>
         </form>
 
         <div class="divider">
-          <div class="line"></div><span>или</span><div class="line"></div>
+          <div class="line"></div><span>${t('auth.or')}</span><div class="line"></div>
         </div>
-        <button class="btn-secondary" data-action="github-login">Продолжить с GitHub</button>
+        <button class="btn-secondary" data-action="github-login">${t('auth.githubLogin')}</button>
 
         <div class="auth-toggle">
-          ${isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?'}
-          <span class="action" data-action="toggle-auth-mode">${isRegister ? 'Войти' : 'Зарегистрироваться'}</span>
+          ${isRegister ? t('auth.register.toggle') : t('auth.login.toggle')}
+          <span class="action" data-action="toggle-auth-mode">${isRegister ? t('auth.register.toggleAction') : t('auth.login.toggleAction')}</span>
         </div>
       </div>
     </div>
   `;
 
-  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
-    toggleTheme();
-    handlers.onRerender();
-  });
+  wireAuthHeader(root, handlers);
 
   root.querySelector('[data-action="toggle-auth-mode"]').addEventListener('click', () => {
     state.authMode = isRegister ? 'login' : 'register';
@@ -207,7 +229,7 @@ export function renderAuth(root, handlers) {
     const showing = passwordInput.type === 'text';
     passwordInput.type = showing ? 'password' : 'text';
     passwordToggle.innerHTML = eyeIcon(!showing);
-    passwordToggle.title = showing ? 'Показать пароль' : 'Скрыть пароль';
+    passwordToggle.title = showing ? t('auth.fields.showPassword') : t('auth.fields.hidePassword');
   });
 
   if (isRegister) {
@@ -229,7 +251,7 @@ function renderPasswordRules(password) {
     const ok = password.length > 0 && rule.test(password);
     const cls = password.length === 0 ? 'pending' : ok ? 'ok' : 'fail';
     const icon = password.length === 0 ? '•' : ok ? '✓' : '✕';
-    return `<span class="password-rule password-rule--${cls}"><span class="password-rule-icon">${icon}</span>${escapeHtml(rule.label)}</span>`;
+    return `<span class="password-rule password-rule--${cls}"><span class="password-rule-icon">${icon}</span>${escapeHtml(rule.label())}</span>`;
   }).join('');
 }
 
@@ -238,13 +260,13 @@ function renderTagAvailability() {
   if (!check) return '';
 
   if (check.available) {
-    return '<span class="tag-availability--ok">Тег свободен</span>';
+    return `<span class="tag-availability--ok">${t('auth.register.tagAvailable')}</span>`;
   }
 
   const suggestion = check.suggestedTag
-    ? ` Попробуйте <span class="action" data-action="use-suggested-tag">@${escapeHtml(check.suggestedTag)}</span>`
+    ? ` ${t('auth.register.tagTrySuggestion')} <span class="action" data-action="use-suggested-tag">@${escapeHtml(check.suggestedTag)}</span>`
     : '';
-  return `<span class="tag-availability--taken">Тег уже занят.</span>${suggestion}`;
+  return `<span class="tag-availability--taken">${t('auth.register.tagTaken')}</span>${suggestion}`;
 }
 
 function escapeHtml(str) {
@@ -258,47 +280,35 @@ function escapeHtml(str) {
 // ever lives unwrapped in memory/IndexedDB, never in the refresh token, so
 // the password has to be typed once more to unlock chats on this device.
 function renderUnlock(root, handlers) {
-  const isDark = getTheme() === 'dark';
 
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <div class="auth-header">
-          <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-name">Wisply</div>
-          </div>
-          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
-            <span class="knob"></span>
-          </button>
-        </div>
+        ${renderAuthHeader()}
 
-        <div class="auth-title">Разблокировать чаты</div>
-        <div class="auth-subtitle">Введите пароль, чтобы расшифровать сообщения на этом устройстве</div>
+        <div class="auth-title">${t('auth.unlock.title')}</div>
+        <div class="auth-subtitle">${t('auth.unlock.subtitle')}</div>
 
         <form class="field-list" data-form="unlock">
           <div class="field field--password">
-            <label>Пароль</label>
-            <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password" data-input="password" />
-            <button type="button" class="password-toggle" data-action="toggle-password" title="Показать пароль">${eyeIcon(
+            <label>${t('auth.fields.passwordLabel')}</label>
+            <input type="password" name="password" placeholder="${t('auth.fields.passwordPlaceholder')}" required autocomplete="current-password" data-input="password" />
+            <button type="button" class="password-toggle" data-action="toggle-password" title="${t('auth.fields.showPassword')}">${eyeIcon(
               false
             )}</button>
           </div>
           <div class="form-error">${state.authError || ''}</div>
-          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Разблокировать</button>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>${t('auth.unlock.submit')}</button>
         </form>
 
         <div class="auth-toggle">
-          <span class="action" data-action="logout-instead">Выйти из аккаунта</span>
+          <span class="action" data-action="logout-instead">${t('auth.unlock.logoutInstead')}</span>
         </div>
       </div>
     </div>
   `;
 
-  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
-    toggleTheme();
-    handlers.onRerender();
-  });
+  wireAuthHeader(root, handlers);
 
   root.querySelector('[data-action="logout-instead"]').addEventListener('click', () => {
     handlers.onLogout();
@@ -318,7 +328,7 @@ function renderUnlock(root, handlers) {
     const showing = passwordInput.type === 'text';
     passwordInput.type = showing ? 'password' : 'text';
     passwordToggle.innerHTML = eyeIcon(!showing);
-    passwordToggle.title = showing ? 'Показать пароль' : 'Скрыть пароль';
+    passwordToggle.title = showing ? t('auth.fields.showPassword') : t('auth.fields.hidePassword');
   });
 }
 
@@ -329,47 +339,35 @@ function renderUnlock(root, handlers) {
 // wrapped blob). Returning GitHub users are prompted for the same password
 // they set the first time — get it wrong and messages just won't decrypt.
 function renderGitHubPassphrase(root, handlers) {
-  const isDark = getTheme() === 'dark';
 
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <div class="auth-header">
-          <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-name">Wisply</div>
-          </div>
-          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
-            <span class="knob"></span>
-          </button>
-        </div>
+        ${renderAuthHeader()}
 
-        <div class="auth-title">Пароль для шифрования</div>
-        <div class="auth-subtitle">GitHub подтвердил вашу личность, но для сквозного шифрования сообщений нужен отдельный пароль — придумайте его сейчас, если входите впервые, или введите тот же, что и раньше</div>
+        <div class="auth-title">${t('auth.githubPassphrase.title')}</div>
+        <div class="auth-subtitle">${t('auth.githubPassphrase.subtitle')}</div>
 
         <form class="field-list" data-form="github-passphrase">
           <div class="field field--password">
-            <label>Пароль</label>
-            <input type="password" name="password" placeholder="••••••••" required autocomplete="new-password" data-input="password" minlength="8" />
-            <button type="button" class="password-toggle" data-action="toggle-password" title="Показать пароль">${eyeIcon(
+            <label>${t('auth.fields.passwordLabel')}</label>
+            <input type="password" name="password" placeholder="${t('auth.fields.passwordPlaceholder')}" required autocomplete="new-password" data-input="password" minlength="8" />
+            <button type="button" class="password-toggle" data-action="toggle-password" title="${t('auth.fields.showPassword')}">${eyeIcon(
               false
             )}</button>
           </div>
           <div class="form-error">${state.authError || ''}</div>
-          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Продолжить</button>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>${t('auth.githubPassphrase.submit')}</button>
         </form>
 
         <div class="auth-toggle">
-          <span class="action" data-action="cancel-github">Отменить вход</span>
+          <span class="action" data-action="cancel-github">${t('auth.githubPassphrase.cancel')}</span>
         </div>
       </div>
     </div>
   `;
 
-  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
-    toggleTheme();
-    handlers.onRerender();
-  });
+  wireAuthHeader(root, handlers);
 
   root.querySelector('[data-action="cancel-github"]').addEventListener('click', () => {
     handlers.onCancelGitHub();
@@ -389,32 +387,23 @@ function renderGitHubPassphrase(root, handlers) {
     const showing = passwordInput.type === 'text';
     passwordInput.type = showing ? 'password' : 'text';
     passwordToggle.innerHTML = eyeIcon(!showing);
-    passwordToggle.title = showing ? 'Показать пароль' : 'Скрыть пароль';
+    passwordToggle.title = showing ? t('auth.fields.showPassword') : t('auth.fields.hidePassword');
   });
 }
 
 function renderVerify(root, handlers) {
-  const isDark = getTheme() === 'dark';
 
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <div class="auth-header">
-          <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-name">Wisply</div>
-          </div>
-          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
-            <span class="knob"></span>
-          </button>
-        </div>
+        ${renderAuthHeader()}
 
-        <div class="auth-title">Подтвердите email</div>
-        <div class="auth-subtitle">Мы отправили код на ${state.pendingVerifyEmail}</div>
+        <div class="auth-title">${t('auth.verify.title')}</div>
+        <div class="auth-subtitle">${t('auth.verify.subtitle', { email: state.pendingVerifyEmail })}</div>
 
         <form class="field-list" data-form="verify">
           <div class="field">
-            <label>Код подтверждения</label>
+            <label>${t('auth.verify.codeLabel')}</label>
             <input
               type="text"
               name="code"
@@ -426,20 +415,17 @@ function renderVerify(root, handlers) {
             />
           </div>
           <div class="form-error">${state.authError || ''}</div>
-          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Подтвердить</button>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>${t('auth.verify.submit')}</button>
         </form>
 
         <div class="auth-toggle">
-          <span class="action" data-action="back-to-login">Назад ко входу</span>
+          <span class="action" data-action="back-to-login">${t('auth.verify.backToLogin')}</span>
         </div>
       </div>
     </div>
   `;
 
-  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
-    toggleTheme();
-    handlers.onRerender();
-  });
+  wireAuthHeader(root, handlers);
 
   root.querySelector('[data-action="back-to-login"]').addEventListener('click', () => {
     state.authMode = 'login';
@@ -456,49 +442,36 @@ function renderVerify(root, handlers) {
 }
 
 function renderForgotPassword(root, handlers) {
-  const isDark = getTheme() === 'dark';
 
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <div class="auth-header">
-          <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-name">Wisply</div>
-          </div>
-          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
-            <span class="knob"></span>
-          </button>
-        </div>
+        ${renderAuthHeader()}
 
-        <div class="auth-title">Восстановление пароля</div>
-        <div class="auth-subtitle">Введите email — мы отправим токен для сброса пароля</div>
+        <div class="auth-title">${t('auth.forgotPasswordScreen.title')}</div>
+        <div class="auth-subtitle">${t('auth.forgotPasswordScreen.subtitle')}</div>
         <div class="form-warning">
-          Сброс пароля создаст новый ключ шифрования — история переписки в старых чатах станет
-          недоступна для чтения. Новые сообщения будут отправляться и читаться как обычно.
+          ${t('auth.forgotPasswordScreen.warning')}
         </div>
 
         <form class="field-list" data-form="forgot-password">
           <div class="field">
-            <label>Email</label>
-            <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+            <label>${t('auth.fields.emailLabel')}</label>
+            <input type="email" name="email" placeholder="${t('auth.fields.emailPlaceholder')}" required autocomplete="email" />
           </div>
           <div class="form-error">${state.authError || ''}</div>
           <div class="form-success">${state.authSuccess || ''}</div>
-          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Отправить токен</button>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>${t('auth.forgotPasswordScreen.submit')}</button>
         </form>
 
         <div class="auth-toggle">
-          <span class="action" data-action="back-to-login">Назад ко входу</span>
+          <span class="action" data-action="back-to-login">${t('auth.forgotPasswordScreen.backToLogin')}</span>
         </div>
       </div>
     </div>
   `;
 
-  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
-    toggleTheme();
-    handlers.onRerender();
-  });
+  wireAuthHeader(root, handlers);
 
   root.querySelector('[data-action="back-to-login"]').addEventListener('click', () => {
     state.authMode = 'login';
@@ -516,53 +489,39 @@ function renderForgotPassword(root, handlers) {
 }
 
 function renderResetPassword(root, handlers) {
-  const isDark = getTheme() === 'dark';
 
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <div class="auth-header">
-          <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-name">Wisply</div>
-          </div>
-          <button class="theme-toggle" data-on="${isDark}" title="Тёмная тема" data-action="toggle-theme">
-            <span class="knob"></span>
-          </button>
-        </div>
+        ${renderAuthHeader()}
 
-        <div class="auth-title">Новый пароль</div>
-        <div class="auth-subtitle">Введите токен из письма и новый пароль</div>
+        <div class="auth-title">${t('auth.resetPassword.title')}</div>
+        <div class="auth-subtitle">${t('auth.resetPassword.subtitle')}</div>
         <div class="form-warning">
-          Сообщения зашифрованы ключом, который восстанавливается только вашим текущим паролем.
-          Сброс пароля создаст новый ключ шифрования — история переписки в старых чатах станет
-          недоступна для чтения. Новые сообщения будут отправляться и читаться как обычно.
+          ${t('auth.resetPassword.warning')}
         </div>
 
         <form class="field-list" data-form="reset-password">
           <div class="field">
-            <label>Токен из письма</label>
-            <input type="text" name="token" placeholder="Токен сброса пароля" required />
+            <label>${t('auth.resetPassword.tokenLabel')}</label>
+            <input type="text" name="token" placeholder="${t('auth.resetPassword.tokenPlaceholder')}" required />
           </div>
           <div class="field">
-            <label>Новый пароль</label>
-            <input type="password" name="newPassword" placeholder="••••••••" required autocomplete="new-password" />
+            <label>${t('auth.resetPassword.newPasswordLabel')}</label>
+            <input type="password" name="newPassword" placeholder="${t('auth.fields.passwordPlaceholder')}" required autocomplete="new-password" />
           </div>
           <div class="form-error">${state.authError || ''}</div>
-          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>Сохранить пароль</button>
+          <button type="submit" class="btn-primary" ${state.authBusy ? 'disabled' : ''}>${t('auth.resetPassword.submit')}</button>
         </form>
 
         <div class="auth-toggle">
-          <span class="action" data-action="back-to-login">Назад ко входу</span>
+          <span class="action" data-action="back-to-login">${t('auth.resetPassword.backToLogin')}</span>
         </div>
       </div>
     </div>
   `;
 
-  root.querySelector('[data-action="toggle-theme"]').addEventListener('click', () => {
-    toggleTheme();
-    handlers.onRerender();
-  });
+  wireAuthHeader(root, handlers);
 
   root.querySelector('[data-action="back-to-login"]').addEventListener('click', () => {
     state.authMode = 'login';

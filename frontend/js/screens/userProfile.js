@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { renderAvatar, avatarUrl } from '../avatar.js';
 import { escapeHtml } from './sidebar.js';
+import { t } from '../i18n.js';
 
 // Private-chat-only: block/unblock the peer. Opened from the conversation
 // header for a non-group, non-self chat — see main.js's handleOpenUserProfile.
@@ -35,8 +36,8 @@ export function renderUserProfile(root, handlers) {
 
         ${
           state.userProfileBlocked
-            ? `<button class="btn-secondary" data-action="unblock-user" ${state.userProfileBusy ? 'disabled' : ''}>Разблокировать</button>`
-            : `<button class="btn-danger" data-action="block-user" ${state.userProfileBusy ? 'disabled' : ''}>Заблокировать</button>`
+            ? `<button class="btn-secondary" data-action="unblock-user" ${state.userProfileBusy ? 'disabled' : ''}>${t('userProfile.unblock')}</button>`
+            : `<button class="btn-danger" data-action="block-user" ${state.userProfileBusy ? 'disabled' : ''}>${t('userProfile.block')}</button>`
         }
       </div>
     </div>
