@@ -83,7 +83,7 @@ NATS.
               ├─────────────────────────────────┤
    messaging  │  NATS JetStream (nats.go)       │
               ├─────────────────────────────────┤
-   storage    │  Postgres (pgx)  ·  Redis  ·  MinIO │
+   storage    │  Postgres (pgx) · Redis · MinIO │
               ├─────────────────────────────────┤
    runtime    │  Docker Compose                 │
               └─────────────────────────────────┘
