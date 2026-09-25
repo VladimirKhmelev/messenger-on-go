@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 )
 
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
@@ -70,7 +71,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, pub
 
 	s.markPasswordChanged(ctx, user.ID)
 
-	if err := s.events.PublishUserPasswordReset(ctx, domain.UserPasswordReset{
+	if err := s.events.PublishUserPasswordReset(ctx, events.UserPasswordReset{
 		UserID: user.ID,
 		Email:  user.Email,
 		At:     time.Now(),

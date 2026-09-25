@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string) error {
@@ -31,7 +32,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string
 		return err
 	}
 
-	if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, domain.RefreshTokenTTL); err != nil {
+	if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, jwtutil.RefreshTokenTTL); err != nil {
 		return err
 	}
 

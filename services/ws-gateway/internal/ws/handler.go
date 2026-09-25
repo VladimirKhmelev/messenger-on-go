@@ -1,13 +1,35 @@
 package ws
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
+
+type ChatClient interface {
+	SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
+	GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
+	GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
+	SetOnline(ctx context.Context, userID string) error
+	SetOffline(ctx context.Context, userID string) error
+	EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
+	DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
+	DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
+	MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error
+	GetReadStatus(ctx context.Context, chatID, userID string) (string, error)
+	SetTyping(ctx context.Context, chatID, userID string) error
+}
+
+type PresencePublisher interface {
+	PublishPresenceChanged(ctx context.Context, event events.PresenceChanged) error
+	PublishTypingChanged(ctx context.Context, event events.TypingChanged) error
+}
 
 type Handler struct {
 	jwtSecret      string

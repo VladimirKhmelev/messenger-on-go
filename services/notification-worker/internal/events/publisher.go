@@ -9,7 +9,6 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
 
 const (
@@ -44,7 +43,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 	return &Publisher{js: js}, nil
 }
 
-func (p *Publisher) PublishNotifyPush(ctx context.Context, event domain.NotifyPush) error {
+func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err

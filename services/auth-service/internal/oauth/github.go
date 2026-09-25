@@ -17,6 +17,12 @@ const (
 	githubEmailsURL = "https://api.github.com/user/emails"
 )
 
+type GitHubProfile struct {
+	ID    int64
+	Login string
+	Email string
+}
+
 type GitHubClient struct {
 	clientID     string
 	clientSecret string
@@ -31,7 +37,7 @@ func NewGitHubClient(clientID, clientSecret string) *GitHubClient {
 	}
 }
 
-func (c *GitHubClient) FetchProfile(code string) (*domain.GitHubProfile, error) {
+func (c *GitHubClient) FetchProfile(code string) (*GitHubProfile, error) {
 	token, err := c.exchangeCode(code)
 	if err != nil {
 		return nil, err
@@ -92,7 +98,7 @@ func (c *GitHubClient) exchangeCode(code string) (string, error) {
 	return result.AccessToken, nil
 }
 
-func (c *GitHubClient) fetchUser(token string) (*domain.GitHubProfile, error) {
+func (c *GitHubClient) fetchUser(token string) (*GitHubProfile, error) {
 	var raw struct {
 		ID    int64  `json:"id"`
 		Login string `json:"login"`
@@ -102,7 +108,7 @@ func (c *GitHubClient) fetchUser(token string) (*domain.GitHubProfile, error) {
 		return nil, err
 	}
 
-	return &domain.GitHubProfile{ID: raw.ID, Login: raw.Login, Email: raw.Email}, nil
+	return &GitHubProfile{ID: raw.ID, Login: raw.Login, Email: raw.Email}, nil
 }
 
 func (c *GitHubClient) fetchPrimaryVerifiedEmail(token string) (string, error) {

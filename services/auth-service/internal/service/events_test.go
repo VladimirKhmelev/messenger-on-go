@@ -5,8 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 var errPublishFailed = errors.New("publish failed")
@@ -70,7 +71,7 @@ func TestAuthService_ResetPassword_PublishesUserPasswordReset(t *testing.T) {
 func TestAuthService_LoginWithGitHub_PublishesUserOAuthLinkedForNewUser(t *testing.T) {
 	repo := newFakeUserRepository()
 	github := newFakeGitHubClient()
-	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
+	github.profile = &oauth.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	publisher := newFakeEventPublisher()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
@@ -93,7 +94,7 @@ func TestAuthService_LoginWithGitHub_NoEventForExistingUser(t *testing.T) {
 	repo.users[existing.Email] = existing
 
 	github := newFakeGitHubClient()
-	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
+	github.profile = &oauth.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	publisher := newFakeEventPublisher()
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
@@ -109,18 +110,18 @@ func TestAuthService_LoginWithGitHub_NoEventForExistingUser(t *testing.T) {
 
 type failingEventPublisher struct{}
 
-func (failingEventPublisher) PublishUserRegistered(context.Context, domain.UserRegistered) error {
+func (failingEventPublisher) PublishUserRegistered(context.Context, events.UserRegistered) error {
 	return errPublishFailed
 }
 
-func (failingEventPublisher) PublishUserPasswordReset(context.Context, domain.UserPasswordReset) error {
+func (failingEventPublisher) PublishUserPasswordReset(context.Context, events.UserPasswordReset) error {
 	return errPublishFailed
 }
 
-func (failingEventPublisher) PublishUserOAuthLinked(context.Context, domain.UserOAuthLinked) error {
+func (failingEventPublisher) PublishUserOAuthLinked(context.Context, events.UserOAuthLinked) error {
 	return errPublishFailed
 }
 
-func (failingEventPublisher) PublishUserProfileUpdated(context.Context, domain.UserProfileUpdated) error {
+func (failingEventPublisher) PublishUserProfileUpdated(context.Context, events.UserProfileUpdated) error {
 	return errPublishFailed
 }

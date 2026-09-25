@@ -10,8 +10,13 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
+
+type PushSubscription struct {
+	Endpoint  string
+	P256dhKey string
+	AuthKey   string
+}
 
 type Client struct {
 	conn           *grpc.ClientConn
@@ -35,7 +40,7 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]domain.PushSubscription, error) {
+func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]PushSubscription, error) {
 	ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
 
 	resp, err := c.auth.ListPushSubscriptions(ctx, &authv1.ListPushSubscriptionsRequest{UserId: userID})
@@ -43,9 +48,9 @@ func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]do
 		return nil, err
 	}
 
-	subs := make([]domain.PushSubscription, 0, len(resp.GetSubscriptions()))
+	subs := make([]PushSubscription, 0, len(resp.GetSubscriptions()))
 	for _, s := range resp.GetSubscriptions() {
-		subs = append(subs, domain.PushSubscription{
+		subs = append(subs, PushSubscription{
 			Endpoint:  s.GetEndpoint(),
 			P256dhKey: s.GetP256DhKey(),
 			AuthKey:   s.GetAuthKey(),

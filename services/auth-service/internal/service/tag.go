@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 )
 
 func (s *AuthService) UpdateTag(ctx context.Context, userID, tag string) error {
@@ -36,7 +37,7 @@ func (s *AuthService) publishProfileUpdated(ctx context.Context, userID string) 
 		return
 	}
 
-	if err := s.events.PublishUserProfileUpdated(ctx, domain.UserProfileUpdated{
+	if err := s.events.PublishUserProfileUpdated(ctx, events.UserProfileUpdated{
 		UserID:      user.ID,
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,

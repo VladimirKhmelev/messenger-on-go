@@ -9,7 +9,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification('Новое сообщение', {
       body: 'У вас новое сообщение в Wisply',
       icon: '/favicon.svg',
-      tag: payload.chat_id || 'wisply-message',
+      tag: payload.chatId || 'wisply-message',
       renotify: true,
     })
   );

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 func TestAuthService_DeleteAccount_Success(t *testing.T) {
@@ -66,7 +66,7 @@ func TestAuthService_DeleteAccount_Success(t *testing.T) {
 func TestAuthService_DeleteAccount_OAuthAccountNoPasswordRequired(t *testing.T) {
 	repo := newFakeUserRepository()
 	github := newFakeGitHubClient()
-	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
+	github.profile = &oauth.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
 	result, err := svc.LoginWithGitHub(context.Background(), "some-code", "pub-key", "wrapped-priv-key", "salt")

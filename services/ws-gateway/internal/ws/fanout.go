@@ -4,8 +4,21 @@ import (
 	"context"
 	"log"
 
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
+
+type MembersLister interface {
+	ListMembers(ctx context.Context, chatID string) ([]string, error)
+}
+
+type MessageGetter interface {
+	GetMessage(ctx context.Context, messageID string) (chatclient.Message, error)
+}
+
+type ContactsLister interface {
+	ListContacts(ctx context.Context, userID string) ([]string, error)
+}
 
 type Fanout struct {
 	registry *Registry
@@ -18,7 +31,7 @@ func NewFanout(registry *Registry, members MembersLister, messages MessageGetter
 	return &Fanout{registry: registry, members: members, messages: messages, contacts: contacts}
 }
 
-func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageCreated) {
+func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageCreated) {
 	userIDs, err := f.members.ListMembers(ctx, event.ChatID)
 	if err != nil {
 		log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -30,12 +43,11 @@ func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageC
 		log.Printf("ws-gateway: failed to fetch message %s for fanout: %v", event.MessageID, err)
 		return
 	}
-	wire := toWireMessage(message)
 
 	payload := serverMessage{
 		Type:    "message_received",
 		ChatID:  event.ChatID,
-		Message: &wire,
+		Message: &message,
 	}
 
 	for _, userID := range userIDs {
@@ -43,7 +55,7 @@ func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageC
 	}
 }
 
-func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageUpdated) {
+func (f *Fanout) HandleMessageUpdated(ctx context.Context, event events.MessageUpdated) {
 	userIDs, err := f.members.ListMembers(ctx, event.ChatID)
 	if err != nil {
 		log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -63,7 +75,7 @@ func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageU
 	}
 }
 
-func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead) {
+func (f *Fanout) HandleMessageRead(ctx context.Context, event events.MessageRead) {
 	userIDs, err := f.members.ListMembers(ctx, event.ChatID)
 	if err != nil {
 		log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -85,7 +97,7 @@ func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead
 	}
 }
 
-func (f *Fanout) HandleNotifyPush(_ context.Context, event domain.NotifyPush) {
+func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) {
 	payload := serverMessage{
 		Type:      "notify_push",
 		ChatID:    event.ChatID,
@@ -95,7 +107,7 @@ func (f *Fanout) HandleNotifyPush(_ context.Context, event domain.NotifyPush) {
 	f.registry.Broadcast(event.UserID, payload)
 }
 
-func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.PresenceChanged) {
+func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.PresenceChanged) {
 	contacts, err := f.contacts.ListContacts(ctx, event.UserID)
 	if err != nil {
 		log.Printf("ws-gateway: failed to list contacts for presence fanout of %s: %v", event.UserID, err)
@@ -114,7 +126,7 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.Presenc
 	}
 }
 
-func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingChanged) {
+func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingChanged) {
 	userIDs, err := f.members.ListMembers(ctx, event.ChatID)
 	if err != nil {
 		log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -135,7 +147,7 @@ func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingCha
 	}
 }
 
-func (f *Fanout) HandleChatDeleted(_ context.Context, event domain.ChatDeleted) {
+func (f *Fanout) HandleChatDeleted(_ context.Context, event events.ChatDeleted) {
 	payload := serverMessage{
 		Type:   "chat_deleted",
 		ChatID: event.ChatID,
@@ -146,7 +158,7 @@ func (f *Fanout) HandleChatDeleted(_ context.Context, event domain.ChatDeleted) 
 	}
 }
 
-func (f *Fanout) HandleProfileUpdated(ctx context.Context, event domain.ProfileUpdated) {
+func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) {
 	contacts, err := f.contacts.ListContacts(ctx, event.UserID)
 	if err != nil {
 		log.Printf("ws-gateway: failed to list contacts for profile fanout of %s: %v", event.UserID, err)

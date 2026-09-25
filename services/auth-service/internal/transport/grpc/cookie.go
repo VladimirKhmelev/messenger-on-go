@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 var errNoCookie = errors.New("refresh_token cookie not present")
@@ -18,7 +19,7 @@ const refreshCookieName = "refresh_token"
 func setRefreshCookie(ctx context.Context, token string, secure bool) error {
 	cookie := fmt.Sprintf(
 		"%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
-		refreshCookieName, token, int(domain.RefreshTokenTTL.Seconds()), secureAttr(secure),
+		refreshCookieName, token, int(jwtutil.RefreshTokenTTL.Seconds()), secureAttr(secure),
 	)
 	return grpc.SetHeader(ctx, metadata.Pairs("set-cookie", cookie))
 }

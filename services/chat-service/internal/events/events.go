@@ -3,12 +3,12 @@ package events
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
-	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 )
 
 const (
@@ -20,6 +20,34 @@ const (
 	SubjectMessageRead    = "msg.read"
 	SubjectChatDeleted    = "chat.deleted"
 )
+
+type MessageCreated struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	SenderID  string    `json:"sender_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type MessageUpdated struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	NewBody   *string   `json:"new_body,omitempty"`
+	Deleted   bool      `json:"deleted"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type MessageRead struct {
+	ChatID    string    `json:"chat_id"`
+	UserID    string    `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ReadAt    time.Time `json:"read_at"`
+}
+
+type ChatDeleted struct {
+	ChatID        string    `json:"chat_id"`
+	MemberUserIDs []string  `json:"member_user_ids"`
+	DeletedAt     time.Time `json:"deleted_at"`
+}
 
 type Publisher struct {
 	js jetstream.JetStream
@@ -47,7 +75,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 	return &Publisher{js: js}, nil
 }
 
-func (p *Publisher) PublishMessageCreated(ctx context.Context, event domain.MessageCreated) error {
+func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCreated) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -55,7 +83,7 @@ func (p *Publisher) PublishMessageCreated(ctx context.Context, event domain.Mess
 	return p.publish(ctx, SubjectMessageCreated, payload)
 }
 
-func (p *Publisher) PublishMessageUpdated(ctx context.Context, event domain.MessageUpdated) error {
+func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpdated) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -68,7 +96,7 @@ func (p *Publisher) PublishMessageUpdated(ctx context.Context, event domain.Mess
 	return p.publish(ctx, subject, payload)
 }
 
-func (p *Publisher) PublishMessageRead(ctx context.Context, event domain.MessageRead) error {
+func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -76,7 +104,7 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event domain.Message
 	return p.publish(ctx, SubjectMessageRead, payload)
 }
 
-func (p *Publisher) PublishChatDeleted(ctx context.Context, event domain.ChatDeleted) error {
+func (p *Publisher) PublishChatDeleted(ctx context.Context, event ChatDeleted) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err

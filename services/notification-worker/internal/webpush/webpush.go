@@ -7,8 +7,18 @@ import (
 	"log"
 
 	upstream "github.com/SherClockHolmes/webpush-go"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
+
+type Payload struct {
+	ChatID    string `json:"chat_id"`
+	MessageID string `json:"message_id"`
+}
+
+type Subscription struct {
+	Endpoint  string
+	P256dhKey string
+	AuthKey   string
+}
 
 type Sender struct {
 	vapidPublicKey  string
@@ -24,7 +34,7 @@ func NewSender(vapidPublicKey, vapidPrivateKey, vapidSubject string) *Sender {
 	}
 }
 
-func (s *Sender) Send(ctx context.Context, sub domain.PushSubscription, payload domain.PushPayload) {
+func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) {
 	message, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("notification-worker: failed to marshal push payload: %v", err)

@@ -10,7 +10,6 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
 
 const (
@@ -34,15 +33,67 @@ const (
 	pullBatch   = 10
 )
 
+type MessageCreated struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	SenderID  string    `json:"sender_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type MessageUpdated struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	NewBody   *string   `json:"new_body,omitempty"`
+	Deleted   bool      `json:"deleted"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type MessageRead struct {
+	ChatID    string    `json:"chat_id"`
+	UserID    string    `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ReadAt    time.Time `json:"read_at"`
+}
+
+type ChatDeleted struct {
+	ChatID        string    `json:"chat_id"`
+	MemberUserIDs []string  `json:"member_user_ids"`
+	DeletedAt     time.Time `json:"deleted_at"`
+}
+
+type NotifyPush struct {
+	UserID    string    `json:"user_id"`
+	ChatID    string    `json:"chat_id"`
+	MessageID string    `json:"message_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type PresenceChanged struct {
+	UserID       string `json:"user_id"`
+	Online       bool   `json:"online"`
+	LastSeenUnix int64  `json:"last_seen_unix"`
+}
+
+type ProfileUpdated struct {
+	UserID      string `json:"user_id"`
+	Tag         string `json:"tag"`
+	DisplayName string `json:"display_name"`
+}
+
+type TypingChanged struct {
+	ChatID string `json:"chat_id"`
+	UserID string `json:"user_id"`
+}
+
 type Handlers struct {
-	OnMessageCreated  func(ctx context.Context, event domain.MessageCreated)
-	OnMessageUpdated  func(ctx context.Context, event domain.MessageUpdated)
-	OnMessageRead     func(ctx context.Context, event domain.MessageRead)
-	OnNotifyPush      func(ctx context.Context, event domain.NotifyPush)
-	OnPresenceChanged func(ctx context.Context, event domain.PresenceChanged)
-	OnProfileUpdated  func(ctx context.Context, event domain.ProfileUpdated)
-	OnTypingChanged   func(ctx context.Context, event domain.TypingChanged)
-	OnChatDeleted     func(ctx context.Context, event domain.ChatDeleted)
+	OnMessageCreated  func(ctx context.Context, event MessageCreated)
+	OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
+	OnMessageRead     func(ctx context.Context, event MessageRead)
+	OnNotifyPush      func(ctx context.Context, event NotifyPush)
+	OnPresenceChanged func(ctx context.Context, event PresenceChanged)
+	OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
+	OnTypingChanged   func(ctx context.Context, event TypingChanged)
+	OnChatDeleted     func(ctx context.Context, event ChatDeleted)
 }
 
 type PresencePublisher struct {
@@ -61,7 +112,7 @@ func (p *PresencePublisher) Close() {
 	p.nc.Close()
 }
 
-func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event domain.PresenceChanged) error {
+func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event PresenceChanged) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -73,7 +124,7 @@ func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event do
 	return p.nc.PublishMsg(&nats.Msg{Subject: subjectPresence, Data: payload, Header: header})
 }
 
-func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event domain.TypingChanged) error {
+func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event TypingChanged) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -101,7 +152,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
-			var event domain.MessageCreated
+			var event MessageCreated
 			if err := json.Unmarshal(data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal msg.created event: %v", err)
 				return
@@ -112,7 +163,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		errCh <- consumeMulti(ctx, js, chatStreamName, []string{subjectMsgEdit, subjectMsgDelete}, func(ctx context.Context, data []byte) {
-			var event domain.MessageUpdated
+			var event MessageUpdated
 			if err := json.Unmarshal(data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal msg.updated/deleted event: %v", err)
 				return
@@ -123,7 +174,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsgRead, func(ctx context.Context, data []byte) {
-			var event domain.MessageRead
+			var event MessageRead
 			if err := json.Unmarshal(data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal msg.read event: %v", err)
 				return
@@ -134,7 +185,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		errCh <- consumeOne(ctx, js, chatStreamName, subjectChatDelete, func(ctx context.Context, data []byte) {
-			var event domain.ChatDeleted
+			var event ChatDeleted
 			if err := json.Unmarshal(data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal chat.deleted event: %v", err)
 				return
@@ -145,7 +196,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		errCh <- consumeOne(ctx, js, notifyStreamName, subjectNotify, func(ctx context.Context, data []byte) {
-			var event domain.NotifyPush
+			var event NotifyPush
 			if err := json.Unmarshal(data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal notify.push event: %v", err)
 				return
@@ -156,7 +207,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		errCh <- consumeOne(ctx, js, userStreamName, subjectProfileUpdated, func(ctx context.Context, data []byte) {
-			var event domain.ProfileUpdated
+			var event ProfileUpdated
 			if err := json.Unmarshal(data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal user.profile_updated event: %v", err)
 				return
@@ -167,7 +218,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) {
-			var event domain.PresenceChanged
+			var event PresenceChanged
 			if err := json.Unmarshal(msg.Data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
 				return
@@ -188,7 +239,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error {
 
 	go func() {
 		sub, err := nc.Subscribe(subjectTyping, func(msg *nats.Msg) {
-			var event domain.TypingChanged
+			var event TypingChanged
 			if err := json.Unmarshal(msg.Data, &event); err != nil {
 				log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
 				return

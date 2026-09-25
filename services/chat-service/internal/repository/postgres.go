@@ -33,7 +33,7 @@ func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) {
 	return &PostgresChatRepository{conn: conn}, nil
 }
 
-func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]domain.MemberChatKey) error {
+func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]MemberChatKey) error {
 	tx, err := r.conn.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -147,7 +147,7 @@ func (r *PostgresChatRepository) MemberCount(ctx context.Context, chatID string)
 	return count, err
 }
 
-func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key domain.MemberChatKey) error {
+func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key MemberChatKey) error {
 	_, err := r.conn.ExecContext(ctx, `
 		INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
 		VALUES ($1, $2, now(), $3, $4, 'member')`,

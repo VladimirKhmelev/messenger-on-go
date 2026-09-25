@@ -10,9 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
+
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 const testJWTSecret = "test-secret"
@@ -22,7 +24,7 @@ type fakeChatClient struct {
 	sentText       string
 	sentChatID     string
 
-	getHistoryMessages []domain.Message
+	getHistoryMessages []chatclient.Message
 	getHistoryErr      error
 
 	presenceOnline       bool
@@ -56,7 +58,7 @@ func (c *fakeChatClient) SendMessage(_ context.Context, _, chatID, text string) 
 	return "message-1", nil
 }
 
-func (c *fakeChatClient) GetHistory(_ context.Context, _, _ string, _, _ int32) ([]domain.Message, error) {
+func (c *fakeChatClient) GetHistory(_ context.Context, _, _ string, _, _ int32) ([]chatclient.Message, error) {
 	if c.getHistoryErr != nil {
 		return nil, c.getHistoryErr
 	}
@@ -125,11 +127,11 @@ func (c *fakeChatClient) SetTyping(_ context.Context, _, _ string) error {
 
 type fakePresencePublisher struct{}
 
-func (fakePresencePublisher) PublishPresenceChanged(_ context.Context, _ domain.PresenceChanged) error {
+func (fakePresencePublisher) PublishPresenceChanged(_ context.Context, _ events.PresenceChanged) error {
 	return nil
 }
 
-func (fakePresencePublisher) PublishTypingChanged(_ context.Context, _ domain.TypingChanged) error {
+func (fakePresencePublisher) PublishTypingChanged(_ context.Context, _ events.TypingChanged) error {
 	return nil
 }
 
@@ -244,7 +246,7 @@ func TestHandler_SendMessage_ForwardsToChatClient(t *testing.T) {
 }
 
 func TestHandler_GetHistory_ForwardsToChatClient(t *testing.T) {
-	chat := &fakeChatClient{getHistoryMessages: []domain.Message{{MessageID: "m1", Text: "hi"}}}
+	chat := &fakeChatClient{getHistoryMessages: []chatclient.Message{{MessageID: "m1", Text: "hi"}}}
 	server := httptest.NewServer(NewHandler(testJWTSecret, chat, NewRegistry(), fakePresencePublisher{}, nil))
 	defer server.Close()
 

@@ -10,8 +10,16 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
+
+type Message struct {
+	MessageID     string
+	SenderUserID  string
+	Text          string
+	CreatedAtUnix int64
+	EditedAtUnix  int64
+	Deleted       bool
+}
 
 type Client struct {
 	conn           *grpc.ClientConn
@@ -45,7 +53,7 @@ func (c *Client) SendMessage(ctx context.Context, bearerToken, chatID, text stri
 	return resp.GetMessageId(), nil
 }
 
-func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]domain.Message, error) {
+func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]Message, error) {
 	ctx = withBearerToken(ctx, bearerToken)
 
 	resp, err := c.chat.GetHistory(ctx, &chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit, Offset: offset})
@@ -53,7 +61,7 @@ func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, lim
 		return nil, err
 	}
 
-	messages := make([]domain.Message, 0, len(resp.GetMessages()))
+	messages := make([]Message, 0, len(resp.GetMessages()))
 	for _, m := range resp.GetMessages() {
 		messages = append(messages, toClientMessage(m))
 	}
@@ -111,12 +119,12 @@ func (c *Client) ListContacts(ctx context.Context, userID string) ([]string, err
 	return resp.GetUserIds(), nil
 }
 
-func (c *Client) GetMessage(ctx context.Context, messageID string) (domain.Message, error) {
+func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, error) {
 	ctx = c.withInternalSecret(ctx)
 
 	resp, err := c.chat.GetMessage(ctx, &chatv1.GetMessageRequest{MessageId: messageID})
 	if err != nil {
-		return domain.Message{}, err
+		return Message{}, err
 	}
 	return toClientMessage(resp.GetMessage()), nil
 }
@@ -159,8 +167,8 @@ func (c *Client) GetReadStatus(ctx context.Context, chatID, userID string) (stri
 	return resp.GetLastReadMessageId(), nil
 }
 
-func toClientMessage(m *chatv1.Message) domain.Message {
-	return domain.Message{
+func toClientMessage(m *chatv1.Message) Message {
+	return Message{
 		MessageID:     m.GetMessageId(),
 		SenderUserID:  m.GetSenderUserId(),
 		Text:          m.GetText(),
