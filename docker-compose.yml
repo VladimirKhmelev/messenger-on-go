@@ -369,7 +369,9 @@ services:
         condition: service_healthy
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Зеркало образа quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z — MinIO прекратил
+    # публикацию образов на quay.io и Docker Hub.
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/minio:RELEASE.2025-09-07T16-13-09Z
     restart: unless-stopped
     mem_limit: 512m
     cpus: 0.5
