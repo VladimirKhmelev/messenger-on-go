@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
 )
 
 var errPublishFailed = errors.New("publish failed")
@@ -51,18 +50,18 @@ func TestChatService_SendMessage_EventPublishFailureDoesNotFailSend(t *testing.T
 
 type failingEventPublisher struct{}
 
-func (failingEventPublisher) PublishMessageCreated(context.Context, events.MessageCreated) error {
+func (failingEventPublisher) PublishMessageCreated(context.Context, domain.MessageCreated) error {
 	return errPublishFailed
 }
 
-func (failingEventPublisher) PublishMessageUpdated(context.Context, events.MessageUpdated) error {
+func (failingEventPublisher) PublishMessageUpdated(context.Context, domain.MessageUpdated) error {
 	return errPublishFailed
 }
 
-func (failingEventPublisher) PublishMessageRead(context.Context, events.MessageRead) error {
+func (failingEventPublisher) PublishMessageRead(context.Context, domain.MessageRead) error {
 	return errPublishFailed
 }
 
-func (failingEventPublisher) PublishChatDeleted(context.Context, events.ChatDeleted) error {
+func (failingEventPublisher) PublishChatDeleted(context.Context, domain.ChatDeleted) error {
 	return errPublishFailed
 }

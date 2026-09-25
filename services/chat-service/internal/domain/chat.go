@@ -37,6 +37,11 @@ type ChatMember struct {
 	Role                MemberRole `db:"role"`
 }
 
+type MemberChatKey struct {
+	EncryptedChatKey    string
+	WrappedForPublicKey string
+}
+
 type ChatAvatar struct {
 	ChatID      string    `db:"chat_id"`
 	Data        []byte    `db:"data"`

@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
-	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
 type fakeChatRepository struct {
@@ -37,10 +35,10 @@ func newFakeChatRepository() *fakeChatRepository {
 	}
 }
 
-func chatKeys(ids ...string) map[string]repository.MemberChatKey {
-	keys := make(map[string]repository.MemberChatKey, len(ids))
+func chatKeys(ids ...string) map[string]domain.MemberChatKey {
+	keys := make(map[string]domain.MemberChatKey, len(ids))
 	for _, id := range ids {
-		keys[id] = repository.MemberChatKey{
+		keys[id] = domain.MemberChatKey{
 			EncryptedChatKey:    "encrypted-key-" + id,
 			WrappedForPublicKey: "public-key-" + id,
 		}
@@ -48,7 +46,7 @@ func chatKeys(ids ...string) map[string]repository.MemberChatKey {
 	return keys
 }
 
-func encryptedChatKeysOnly(keys map[string]repository.MemberChatKey) map[string]string {
+func encryptedChatKeysOnly(keys map[string]domain.MemberChatKey) map[string]string {
 	out := make(map[string]string, len(keys))
 	for id, k := range keys {
 		out[id] = k.EncryptedChatKey
@@ -56,7 +54,7 @@ func encryptedChatKeysOnly(keys map[string]repository.MemberChatKey) map[string]
 	return out
 }
 
-func wrappedForPublicKeysOnly(keys map[string]repository.MemberChatKey) map[string]string {
+func wrappedForPublicKeysOnly(keys map[string]domain.MemberChatKey) map[string]string {
 	out := make(map[string]string, len(keys))
 	for id, k := range keys {
 		out[id] = k.WrappedForPublicKey
@@ -80,7 +78,7 @@ func (r *fakeChatRepository) project(m *domain.Message) *domain.Message {
 	return &projected
 }
 
-func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, chatKeyByUserID map[string]repository.MemberChatKey) error {
+func (r *fakeChatRepository) CreateChat(_ context.Context, chat *domain.Chat, chatKeyByUserID map[string]domain.MemberChatKey) error {
 	r.chats[chat.ID] = chat
 	for id, key := range chatKeyByUserID {
 		role := domain.MemberRoleMember
@@ -190,7 +188,7 @@ func (r *fakeChatRepository) MemberCount(_ context.Context, chatID string) (int,
 	return len(r.members[chatID]), nil
 }
 
-func (r *fakeChatRepository) AddMember(_ context.Context, chatID, userID string, key repository.MemberChatKey) error {
+func (r *fakeChatRepository) AddMember(_ context.Context, chatID, userID string, key domain.MemberChatKey) error {
 	r.members[chatID] = append(r.members[chatID], &domain.ChatMember{
 		ChatID: chatID, UserID: userID, JoinedAt: time.Now(),
 		EncryptedChatKey: key.EncryptedChatKey, WrappedForPublicKey: key.WrappedForPublicKey,
@@ -378,32 +376,32 @@ func (c *fakeAuthClient) UserExists(_ context.Context, _, userID string) (bool, 
 }
 
 type fakeEventPublisher struct {
-	messageCreatedEvents []events.MessageCreated
-	messageUpdatedEvents []events.MessageUpdated
-	messageReadEvents    []events.MessageRead
-	chatDeletedEvents    []events.ChatDeleted
+	messageCreatedEvents []domain.MessageCreated
+	messageUpdatedEvents []domain.MessageUpdated
+	messageReadEvents    []domain.MessageRead
+	chatDeletedEvents    []domain.ChatDeleted
 }
 
 func newFakeEventPublisher() *fakeEventPublisher {
 	return &fakeEventPublisher{}
 }
 
-func (p *fakeEventPublisher) PublishMessageCreated(_ context.Context, event events.MessageCreated) error {
+func (p *fakeEventPublisher) PublishMessageCreated(_ context.Context, event domain.MessageCreated) error {
 	p.messageCreatedEvents = append(p.messageCreatedEvents, event)
 	return nil
 }
 
-func (p *fakeEventPublisher) PublishMessageUpdated(_ context.Context, event events.MessageUpdated) error {
+func (p *fakeEventPublisher) PublishMessageUpdated(_ context.Context, event domain.MessageUpdated) error {
 	p.messageUpdatedEvents = append(p.messageUpdatedEvents, event)
 	return nil
 }
 
-func (p *fakeEventPublisher) PublishMessageRead(_ context.Context, event events.MessageRead) error {
+func (p *fakeEventPublisher) PublishMessageRead(_ context.Context, event domain.MessageRead) error {
 	p.messageReadEvents = append(p.messageReadEvents, event)
 	return nil
 }
 
-func (p *fakeEventPublisher) PublishChatDeleted(_ context.Context, event events.ChatDeleted) error {
+func (p *fakeEventPublisher) PublishChatDeleted(_ context.Context, event domain.ChatDeleted) error {
 	p.chatDeletedEvents = append(p.chatDeletedEvents, event)
 	return nil
 }
