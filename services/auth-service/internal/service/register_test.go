@@ -11,9 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
@@ -21,38 +19,38 @@ func newTestAuthService(repo *fakeUserRepository) *AuthService {
 }
 
 type fakeEventPublisher struct {
-	registeredEvents     []events.UserRegistered
-	passwordResetEvents  []events.UserPasswordReset
-	oauthLinkedEvents    []events.UserOAuthLinked
-	profileUpdatedEvents []events.UserProfileUpdated
+	registeredEvents     []domain.UserRegistered
+	passwordResetEvents  []domain.UserPasswordReset
+	oauthLinkedEvents    []domain.UserOAuthLinked
+	profileUpdatedEvents []domain.UserProfileUpdated
 }
 
 func newFakeEventPublisher() *fakeEventPublisher {
 	return &fakeEventPublisher{}
 }
 
-func (p *fakeEventPublisher) PublishUserRegistered(_ context.Context, event events.UserRegistered) error {
+func (p *fakeEventPublisher) PublishUserRegistered(_ context.Context, event domain.UserRegistered) error {
 	p.registeredEvents = append(p.registeredEvents, event)
 	return nil
 }
 
-func (p *fakeEventPublisher) PublishUserPasswordReset(_ context.Context, event events.UserPasswordReset) error {
+func (p *fakeEventPublisher) PublishUserPasswordReset(_ context.Context, event domain.UserPasswordReset) error {
 	p.passwordResetEvents = append(p.passwordResetEvents, event)
 	return nil
 }
 
-func (p *fakeEventPublisher) PublishUserOAuthLinked(_ context.Context, event events.UserOAuthLinked) error {
+func (p *fakeEventPublisher) PublishUserOAuthLinked(_ context.Context, event domain.UserOAuthLinked) error {
 	p.oauthLinkedEvents = append(p.oauthLinkedEvents, event)
 	return nil
 }
 
-func (p *fakeEventPublisher) PublishUserProfileUpdated(_ context.Context, event events.UserProfileUpdated) error {
+func (p *fakeEventPublisher) PublishUserProfileUpdated(_ context.Context, event domain.UserProfileUpdated) error {
 	p.profileUpdatedEvents = append(p.profileUpdatedEvents, event)
 	return nil
 }
 
 type fakeGitHubClient struct {
-	profile *oauth.GitHubProfile
+	profile *domain.GitHubProfile
 	err     error
 }
 
@@ -60,14 +58,14 @@ func newFakeGitHubClient() *fakeGitHubClient {
 	return &fakeGitHubClient{}
 }
 
-func (c *fakeGitHubClient) FetchProfile(_ string) (*oauth.GitHubProfile, error) {
+func (c *fakeGitHubClient) FetchProfile(_ string) (*domain.GitHubProfile, error) {
 	if c.err != nil {
 		return nil, c.err
 	}
 	if c.profile != nil {
 		return c.profile, nil
 	}
-	return &oauth.GitHubProfile{ID: 1, Login: "octocat", Email: "octocat@example.com"}, nil
+	return &domain.GitHubProfile{ID: 1, Login: "octocat", Email: "octocat@example.com"}, nil
 }
 
 type fakeEmailVerificationStore struct {

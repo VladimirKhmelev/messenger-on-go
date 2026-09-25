@@ -7,13 +7,12 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 func TestAuthService_LoginWithGitHub_NewUser(t *testing.T) {
 	repo := newFakeUserRepository()
 	github := newFakeGitHubClient()
-	github.profile = &oauth.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
+	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
 	result, err := svc.LoginWithGitHub(context.Background(), "some-code", "pub-key", "wrapped-priv-key", "salt")
@@ -49,7 +48,7 @@ func TestAuthService_LoginWithGitHub_ExistingUser(t *testing.T) {
 	repo.users[existing.Email] = existing
 
 	github := newFakeGitHubClient()
-	github.profile = &oauth.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
+	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
 
 	result, err := svc.LoginWithGitHub(context.Background(), "some-code", "", "", "")
