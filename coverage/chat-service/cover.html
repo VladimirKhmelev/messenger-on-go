@@ -451,12 +451,12 @@ func NewClient(addr string) *redis.Client <span class="cov0" title="0">{
 import (
         "context"
         "encoding/json"
-        "time"
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
 )
 
 const (
@@ -468,34 +468,6 @@ const (
         SubjectMessageRead    = "msg.read"
         SubjectChatDeleted    = "chat.deleted"
 )
-
-type MessageCreated struct {
-        MessageID string    `json:"message_id"`
-        ChatID    string    `json:"chat_id"`
-        SenderID  string    `json:"sender_id"`
-        CreatedAt time.Time `json:"created_at"`
-}
-
-type MessageUpdated struct {
-        MessageID string    `json:"message_id"`
-        ChatID    string    `json:"chat_id"`
-        NewBody   *string   `json:"new_body,omitempty"`
-        Deleted   bool      `json:"deleted"`
-        UpdatedAt time.Time `json:"updated_at"`
-}
-
-type MessageRead struct {
-        ChatID    string    `json:"chat_id"`
-        UserID    string    `json:"user_id"`
-        MessageID string    `json:"message_id"`
-        ReadAt    time.Time `json:"read_at"`
-}
-
-type ChatDeleted struct {
-        ChatID        string    `json:"chat_id"`
-        MemberUserIDs []string  `json:"member_user_ids"`
-        DeletedAt     time.Time `json:"deleted_at"`
-}
 
 type Publisher struct {
         js jetstream.JetStream
@@ -523,7 +495,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) <span class="c
         <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
 }
 
-func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCreated) error <span class="cov0" title="0">{
+func (p *Publisher) PublishMessageCreated(ctx context.Context, event domain.MessageCreated) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -531,7 +503,7 @@ func (p *Publisher) PublishMessageCreated(ctx context.Context, event MessageCrea
         <span class="cov0" title="0">return p.publish(ctx, SubjectMessageCreated, payload)</span>
 }
 
-func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpdated) error <span class="cov0" title="0">{
+func (p *Publisher) PublishMessageUpdated(ctx context.Context, event domain.MessageUpdated) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -544,7 +516,7 @@ func (p *Publisher) PublishMessageUpdated(ctx context.Context, event MessageUpda
         <span class="cov0" title="0">return p.publish(ctx, subject, payload)</span>
 }
 
-func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) error <span class="cov0" title="0">{
+func (p *Publisher) PublishMessageRead(ctx context.Context, event domain.MessageRead) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -552,7 +524,7 @@ func (p *Publisher) PublishMessageRead(ctx context.Context, event MessageRead) e
         <span class="cov0" title="0">return p.publish(ctx, SubjectMessageRead, payload)</span>
 }
 
-func (p *Publisher) PublishChatDeleted(ctx context.Context, event ChatDeleted) error <span class="cov0" title="0">{
+func (p *Publisher) PublishChatDeleted(ctx context.Context, event domain.ChatDeleted) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -642,7 +614,7 @@ func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) <spa
         return &amp;PostgresChatRepository{conn: conn}, nil</span>
 }
 
-func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]MemberChatKey) error <span class="cov0" title="0">{
+func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]domain.MemberChatKey) error <span class="cov0" title="0">{
         tx, err := r.conn.BeginTxx(ctx, nil)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -756,7 +728,7 @@ func (r *PostgresChatRepository) MemberCount(ctx context.Context, chatID string)
         return count, err
 }</span>
 
-func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key MemberChatKey) error <span class="cov0" title="0">{
+func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key domain.MemberChatKey) error <span class="cov0" title="0">{
         _, err := r.conn.ExecContext(ctx, `
                 INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
                 VALUES ($1, $2, now(), $3, $4, 'member')`,
@@ -1088,8 +1060,6 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
-        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
 const (
@@ -1098,39 +1068,15 @@ const (
         MaxMessageBodyBytes = 64 * 1024
 )
 
-type AuthClient interface {
-        UserExists(ctx context.Context, bearerToken, userID string) (bool, error)
-}
-
-type EventPublisher interface {
-        PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
-        PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
-        PublishMessageRead(ctx context.Context, event events.MessageRead) error
-        PublishChatDeleted(ctx context.Context, event events.ChatDeleted) error
-}
-
-type PresenceChecker interface {
-        IsOnline(ctx context.Context, userID string) (bool, error)
-        LastSeen(ctx context.Context, userID string) (int64, error)
-        SetOnline(ctx context.Context, userID string) error
-        SetOffline(ctx context.Context, userID string) error
-        SetTyping(ctx context.Context, chatID, userID string) error
-        IsTyping(ctx context.Context, chatID, userID string) (bool, error)
-}
-
-type RateLimiter interface {
-        Allow(ctx context.Context, userID string) (bool, error)
-}
-
 type ChatService struct {
-        chats       repository.ChatRepository
+        chats       ChatRepository
         auth        AuthClient
         events      EventPublisher
         presence    PresenceChecker
         sendLimiter RateLimiter
 }
 
-func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov8" title="1">{
+func NewChatService(chats ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov8" title="1">{
         return &amp;ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence, sendLimiter: sendLimiter}
 }</span>
 
@@ -1174,7 +1120,7 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
                 ChatType:  domain.ChatTypePrivate,
         }
 
-        chatKeyByUserID := map[string]repository.MemberChatKey{
+        chatKeyByUserID := map[string]domain.MemberChatKey{
                 requesterID: {EncryptedChatKey: encryptedChatKeyByUserID[requesterID], WrappedForPublicKey: wrappedForPublicKeyByUserID[requesterID]},
                 targetID:    {EncryptedChatKey: encryptedChatKeyByUserID[targetID], WrappedForPublicKey: wrappedForPublicKeyByUserID[targetID]},
         }
@@ -1220,14 +1166,14 @@ func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requeste
                 return nil, domain.ErrTooManyMembers
         }</span>
 
-        <span class="cov0" title="0">chatKeyByUserID := make(map[string]repository.MemberChatKey, len(allMemberIDs))
+        <span class="cov0" title="0">chatKeyByUserID := make(map[string]domain.MemberChatKey, len(allMemberIDs))
         for _, memberID := range allMemberIDs </span><span class="cov0" title="0">{
                 encryptedKey := encryptedChatKeyByUserID[memberID]
                 wrappedKey := wrappedForPublicKeyByUserID[memberID]
                 if encryptedKey == "" || wrappedKey == "" </span><span class="cov0" title="0">{
                         return nil, domain.ErrMissingChatKey
                 }</span>
-                <span class="cov0" title="0">chatKeyByUserID[memberID] = repository.MemberChatKey{EncryptedChatKey: encryptedKey, WrappedForPublicKey: wrappedKey}</span>
+                <span class="cov0" title="0">chatKeyByUserID[memberID] = domain.MemberChatKey{EncryptedChatKey: encryptedKey, WrappedForPublicKey: wrappedKey}</span>
         }
 
         <span class="cov0" title="0">chat := &amp;domain.Chat{
@@ -1290,7 +1236,7 @@ func (s *ChatService) AddMember(ctx context.Context, bearerToken, chatID, reques
                 return domain.ErrMissingChatKey
         }</span>
 
-        <span class="cov0" title="0">return s.chats.AddMember(ctx, chatID, newMemberID, repository.MemberChatKey{
+        <span class="cov0" title="0">return s.chats.AddMember(ctx, chatID, newMemberID, domain.MemberChatKey{
                 EncryptedChatKey:    encryptedChatKey,
                 WrappedForPublicKey: wrappedForPublicKey,
         })</span>
@@ -1397,7 +1343,7 @@ func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID s
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishChatDeleted(ctx, events.ChatDeleted{
+        <span class="cov8" title="1">if err := s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
                 ChatID:        chatID,
                 MemberUserIDs: memberUserIDs,
                 DeletedAt:     time.Now(),
@@ -1493,7 +1439,7 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
         }</span>
         <span class="cov8" title="1">metrics.MessagesSentTotal.Inc()
 
-        if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
+        if err := s.events.PublishMessageCreated(ctx, domain.MessageCreated{
                 MessageID: message.ID,
                 ChatID:    message.ChatID,
                 SenderID:  message.SenderID,
@@ -1591,7 +1537,7 @@ func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, n
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
                 MessageID: messageID,
                 ChatID:    message.ChatID,
                 NewBody:   &amp;newBody,
@@ -1635,7 +1581,7 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
                 MessageID: messageID,
                 ChatID:    message.ChatID,
                 Deleted:   true,
@@ -1669,7 +1615,7 @@ func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, message
                 return err
         }</span>
 
-        <span class="cov0" title="0">if err := s.events.PublishMessageRead(ctx, events.MessageRead{
+        <span class="cov0" title="0">if err := s.events.PublishMessageRead(ctx, domain.MessageRead{
                 ChatID:    chatID,
                 UserID:    requesterID,
                 MessageID: messageID,

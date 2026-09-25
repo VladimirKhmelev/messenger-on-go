@@ -262,13 +262,8 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
-
-type PushSubscription struct {
-        Endpoint  string
-        P256dhKey string
-        AuthKey   string
-}
 
 type Client struct {
         conn           *grpc.ClientConn
@@ -292,7 +287,7 @@ func (c *Client) Close() error <span class="cov0" title="0">{
         return c.conn.Close()
 }</span>
 
-func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]PushSubscription, error) <span class="cov0" title="0">{
+func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]domain.PushSubscription, error) <span class="cov0" title="0">{
         ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
 
         resp, err := c.auth.ListPushSubscriptions(ctx, &amp;authv1.ListPushSubscriptionsRequest{UserId: userID})
@@ -300,9 +295,9 @@ func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]Pu
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">subs := make([]PushSubscription, 0, len(resp.GetSubscriptions()))
+        <span class="cov0" title="0">subs := make([]domain.PushSubscription, 0, len(resp.GetSubscriptions()))
         for _, s := range resp.GetSubscriptions() </span><span class="cov0" title="0">{
-                subs = append(subs, PushSubscription{
+                subs = append(subs, domain.PushSubscription{
                         Endpoint:  s.GetEndpoint(),
                         P256dhKey: s.GetP256DhKey(),
                         AuthKey:   s.GetAuthKey(),
@@ -476,6 +471,7 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
 
 const (
@@ -510,7 +506,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) <span class="c
         <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
 }
 
-func (p *Publisher) PublishNotifyPush(ctx context.Context, event NotifyPush) error <span class="cov0" title="0">{
+func (p *Publisher) PublishNotifyPush(ctx context.Context, event domain.NotifyPush) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -536,27 +532,8 @@ import (
         "log"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
-        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
-        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
-        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
-
-type ChatClient interface {
-        ListMembers(ctx context.Context, chatID string) ([]string, error)
-        IsOnline(ctx context.Context, userID string) (bool, error)
-}
-
-type AuthClient interface {
-        ListPushSubscriptions(ctx context.Context, userID string) ([]authclient.PushSubscription, error)
-}
-
-type WebPushSender interface {
-        Send(ctx context.Context, sub webpush.Subscription, payload webpush.Payload)
-}
-
-type EventPublisher interface {
-        PublishNotifyPush(ctx context.Context, event events.NotifyPush) error
-}
 
 type Handler struct {
         chat    ChatClient
@@ -570,7 +547,7 @@ func NewHandler(chat ChatClient, auth AuthClient, webpushSender WebPushSender, e
 }</span>
 
 func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) <span class="cov8" title="1">{
-        var event events.MessageCreated
+        var event domain.MessageCreated
         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov8" title="1">{
                 log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
                 metrics.NATSConsumeErrorsTotal.Inc()
@@ -585,7 +562,7 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
         }</span>
 
         <span class="cov8" title="1">for _, userID := range recipients </span><span class="cov8" title="1">{
-                if err := h.events.PublishNotifyPush(ctx, events.NotifyPush{
+                if err := h.events.PublishNotifyPush(ctx, domain.NotifyPush{
                         UserID:    userID,
                         ChatID:    event.ChatID,
                         MessageID: event.MessageID,
@@ -599,24 +576,20 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
         }
 }
 
-func (h *Handler) sendWebPush(ctx context.Context, userID string, event events.MessageCreated) <span class="cov8" title="1">{
+func (h *Handler) sendWebPush(ctx context.Context, userID string, event domain.MessageCreated) <span class="cov8" title="1">{
         subs, err := h.auth.ListPushSubscriptions(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("notification-worker: failed to list push subscriptions for user %s: %v", userID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">payload := webpush.Payload{ChatID: event.ChatID, MessageID: event.MessageID}
+        <span class="cov8" title="1">payload := domain.PushPayload{ChatID: event.ChatID, MessageID: event.MessageID}
         for _, sub := range subs </span><span class="cov8" title="1">{
-                h.webpush.Send(ctx, webpush.Subscription{
-                        Endpoint:  sub.Endpoint,
-                        P256dhKey: sub.P256dhKey,
-                        AuthKey:   sub.AuthKey,
-                }, payload)
+                h.webpush.Send(ctx, sub, payload)
         }</span>
 }
 
-func (h *Handler) recipientsNeedingNotification(ctx context.Context, event events.MessageCreated) ([]string, error) <span class="cov8" title="1">{
+func (h *Handler) recipientsNeedingNotification(ctx context.Context, event domain.MessageCreated) ([]string, error) <span class="cov8" title="1">{
         memberIDs, err := h.chat.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov8" title="1">{
                 return nil, err
@@ -654,18 +627,8 @@ import (
         "log"
 
         upstream "github.com/SherClockHolmes/webpush-go"
+        "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
-
-type Payload struct {
-        ChatID    string `json:"chat_id"`
-        MessageID string `json:"message_id"`
-}
-
-type Subscription struct {
-        Endpoint  string
-        P256dhKey string
-        AuthKey   string
-}
 
 type Sender struct {
         vapidPublicKey  string
@@ -681,7 +644,7 @@ func NewSender(vapidPublicKey, vapidPrivateKey, vapidSubject string) *Sender <sp
         }
 }</span>
 
-func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) <span class="cov0" title="0">{
+func (s *Sender) Send(ctx context.Context, sub domain.PushSubscription, payload domain.PushPayload) <span class="cov0" title="0">{
         message, err := json.Marshal(payload)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("notification-worker: failed to marshal push payload: %v", err)

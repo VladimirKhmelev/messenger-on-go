@@ -75,7 +75,7 @@
 				
 				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events/events.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil/jwtutil.go (94.1%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil/jwtutil.go (76.2%)</option>
 				
 				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/mail/mail.go (0.0%)</option>
 				
@@ -700,12 +700,12 @@ func (t *RefreshRevokedTracker) RevokedAfter(ctx context.Context, userID string,
 import (
         "context"
         "encoding/json"
-        "time"
 
         "github.com/nats-io/nats.go"
         "github.com/nats-io/nats.go/jetstream"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
 const (
@@ -716,32 +716,6 @@ const (
         SubjectUserOAuthLinked    = "user.oauth_linked"
         SubjectUserProfileUpdated = "user.profile_updated"
 )
-
-type UserRegistered struct {
-        UserID    string    `json:"user_id"`
-        Email     string    `json:"email"`
-        Tag       string    `json:"tag"`
-        CreatedAt time.Time `json:"created_at"`
-}
-
-type UserPasswordReset struct {
-        UserID string    `json:"user_id"`
-        Email  string    `json:"email"`
-        At     time.Time `json:"at"`
-}
-
-type UserOAuthLinked struct {
-        UserID   string    `json:"user_id"`
-        Email    string    `json:"email"`
-        Provider string    `json:"provider"`
-        At       time.Time `json:"at"`
-}
-
-type UserProfileUpdated struct {
-        UserID      string `json:"user_id"`
-        Tag         string `json:"tag"`
-        DisplayName string `json:"display_name"`
-}
 
 type Publisher struct {
         js jetstream.JetStream
@@ -769,19 +743,19 @@ func Connect(ctx context.Context, url string) (*Publisher, error) <span class="c
         <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
 }
 
-func (p *Publisher) PublishUserRegistered(ctx context.Context, event UserRegistered) error <span class="cov0" title="0">{
+func (p *Publisher) PublishUserRegistered(ctx context.Context, event domain.UserRegistered) error <span class="cov0" title="0">{
         return p.publish(ctx, SubjectUserRegistered, event)
 }</span>
 
-func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event UserPasswordReset) error <span class="cov0" title="0">{
+func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event domain.UserPasswordReset) error <span class="cov0" title="0">{
         return p.publish(ctx, SubjectUserPasswordReset, event)
 }</span>
 
-func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event UserOAuthLinked) error <span class="cov0" title="0">{
+func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event domain.UserOAuthLinked) error <span class="cov0" title="0">{
         return p.publish(ctx, SubjectUserOAuthLinked, event)
 }</span>
 
-func (p *Publisher) PublishUserProfileUpdated(ctx context.Context, event UserProfileUpdated) error <span class="cov0" title="0">{
+func (p *Publisher) PublishUserProfileUpdated(ctx context.Context, event domain.UserProfileUpdated) error <span class="cov0" title="0">{
         return p.publish(ctx, SubjectUserProfileUpdated, event)
 }</span>
 
@@ -809,11 +783,6 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-const (
-        AccessTokenTTL  = 15 * time.Minute
-        RefreshTokenTTL = 30 * 24 * time.Hour
-)
-
 type TokenType string
 
 const (
@@ -836,11 +805,11 @@ func NewIssuer(secret string) *Issuer <span class="cov8" title="1">{
 }</span>
 
 func (i *Issuer) IssueAccessToken(userID string) (string, error) <span class="cov8" title="1">{
-        return i.issue(userID, TokenTypeAccess, AccessTokenTTL)
+        return i.issue(userID, TokenTypeAccess, domain.AccessTokenTTL)
 }</span>
 
 func (i *Issuer) IssueRefreshToken(userID string) (string, error) <span class="cov8" title="1">{
-        return i.issue(userID, TokenTypeRefresh, RefreshTokenTTL)
+        return i.issue(userID, TokenTypeRefresh, domain.RefreshTokenTTL)
 }</span>
 
 func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (string, error) <span class="cov8" title="1">{
@@ -876,6 +845,18 @@ func (i *Issuer) Parse(tokenString string, wantType TokenType) (*Claims, error) 
         }</span>
 
         <span class="cov8" title="1">return claims, nil</span>
+}
+
+func (i *Issuer) ParseRefreshToken(tokenString string) (*domain.TokenClaims, error) <span class="cov0" title="0">{
+        claims, err := i.Parse(tokenString, TokenTypeRefresh)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;domain.TokenClaims{
+                UserID:    claims.UserID,
+                IssuedAt:  claims.IssuedAt.Time,
+                ExpiresAt: claims.ExpiresAt.Time,
+        }, nil</span>
 }
 </pre>
 		
@@ -957,12 +938,6 @@ const (
         githubEmailsURL = "https://api.github.com/user/emails"
 )
 
-type GitHubProfile struct {
-        ID    int64
-        Login string
-        Email string
-}
-
 type GitHubClient struct {
         clientID     string
         clientSecret string
@@ -977,7 +952,7 @@ func NewGitHubClient(clientID, clientSecret string) *GitHubClient <span class="c
         }
 }</span>
 
-func (c *GitHubClient) FetchProfile(code string) (*GitHubProfile, error) <span class="cov0" title="0">{
+func (c *GitHubClient) FetchProfile(code string) (*domain.GitHubProfile, error) <span class="cov0" title="0">{
         token, err := c.exchangeCode(code)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -1038,7 +1013,7 @@ func (c *GitHubClient) exchangeCode(code string) (string, error) <span class="co
         <span class="cov0" title="0">return result.AccessToken, nil</span>
 }
 
-func (c *GitHubClient) fetchUser(token string) (*GitHubProfile, error) <span class="cov0" title="0">{
+func (c *GitHubClient) fetchUser(token string) (*domain.GitHubProfile, error) <span class="cov0" title="0">{
         var raw struct {
                 ID    int64  `json:"id"`
                 Login string `json:"login"`
@@ -1048,7 +1023,7 @@ func (c *GitHubClient) fetchUser(token string) (*GitHubProfile, error) <span cla
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">return &amp;GitHubProfile{ID: raw.ID, Login: raw.Login, Email: raw.Email}, nil</span>
+        <span class="cov0" title="0">return &amp;domain.GitHubProfile{ID: raw.ID, Login: raw.Login, Email: raw.Email}, nil</span>
 }
 
 func (c *GitHubClient) fetchPrimaryVerifiedEmail(token string) (string, error) <span class="cov0" title="0">{
@@ -1428,7 +1403,6 @@ import (
         "golang.org/x/crypto/bcrypt"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt string) error <span class="cov8" title="1">{
@@ -1484,7 +1458,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
 }
 
 func (s *AuthService) markPasswordChanged(ctx context.Context, userID string) <span class="cov8" title="1">{
-        if err := s.passwordChanges.MarkChanged(ctx, userID, jwtutil.AccessTokenTTL); err != nil </span><span class="cov0" title="0">{
+        if err := s.passwordChanges.MarkChanged(ctx, userID, domain.AccessTokenTTL); err != nil </span><span class="cov0" title="0">{
                 log.Printf("auth-service: failed to record password change for %s: %v", userID, err)
         }</span>
 }
@@ -1503,7 +1477,6 @@ import (
         "golang.org/x/crypto/bcrypt"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string) error <span class="cov8" title="1">{
@@ -1528,7 +1501,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, jwtutil.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, domain.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
@@ -1570,7 +1543,6 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 type TokenPair struct {
@@ -1619,7 +1591,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Token
 }
 
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) <span class="cov8" title="1">{
-        claims, err := s.tokens.Parse(refreshToken, jwtutil.TokenTypeRefresh)
+        claims, err := s.tokens.ParseRefreshToken(refreshToken)
         if err != nil </span><span class="cov8" title="1">{
                 return nil, domain.ErrInvalidToken
         }</span>
@@ -1629,13 +1601,13 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
                 return nil, err
         }</span>
         <span class="cov8" title="1">if revoked </span><span class="cov8" title="1">{
-                if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, jwtutil.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
+                if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, domain.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
                 <span class="cov8" title="1">return nil, domain.ErrInvalidToken</span>
         }
 
-        <span class="cov8" title="1">revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt.Time)
+        <span class="cov8" title="1">revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -1653,7 +1625,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if ttl := time.Until(claims.ExpiresAt.Time); ttl &gt; 0 </span><span class="cov8" title="1">{
+        <span class="cov8" title="1">if ttl := time.Until(claims.ExpiresAt); ttl &gt; 0 </span><span class="cov8" title="1">{
                 if err := s.refreshBlocked.Revoke(ctx, refreshToken, ttl); err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
@@ -1663,12 +1635,12 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 }
 
 func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <span class="cov8" title="1">{
-        claims, err := s.tokens.Parse(refreshToken, jwtutil.TokenTypeRefresh)
+        claims, err := s.tokens.ParseRefreshToken(refreshToken)
         if err != nil </span><span class="cov8" title="1">{
                 return domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">ttl := time.Until(claims.ExpiresAt.Time)
+        <span class="cov8" title="1">ttl := time.Until(claims.ExpiresAt)
         if ttl &lt;= 0 </span><span class="cov0" title="0">{
                 return nil
         }</span>
@@ -1692,8 +1664,6 @@ import (
         "github.com/google/uuid"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 const maxTagGenerationAttempts = 5
@@ -1743,7 +1713,7 @@ func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrap
         }, nil</span>
 }
 
-func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *domain.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="1">{
         tag, err := s.generateUniqueTag(ctx, "id")
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
@@ -1766,7 +1736,7 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishUserOAuthLinked(ctx, events.UserOAuthLinked{
+        <span class="cov8" title="1">if err := s.events.PublishUserOAuthLinked(ctx, domain.UserOAuthLinked{
                 UserID:   user.ID,
                 Email:    user.Email,
                 Provider: "github",
@@ -1860,7 +1830,6 @@ import (
         "golang.org/x/crypto/bcrypt"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 )
 
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error <span class="cov8" title="1">{
@@ -1921,7 +1890,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, pub
 
         <span class="cov8" title="1">s.markPasswordChanged(ctx, user.ID)
 
-        if err := s.events.PublishUserPasswordReset(ctx, events.UserPasswordReset{
+        if err := s.events.PublishUserPasswordReset(ctx, domain.UserPasswordReset{
                 UserID: user.ID,
                 Email:  user.Email,
                 At:     time.Now(),
@@ -2021,63 +1990,13 @@ import (
         "golang.org/x/crypto/bcrypt"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/repository"
 )
-
-type RateLimiter interface {
-        Allow(ctx context.Context, key string) (bool, error)
-}
-
-type TokenBlacklist interface {
-        Revoke(ctx context.Context, token string, ttl time.Duration) error
-        IsRevoked(ctx context.Context, token string) (bool, error)
-}
-
-type PasswordChangeTracker interface {
-        MarkChanged(ctx context.Context, userID string, ttl time.Duration) error
-        ChangedAfter(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
-}
-
-type RefreshRevokedTracker interface {
-        MarkAllRevoked(ctx context.Context, userID string, ttl time.Duration) error
-        RevokedAfter(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
-}
-
-type EmailVerificationStore interface {
-        GenerateAndStore(ctx context.Context, email string) (string, error)
-        Verify(ctx context.Context, email, code string) (bool, error)
-}
-
-type Mailer interface {
-        SendVerificationCode(to, code string) error
-        SendPasswordResetToken(to, token string) error
-        SendPasswordChanged(to string) error
-}
-
-type PasswordResetStore interface {
-        GenerateAndStore(ctx context.Context, email string) (string, error)
-        Consume(ctx context.Context, token string) (email string, ok bool, err error)
-}
-
-type GitHubOAuthClient interface {
-        FetchProfile(code string) (*oauth.GitHubProfile, error)
-}
-
-type EventPublisher interface {
-        PublishUserRegistered(ctx context.Context, event events.UserRegistered) error
-        PublishUserPasswordReset(ctx context.Context, event events.UserPasswordReset) error
-        PublishUserOAuthLinked(ctx context.Context, event events.UserOAuthLinked) error
-        PublishUserProfileUpdated(ctx context.Context, event events.UserProfileUpdated) error
-}
 
 const oauthPasswordPlaceholder = "oauth-account-no-password"
 
 type AuthService struct {
-        users              repository.UserRepository
-        tokens             *jwtutil.Issuer
+        users              UserRepository
+        tokens             TokenIssuer
         loginLimiter       RateLimiter
         refreshBlocked     TokenBlacklist
         emailCodes         EmailVerificationStore
@@ -2091,8 +2010,8 @@ type AuthService struct {
 }
 
 func NewAuthService(
-        users repository.UserRepository,
-        tokens *jwtutil.Issuer,
+        users UserRepository,
+        tokens TokenIssuer,
         loginLimiter RateLimiter,
         refreshBlocked TokenBlacklist,
         emailCodes EmailVerificationStore,
@@ -2186,7 +2105,7 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishUserRegistered(ctx, events.UserRegistered{
+        <span class="cov8" title="1">if err := s.events.PublishUserRegistered(ctx, domain.UserRegistered{
                 UserID:    user.ID,
                 Email:     user.Email,
                 Tag:       user.Tag,
@@ -2269,7 +2188,6 @@ import (
         "log"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
 )
 
 func (s *AuthService) UpdateTag(ctx context.Context, userID, tag string) error <span class="cov0" title="0">{
@@ -2300,7 +2218,7 @@ func (s *AuthService) publishProfileUpdated(ctx context.Context, userID string) 
                 return
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishUserProfileUpdated(ctx, events.UserProfileUpdated{
+        <span class="cov8" title="1">if err := s.events.PublishUserProfileUpdated(ctx, domain.UserProfileUpdated{
                 UserID:      user.ID,
                 Tag:         user.Tag,
                 DisplayName: user.DisplayName,
@@ -2830,10 +2748,9 @@ import (
         "fmt"
         "net/http"
 
+        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
         "google.golang.org/grpc"
         "google.golang.org/grpc/metadata"
-
-        "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 var errNoCookie = errors.New("refresh_token cookie not present")
@@ -2843,7 +2760,7 @@ const refreshCookieName = "refresh_token"
 func setRefreshCookie(ctx context.Context, token string, secure bool) error <span class="cov8" title="1">{
         cookie := fmt.Sprintf(
                 "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
-                refreshCookieName, token, int(jwtutil.RefreshTokenTTL.Seconds()), secureAttr(secure),
+                refreshCookieName, token, int(domain.RefreshTokenTTL.Seconds()), secureAttr(secure),
         )
         return grpc.SetHeader(ctx, metadata.Pairs("set-cookie", cookie))
 }</span>

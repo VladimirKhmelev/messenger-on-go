@@ -61,13 +61,13 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events/consumer.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (14.3%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/fanout.go (15.8%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/handler.go (80.0%)</option>
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/registry.go (94.7%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (50.9%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws/session.go (52.9%)</option>
 				
 				</select>
 			</div>
@@ -245,16 +245,8 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
-
-type Message struct {
-        MessageID     string
-        SenderUserID  string
-        Text          string
-        CreatedAtUnix int64
-        EditedAtUnix  int64
-        Deleted       bool
-}
 
 type Client struct {
         conn           *grpc.ClientConn
@@ -288,7 +280,7 @@ func (c *Client) SendMessage(ctx context.Context, bearerToken, chatID, text stri
         <span class="cov0" title="0">return resp.GetMessageId(), nil</span>
 }
 
-func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]Message, error) <span class="cov0" title="0">{
+func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]domain.Message, error) <span class="cov0" title="0">{
         ctx = withBearerToken(ctx, bearerToken)
 
         resp, err := c.chat.GetHistory(ctx, &amp;chatv1.GetHistoryRequest{ChatId: chatID, Limit: limit, Offset: offset})
@@ -296,7 +288,7 @@ func (c *Client) GetHistory(ctx context.Context, bearerToken, chatID string, lim
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">messages := make([]Message, 0, len(resp.GetMessages()))
+        <span class="cov0" title="0">messages := make([]domain.Message, 0, len(resp.GetMessages()))
         for _, m := range resp.GetMessages() </span><span class="cov0" title="0">{
                 messages = append(messages, toClientMessage(m))
         }</span>
@@ -354,12 +346,12 @@ func (c *Client) ListContacts(ctx context.Context, userID string) ([]string, err
         <span class="cov0" title="0">return resp.GetUserIds(), nil</span>
 }
 
-func (c *Client) GetMessage(ctx context.Context, messageID string) (Message, error) <span class="cov0" title="0">{
+func (c *Client) GetMessage(ctx context.Context, messageID string) (domain.Message, error) <span class="cov0" title="0">{
         ctx = c.withInternalSecret(ctx)
 
         resp, err := c.chat.GetMessage(ctx, &amp;chatv1.GetMessageRequest{MessageId: messageID})
         if err != nil </span><span class="cov0" title="0">{
-                return Message{}, err
+                return domain.Message{}, err
         }</span>
         <span class="cov0" title="0">return toClientMessage(resp.GetMessage()), nil</span>
 }
@@ -402,8 +394,8 @@ func (c *Client) GetReadStatus(ctx context.Context, chatID, userID string) (stri
         <span class="cov0" title="0">return resp.GetLastReadMessageId(), nil</span>
 }
 
-func toClientMessage(m *chatv1.Message) Message <span class="cov0" title="0">{
-        return Message{
+func toClientMessage(m *chatv1.Message) domain.Message <span class="cov0" title="0">{
+        return domain.Message{
                 MessageID:     m.GetMessageId(),
                 SenderUserID:  m.GetSenderUserId(),
                 Text:          m.GetText(),
@@ -434,6 +426,7 @@ import (
         "github.com/nats-io/nats.go/jetstream"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
 
 const (
@@ -457,67 +450,15 @@ const (
         pullBatch   = 10
 )
 
-type MessageCreated struct {
-        MessageID string    `json:"message_id"`
-        ChatID    string    `json:"chat_id"`
-        SenderID  string    `json:"sender_id"`
-        CreatedAt time.Time `json:"created_at"`
-}
-
-type MessageUpdated struct {
-        MessageID string    `json:"message_id"`
-        ChatID    string    `json:"chat_id"`
-        NewBody   *string   `json:"new_body,omitempty"`
-        Deleted   bool      `json:"deleted"`
-        UpdatedAt time.Time `json:"updated_at"`
-}
-
-type MessageRead struct {
-        ChatID    string    `json:"chat_id"`
-        UserID    string    `json:"user_id"`
-        MessageID string    `json:"message_id"`
-        ReadAt    time.Time `json:"read_at"`
-}
-
-type ChatDeleted struct {
-        ChatID        string    `json:"chat_id"`
-        MemberUserIDs []string  `json:"member_user_ids"`
-        DeletedAt     time.Time `json:"deleted_at"`
-}
-
-type NotifyPush struct {
-        UserID    string    `json:"user_id"`
-        ChatID    string    `json:"chat_id"`
-        MessageID string    `json:"message_id"`
-        CreatedAt time.Time `json:"created_at"`
-}
-
-type PresenceChanged struct {
-        UserID       string `json:"user_id"`
-        Online       bool   `json:"online"`
-        LastSeenUnix int64  `json:"last_seen_unix"`
-}
-
-type ProfileUpdated struct {
-        UserID      string `json:"user_id"`
-        Tag         string `json:"tag"`
-        DisplayName string `json:"display_name"`
-}
-
-type TypingChanged struct {
-        ChatID string `json:"chat_id"`
-        UserID string `json:"user_id"`
-}
-
 type Handlers struct {
-        OnMessageCreated  func(ctx context.Context, event MessageCreated)
-        OnMessageUpdated  func(ctx context.Context, event MessageUpdated)
-        OnMessageRead     func(ctx context.Context, event MessageRead)
-        OnNotifyPush      func(ctx context.Context, event NotifyPush)
-        OnPresenceChanged func(ctx context.Context, event PresenceChanged)
-        OnProfileUpdated  func(ctx context.Context, event ProfileUpdated)
-        OnTypingChanged   func(ctx context.Context, event TypingChanged)
-        OnChatDeleted     func(ctx context.Context, event ChatDeleted)
+        OnMessageCreated  func(ctx context.Context, event domain.MessageCreated)
+        OnMessageUpdated  func(ctx context.Context, event domain.MessageUpdated)
+        OnMessageRead     func(ctx context.Context, event domain.MessageRead)
+        OnNotifyPush      func(ctx context.Context, event domain.NotifyPush)
+        OnPresenceChanged func(ctx context.Context, event domain.PresenceChanged)
+        OnProfileUpdated  func(ctx context.Context, event domain.ProfileUpdated)
+        OnTypingChanged   func(ctx context.Context, event domain.TypingChanged)
+        OnChatDeleted     func(ctx context.Context, event domain.ChatDeleted)
 }
 
 type PresencePublisher struct {
@@ -536,7 +477,7 @@ func (p *PresencePublisher) Close() <span class="cov0" title="0">{
         p.nc.Close()
 }</span>
 
-func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event PresenceChanged) error <span class="cov0" title="0">{
+func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event domain.PresenceChanged) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -548,7 +489,7 @@ func (p *PresencePublisher) PublishPresenceChanged(ctx context.Context, event Pr
         return p.nc.PublishMsg(&amp;nats.Msg{Subject: subjectPresence, Data: payload, Header: header})</span>
 }
 
-func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event TypingChanged) error <span class="cov0" title="0">{
+func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event domain.TypingChanged) error <span class="cov0" title="0">{
         payload, err := json.Marshal(event)
         if err != nil </span><span class="cov0" title="0">{
                 return err
@@ -576,7 +517,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
-                        var event MessageCreated
+                        var event domain.MessageCreated
                         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal msg.created event: %v", err)
                                 return
@@ -587,7 +528,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeMulti(ctx, js, chatStreamName, []string{subjectMsgEdit, subjectMsgDelete}, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
-                        var event MessageUpdated
+                        var event domain.MessageUpdated
                         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal msg.updated/deleted event: %v", err)
                                 return
@@ -598,7 +539,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectMsgRead, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
-                        var event MessageRead
+                        var event domain.MessageRead
                         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal msg.read event: %v", err)
                                 return
@@ -609,7 +550,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, chatStreamName, subjectChatDelete, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
-                        var event ChatDeleted
+                        var event domain.ChatDeleted
                         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal chat.deleted event: %v", err)
                                 return
@@ -620,7 +561,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, notifyStreamName, subjectNotify, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
-                        var event NotifyPush
+                        var event domain.NotifyPush
                         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal notify.push event: %v", err)
                                 return
@@ -631,7 +572,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 errCh &lt;- consumeOne(ctx, js, userStreamName, subjectProfileUpdated, func(ctx context.Context, data []byte) </span><span class="cov0" title="0">{
-                        var event ProfileUpdated
+                        var event domain.ProfileUpdated
                         if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal user.profile_updated event: %v", err)
                                 return
@@ -642,7 +583,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) </span><span class="cov0" title="0">{
-                        var event PresenceChanged
+                        var event domain.PresenceChanged
                         if err := json.Unmarshal(msg.Data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
                                 return
@@ -663,7 +604,7 @@ func Consume(ctx context.Context, url string, handlers Handlers) error <span cla
 
         <span class="cov0" title="0">go func() </span><span class="cov0" title="0">{
                 sub, err := nc.Subscribe(subjectTyping, func(msg *nats.Msg) </span><span class="cov0" title="0">{
-                        var event TypingChanged
+                        var event domain.TypingChanged
                         if err := json.Unmarshal(msg.Data, &amp;event); err != nil </span><span class="cov0" title="0">{
                                 log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
                                 return
@@ -736,21 +677,8 @@ import (
         "context"
         "log"
 
-        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
-        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
-
-type MembersLister interface {
-        ListMembers(ctx context.Context, chatID string) ([]string, error)
-}
-
-type MessageGetter interface {
-        GetMessage(ctx context.Context, messageID string) (chatclient.Message, error)
-}
-
-type ContactsLister interface {
-        ListContacts(ctx context.Context, userID string) ([]string, error)
-}
 
 type Fanout struct {
         registry *Registry
@@ -763,7 +691,7 @@ func NewFanout(registry *Registry, members MembersLister, messages MessageGetter
         return &amp;Fanout{registry: registry, members: members, messages: messages, contacts: contacts}
 }</span>
 
-func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageCreated) <span class="cov8" title="1">{
+func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageCreated) <span class="cov8" title="1">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -775,11 +703,12 @@ func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageC
                 log.Printf("ws-gateway: failed to fetch message %s for fanout: %v", event.MessageID, err)
                 return
         }</span>
+        <span class="cov8" title="1">wire := toWireMessage(message)
 
-        <span class="cov8" title="1">payload := serverMessage{
+        payload := serverMessage{
                 Type:    "message_received",
                 ChatID:  event.ChatID,
-                Message: &amp;message,
+                Message: &amp;wire,
         }
 
         for _, userID := range userIDs </span><span class="cov8" title="1">{
@@ -787,7 +716,7 @@ func (f *Fanout) HandleMessageCreated(ctx context.Context, event events.MessageC
         }</span>
 }
 
-func (f *Fanout) HandleMessageUpdated(ctx context.Context, event events.MessageUpdated) <span class="cov0" title="0">{
+func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageUpdated) <span class="cov0" title="0">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -807,7 +736,7 @@ func (f *Fanout) HandleMessageUpdated(ctx context.Context, event events.MessageU
         }</span>
 }
 
-func (f *Fanout) HandleMessageRead(ctx context.Context, event events.MessageRead) <span class="cov0" title="0">{
+func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead) <span class="cov0" title="0">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -829,7 +758,7 @@ func (f *Fanout) HandleMessageRead(ctx context.Context, event events.MessageRead
         }
 }
 
-func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) <span class="cov0" title="0">{
+func (f *Fanout) HandleNotifyPush(_ context.Context, event domain.NotifyPush) <span class="cov0" title="0">{
         payload := serverMessage{
                 Type:      "notify_push",
                 ChatID:    event.ChatID,
@@ -839,7 +768,7 @@ func (f *Fanout) HandleNotifyPush(_ context.Context, event events.NotifyPush) <s
         f.registry.Broadcast(event.UserID, payload)
 }</span>
 
-func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.PresenceChanged) <span class="cov0" title="0">{
+func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.PresenceChanged) <span class="cov0" title="0">{
         contacts, err := f.contacts.ListContacts(ctx, event.UserID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list contacts for presence fanout of %s: %v", event.UserID, err)
@@ -858,7 +787,7 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event events.Presenc
         }</span>
 }
 
-func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingChanged) <span class="cov0" title="0">{
+func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingChanged) <span class="cov0" title="0">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
@@ -879,7 +808,7 @@ func (f *Fanout) HandleTypingChanged(ctx context.Context, event events.TypingCha
         }
 }
 
-func (f *Fanout) HandleChatDeleted(_ context.Context, event events.ChatDeleted) <span class="cov0" title="0">{
+func (f *Fanout) HandleChatDeleted(_ context.Context, event domain.ChatDeleted) <span class="cov0" title="0">{
         payload := serverMessage{
                 Type:   "chat_deleted",
                 ChatID: event.ChatID,
@@ -890,7 +819,7 @@ func (f *Fanout) HandleChatDeleted(_ context.Context, event events.ChatDeleted) 
         }</span>
 }
 
-func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileUpdated) <span class="cov0" title="0">{
+func (f *Fanout) HandleProfileUpdated(ctx context.Context, event domain.ProfileUpdated) <span class="cov0" title="0">{
         contacts, err := f.contacts.ListContacts(ctx, event.UserID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list contacts for profile fanout of %s: %v", event.UserID, err)
@@ -913,35 +842,13 @@ func (f *Fanout) HandleProfileUpdated(ctx context.Context, event events.ProfileU
 		<pre class="file" id="file4" style="display: none">package ws
 
 import (
-        "context"
         "log"
         "net/http"
 
         "github.com/gorilla/websocket"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
-        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
-        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
-
-type ChatClient interface {
-        SendMessage(ctx context.Context, bearerToken, chatID, text string) (string, error)
-        GetHistory(ctx context.Context, bearerToken, chatID string, limit, offset int32) ([]chatclient.Message, error)
-        GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error)
-        SetOnline(ctx context.Context, userID string) error
-        SetOffline(ctx context.Context, userID string) error
-        EditMessage(ctx context.Context, bearerToken, chatID, messageID, text string) error
-        DeleteMessageForAll(ctx context.Context, bearerToken, chatID, messageID string) error
-        DeleteMessageForMe(ctx context.Context, bearerToken, chatID, messageID string) error
-        MarkRead(ctx context.Context, bearerToken, chatID, messageID string) error
-        GetReadStatus(ctx context.Context, chatID, userID string) (string, error)
-        SetTyping(ctx context.Context, chatID, userID string) error
-}
-
-type PresencePublisher interface {
-        PublishPresenceChanged(ctx context.Context, event events.PresenceChanged) error
-        PublishTypingChanged(ctx context.Context, event events.TypingChanged) error
-}
 
 type Handler struct {
         jwtSecret      string
@@ -1057,10 +964,8 @@ import (
         "sync"
         "time"
 
+        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
         "github.com/gorilla/websocket"
-
-        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
-        "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 const (
@@ -1081,21 +986,49 @@ type clientMessage struct {
 }
 
 type serverMessage struct {
-        Type              string               `json:"type"`
-        Error             string               `json:"error,omitempty"`
-        MessageID         string               `json:"message_id,omitempty"`
-        Messages          []chatclient.Message `json:"messages,omitempty"`
-        ChatID            string               `json:"chat_id,omitempty"`
-        Message           *chatclient.Message  `json:"message,omitempty"`
-        PeerUserID        string               `json:"peer_user_id,omitempty"`
-        PeerTag           string               `json:"peer_tag,omitempty"`
-        PeerDisplayName   string               `json:"peer_display_name,omitempty"`
-        Online            bool                 `json:"online,omitempty"`
-        LastSeenUnix      int64                `json:"last_seen_unix,omitempty"`
-        NewText           *string              `json:"new_text,omitempty"`
-        Deleted           bool                 `json:"deleted,omitempty"`
-        Offset            int32                `json:"offset,omitempty"`
-        LastReadMessageID string               `json:"last_read_message_id,omitempty"`
+        Type              string        `json:"type"`
+        Error             string        `json:"error,omitempty"`
+        MessageID         string        `json:"message_id,omitempty"`
+        Messages          []wireMessage `json:"messages,omitempty"`
+        ChatID            string        `json:"chat_id,omitempty"`
+        Message           *wireMessage  `json:"message,omitempty"`
+        PeerUserID        string        `json:"peer_user_id,omitempty"`
+        PeerTag           string        `json:"peer_tag,omitempty"`
+        PeerDisplayName   string        `json:"peer_display_name,omitempty"`
+        Online            bool          `json:"online,omitempty"`
+        LastSeenUnix      int64         `json:"last_seen_unix,omitempty"`
+        NewText           *string       `json:"new_text,omitempty"`
+        Deleted           bool          `json:"deleted,omitempty"`
+        Offset            int32         `json:"offset,omitempty"`
+        LastReadMessageID string        `json:"last_read_message_id,omitempty"`
+}
+
+type wireMessage struct {
+        MessageID     string `json:"message_id"`
+        SenderUserID  string `json:"sender_user_id"`
+        Text          string `json:"text"`
+        CreatedAtUnix int64  `json:"created_at_unix"`
+        EditedAtUnix  int64  `json:"edited_at_unix"`
+        Deleted       bool   `json:"deleted"`
+}
+
+func toWireMessage(m domain.Message) wireMessage <span class="cov8" title="1">{
+        return wireMessage{
+                MessageID:     m.MessageID,
+                SenderUserID:  m.SenderUserID,
+                Text:          m.Text,
+                CreatedAtUnix: m.CreatedAtUnix,
+                EditedAtUnix:  m.EditedAtUnix,
+                Deleted:       m.Deleted,
+        }
+}</span>
+
+func toWireMessages(ms []domain.Message) []wireMessage <span class="cov8" title="1">{
+        out := make([]wireMessage, len(ms))
+        for i, m := range ms </span><span class="cov8" title="1">{
+                out[i] = toWireMessage(m)
+        }</span>
+        <span class="cov8" title="1">return out</span>
 }
 
 type session struct {
@@ -1208,7 +1141,7 @@ func (s *session) markOffline() <span class="cov8" title="1">{
 }
 
 func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUnix int64) <span class="cov8" title="1">{
-        if err := s.presence.PublishPresenceChanged(ctx, events.PresenceChanged{
+        if err := s.presence.PublishPresenceChanged(ctx, domain.PresenceChanged{
                 UserID:       s.userID,
                 Online:       online,
                 LastSeenUnix: lastSeenUnix,
@@ -1242,7 +1175,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         s.writeError(err.Error())
                         return
                 }</span>
-                <span class="cov8" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages, Offset: msg.Offset})</span>
+                <span class="cov8" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: toWireMessages(messages), Offset: msg.Offset})</span>
 
         case "get_presence":<span class="cov0" title="0">
                 online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)
@@ -1310,7 +1243,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         log.Printf("ws-gateway: failed to set typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
                         return
                 }</span>
-                <span class="cov0" title="0">if err := s.presence.PublishTypingChanged(ctx, events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil </span><span class="cov0" title="0">{
+                <span class="cov0" title="0">if err := s.presence.PublishTypingChanged(ctx, domain.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil </span><span class="cov0" title="0">{
                         log.Printf("ws-gateway: failed to publish typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
                 }</span>
 
