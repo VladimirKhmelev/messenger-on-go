@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/repository"
 )
 
 const (
@@ -32,23 +31,13 @@ var blockedContentTypes = map[string]bool{
 	"application/x-itunes-ipa":                      true, // .ipa
 }
 
-type ChatMembership interface {
-	IsMember(ctx context.Context, chatID, userID string) (bool, error)
-}
-
-type ObjectStore interface {
-	PresignedPutURL(ctx context.Context, objectKey string, expires time.Duration) (string, error)
-	PresignedGetURL(ctx context.Context, objectKey string, expires time.Duration) (string, error)
-	StatObjectExists(ctx context.Context, objectKey string) (bool, error)
-}
-
 type MediaService struct {
-	media   repository.MediaRepository
+	media   MediaRepository
 	store   ObjectStore
 	members ChatMembership
 }
 
-func NewMediaService(media repository.MediaRepository, store ObjectStore, members ChatMembership) *MediaService {
+func NewMediaService(media MediaRepository, store ObjectStore, members ChatMembership) *MediaService {
 	return &MediaService{media: media, store: store, members: members}
 }
 

@@ -8,11 +8,6 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-const (
-	AccessTokenTTL  = 15 * time.Minute
-	RefreshTokenTTL = 30 * 24 * time.Hour
-)
-
 type TokenType string
 
 const (
@@ -35,11 +30,11 @@ func NewIssuer(secret string) *Issuer {
 }
 
 func (i *Issuer) IssueAccessToken(userID string) (string, error) {
-	return i.issue(userID, TokenTypeAccess, AccessTokenTTL)
+	return i.issue(userID, TokenTypeAccess, domain.AccessTokenTTL)
 }
 
 func (i *Issuer) IssueRefreshToken(userID string) (string, error) {
-	return i.issue(userID, TokenTypeRefresh, RefreshTokenTTL)
+	return i.issue(userID, TokenTypeRefresh, domain.RefreshTokenTTL)
 }
 
 func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (string, error) {
@@ -75,4 +70,16 @@ func (i *Issuer) Parse(tokenString string, wantType TokenType) (*Claims, error) 
 	}
 
 	return claims, nil
+}
+
+func (i *Issuer) ParseRefreshToken(tokenString string) (*domain.TokenClaims, error) {
+	claims, err := i.Parse(tokenString, TokenTypeRefresh)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.TokenClaims{
+		UserID:    claims.UserID,
+		IssuedAt:  claims.IssuedAt.Time,
+		ExpiresAt: claims.ExpiresAt.Time,
+	}, nil
 }

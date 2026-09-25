@@ -11,8 +11,6 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events"
-	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository"
 )
 
 const (
@@ -21,39 +19,15 @@ const (
 	MaxMessageBodyBytes = 64 * 1024
 )
 
-type AuthClient interface {
-	UserExists(ctx context.Context, bearerToken, userID string) (bool, error)
-}
-
-type EventPublisher interface {
-	PublishMessageCreated(ctx context.Context, event events.MessageCreated) error
-	PublishMessageUpdated(ctx context.Context, event events.MessageUpdated) error
-	PublishMessageRead(ctx context.Context, event events.MessageRead) error
-	PublishChatDeleted(ctx context.Context, event events.ChatDeleted) error
-}
-
-type PresenceChecker interface {
-	IsOnline(ctx context.Context, userID string) (bool, error)
-	LastSeen(ctx context.Context, userID string) (int64, error)
-	SetOnline(ctx context.Context, userID string) error
-	SetOffline(ctx context.Context, userID string) error
-	SetTyping(ctx context.Context, chatID, userID string) error
-	IsTyping(ctx context.Context, chatID, userID string) (bool, error)
-}
-
-type RateLimiter interface {
-	Allow(ctx context.Context, userID string) (bool, error)
-}
-
 type ChatService struct {
-	chats       repository.ChatRepository
+	chats       ChatRepository
 	auth        AuthClient
 	events      EventPublisher
 	presence    PresenceChecker
 	sendLimiter RateLimiter
 }
 
-func NewChatService(chats repository.ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService {
+func NewChatService(chats ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService {
 	return &ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence, sendLimiter: sendLimiter}
 }
 
@@ -97,7 +71,7 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
 		ChatType:  domain.ChatTypePrivate,
 	}
 
-	chatKeyByUserID := map[string]repository.MemberChatKey{
+	chatKeyByUserID := map[string]domain.MemberChatKey{
 		requesterID: {EncryptedChatKey: encryptedChatKeyByUserID[requesterID], WrappedForPublicKey: wrappedForPublicKeyByUserID[requesterID]},
 		targetID:    {EncryptedChatKey: encryptedChatKeyByUserID[targetID], WrappedForPublicKey: wrappedForPublicKeyByUserID[targetID]},
 	}
@@ -143,14 +117,14 @@ func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requeste
 		return nil, domain.ErrTooManyMembers
 	}
 
-	chatKeyByUserID := make(map[string]repository.MemberChatKey, len(allMemberIDs))
+	chatKeyByUserID := make(map[string]domain.MemberChatKey, len(allMemberIDs))
 	for _, memberID := range allMemberIDs {
 		encryptedKey := encryptedChatKeyByUserID[memberID]
 		wrappedKey := wrappedForPublicKeyByUserID[memberID]
 		if encryptedKey == "" || wrappedKey == "" {
 			return nil, domain.ErrMissingChatKey
 		}
-		chatKeyByUserID[memberID] = repository.MemberChatKey{EncryptedChatKey: encryptedKey, WrappedForPublicKey: wrappedKey}
+		chatKeyByUserID[memberID] = domain.MemberChatKey{EncryptedChatKey: encryptedKey, WrappedForPublicKey: wrappedKey}
 	}
 
 	chat := &domain.Chat{
@@ -213,7 +187,7 @@ func (s *ChatService) AddMember(ctx context.Context, bearerToken, chatID, reques
 		return domain.ErrMissingChatKey
 	}
 
-	return s.chats.AddMember(ctx, chatID, newMemberID, repository.MemberChatKey{
+	return s.chats.AddMember(ctx, chatID, newMemberID, domain.MemberChatKey{
 		EncryptedChatKey:    encryptedChatKey,
 		WrappedForPublicKey: wrappedForPublicKey,
 	})
@@ -320,7 +294,7 @@ func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID s
 		return err
 	}
 
-	if err := s.events.PublishChatDeleted(ctx, events.ChatDeleted{
+	if err := s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
 		ChatID:        chatID,
 		MemberUserIDs: memberUserIDs,
 		DeletedAt:     time.Now(),
@@ -416,7 +390,7 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 	}
 	metrics.MessagesSentTotal.Inc()
 
-	if err := s.events.PublishMessageCreated(ctx, events.MessageCreated{
+	if err := s.events.PublishMessageCreated(ctx, domain.MessageCreated{
 		MessageID: message.ID,
 		ChatID:    message.ChatID,
 		SenderID:  message.SenderID,
@@ -514,7 +488,7 @@ func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, n
 		return nil, err
 	}
 
-	if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+	if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
 		MessageID: messageID,
 		ChatID:    message.ChatID,
 		NewBody:   &newBody,
@@ -558,7 +532,7 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
 		return err
 	}
 
-	if err := s.events.PublishMessageUpdated(ctx, events.MessageUpdated{
+	if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
 		MessageID: messageID,
 		ChatID:    message.ChatID,
 		Deleted:   true,
@@ -592,7 +566,7 @@ func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, message
 		return err
 	}
 
-	if err := s.events.PublishMessageRead(ctx, events.MessageRead{
+	if err := s.events.PublishMessageRead(ctx, domain.MessageRead{
 		ChatID:    chatID,
 		UserID:    requesterID,
 		MessageID: messageID,

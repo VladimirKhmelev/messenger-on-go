@@ -240,11 +240,11 @@ export class WsClient {
 function normalizeMessage(raw) {
   if (!raw) return null;
   return {
-    messageId: raw.MessageID ?? raw.messageId,
-    senderUserId: raw.SenderUserID ?? raw.senderUserId,
-    text: raw.Text ?? raw.text,
-    createdAtUnix: raw.CreatedAtUnix ?? raw.createdAtUnix,
-    editedAtUnix: raw.EditedAtUnix ?? raw.editedAtUnix ?? 0,
-    deleted: raw.Deleted ?? raw.deleted ?? false,
+    messageId: raw.message_id,
+    senderUserId: raw.sender_user_id,
+    text: raw.text,
+    createdAtUnix: raw.created_at_unix,
+    editedAtUnix: raw.edited_at_unix ?? 0,
+    deleted: raw.deleted ?? false,
   };
 }

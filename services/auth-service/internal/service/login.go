@@ -9,7 +9,6 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 type TokenPair struct {
@@ -58,7 +57,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Token
 }
 
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
-	claims, err := s.tokens.Parse(refreshToken, jwtutil.TokenTypeRefresh)
+	claims, err := s.tokens.ParseRefreshToken(refreshToken)
 	if err != nil {
 		return nil, domain.ErrInvalidToken
 	}
@@ -68,13 +67,13 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, err
 	}
 	if revoked {
-		if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, jwtutil.RefreshTokenTTL); err != nil {
+		if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, domain.RefreshTokenTTL); err != nil {
 			return nil, err
 		}
 		return nil, domain.ErrInvalidToken
 	}
 
-	revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt.Time)
+	revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, err
 	}
 
-	if ttl := time.Until(claims.ExpiresAt.Time); ttl > 0 {
+	if ttl := time.Until(claims.ExpiresAt); ttl > 0 {
 		if err := s.refreshBlocked.Revoke(ctx, refreshToken, ttl); err != nil {
 			return nil, err
 		}
@@ -102,12 +101,12 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 }
 
 func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
-	claims, err := s.tokens.Parse(refreshToken, jwtutil.TokenTypeRefresh)
+	claims, err := s.tokens.ParseRefreshToken(refreshToken)
 	if err != nil {
 		return domain.ErrInvalidToken
 	}
 
-	ttl := time.Until(claims.ExpiresAt.Time)
+	ttl := time.Until(claims.ExpiresAt)
 	if ttl <= 0 {
 		return nil
 	}

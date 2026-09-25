@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
 
 type fakeChatClient struct {
@@ -34,20 +32,20 @@ func (c *fakeChatClient) IsOnline(_ context.Context, userID string) (bool, error
 }
 
 type fakeAuthClient struct {
-	subs map[string][]authclient.PushSubscription
+	subs map[string][]domain.PushSubscription
 }
 
 func newFakeAuthClient() *fakeAuthClient {
-	return &fakeAuthClient{subs: map[string][]authclient.PushSubscription{}}
+	return &fakeAuthClient{subs: map[string][]domain.PushSubscription{}}
 }
 
-func (c *fakeAuthClient) ListPushSubscriptions(_ context.Context, userID string) ([]authclient.PushSubscription, error) {
+func (c *fakeAuthClient) ListPushSubscriptions(_ context.Context, userID string) ([]domain.PushSubscription, error) {
 	return c.subs[userID], nil
 }
 
 type sentPush struct {
-	sub     webpush.Subscription
-	payload webpush.Payload
+	sub     domain.PushSubscription
+	payload domain.PushPayload
 }
 
 type fakeWebPushSender struct {
@@ -58,12 +56,12 @@ func newFakeWebPushSender() *fakeWebPushSender {
 	return &fakeWebPushSender{}
 }
 
-func (s *fakeWebPushSender) Send(_ context.Context, sub webpush.Subscription, payload webpush.Payload) {
+func (s *fakeWebPushSender) Send(_ context.Context, sub domain.PushSubscription, payload domain.PushPayload) {
 	s.sent = append(s.sent, sentPush{sub: sub, payload: payload})
 }
 
 type fakeEventPublisher struct {
-	published []events.NotifyPush
+	published []domain.NotifyPush
 	err       error
 }
 
@@ -71,7 +69,7 @@ func newFakeEventPublisher() *fakeEventPublisher {
 	return &fakeEventPublisher{}
 }
 
-func (p *fakeEventPublisher) PublishNotifyPush(_ context.Context, event events.NotifyPush) error {
+func (p *fakeEventPublisher) PublishNotifyPush(_ context.Context, event domain.NotifyPush) error {
 	if p.err != nil {
 		return p.err
 	}
@@ -90,7 +88,7 @@ func TestHandler_HandleMessageCreated_NotifiesOfflineNonSenderMembers(t *testing
 
 	h := NewHandler(chat, auth, push, publisher)
 
-	event := events.MessageCreated{
+	event := domain.MessageCreated{
 		MessageID: "msg-1",
 		ChatID:    "chat-1",
 		SenderID:  "sender",
@@ -116,7 +114,7 @@ func TestHandler_HandleMessageCreated_SendsWebPushToOfflineUserSubscriptions(t *
 	chat.members["chat-1"] = []string{"sender", "offline-user"}
 
 	auth := newFakeAuthClient()
-	auth.subs["offline-user"] = []authclient.PushSubscription{
+	auth.subs["offline-user"] = []domain.PushSubscription{
 		{Endpoint: "https://push.example.com/a", P256dhKey: "p256dh-a", AuthKey: "auth-a"},
 		{Endpoint: "https://push.example.com/b", P256dhKey: "p256dh-b", AuthKey: "auth-b"},
 	}
@@ -126,7 +124,7 @@ func TestHandler_HandleMessageCreated_SendsWebPushToOfflineUserSubscriptions(t *
 
 	h := NewHandler(chat, auth, push, publisher)
 
-	event := events.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
+	event := domain.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
 	data, err := json.Marshal(event)
 	if err != nil {
 		t.Fatalf("json.Marshal() unexpected error: %v", err)
@@ -157,7 +155,7 @@ func TestHandler_HandleMessageCreated_NoSubscriptionsSendsNoPush(t *testing.T) {
 
 	h := NewHandler(chat, auth, push, publisher)
 
-	event := events.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
+	event := domain.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
 	data, err := json.Marshal(event)
 	if err != nil {
 		t.Fatalf("json.Marshal() unexpected error: %v", err)
@@ -176,7 +174,7 @@ func TestHandler_HandleMessageCreated_OnlineUsersSkipped(t *testing.T) {
 	chat.online["online-user"] = true
 
 	auth := newFakeAuthClient()
-	auth.subs["online-user"] = []authclient.PushSubscription{
+	auth.subs["online-user"] = []domain.PushSubscription{
 		{Endpoint: "https://push.example.com/a", P256dhKey: "p256dh", AuthKey: "auth"},
 	}
 
@@ -185,7 +183,7 @@ func TestHandler_HandleMessageCreated_OnlineUsersSkipped(t *testing.T) {
 
 	h := NewHandler(chat, auth, push, publisher)
 
-	event := events.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
+	event := domain.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
 	data, err := json.Marshal(event)
 	if err != nil {
 		t.Fatalf("json.Marshal() unexpected error: %v", err)
@@ -226,7 +224,7 @@ func TestHandler_HandleMessageCreated_ListMembersError(t *testing.T) {
 
 	h := NewHandler(chat, auth, push, publisher)
 
-	event := events.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
+	event := domain.MessageCreated{MessageID: "msg-1", ChatID: "chat-1", SenderID: "sender", CreatedAt: time.Now()}
 	data, err := json.Marshal(event)
 	if err != nil {
 		t.Fatalf("json.Marshal() unexpected error: %v", err)

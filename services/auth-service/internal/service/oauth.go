@@ -13,8 +13,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/events"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/oauth"
 )
 
 const maxTagGenerationAttempts = 5
@@ -64,7 +62,7 @@ func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrap
 	}, nil
 }
 
-func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) {
+func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *domain.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) {
 	tag, err := s.generateUniqueTag(ctx, "id")
 	if err != nil {
 		return nil, err
@@ -87,7 +85,7 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *oauth.G
 		return nil, err
 	}
 
-	if err := s.events.PublishUserOAuthLinked(ctx, events.UserOAuthLinked{
+	if err := s.events.PublishUserOAuthLinked(ctx, domain.UserOAuthLinked{
 		UserID:   user.ID,
 		Email:    user.Email,
 		Provider: "github",

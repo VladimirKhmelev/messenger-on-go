@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
-	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/jwtutil"
 )
 
 func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt string) error {
@@ -65,7 +64,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
 }
 
 func (s *AuthService) markPasswordChanged(ctx context.Context, userID string) {
-	if err := s.passwordChanges.MarkChanged(ctx, userID, jwtutil.AccessTokenTTL); err != nil {
+	if err := s.passwordChanges.MarkChanged(ctx, userID, domain.AccessTokenTTL); err != nil {
 		log.Printf("auth-service: failed to record password change for %s: %v", userID, err)
 	}
 }

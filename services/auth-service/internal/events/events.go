@@ -3,12 +3,12 @@ package events
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
+	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
 const (
@@ -19,32 +19,6 @@ const (
 	SubjectUserOAuthLinked    = "user.oauth_linked"
 	SubjectUserProfileUpdated = "user.profile_updated"
 )
-
-type UserRegistered struct {
-	UserID    string    `json:"user_id"`
-	Email     string    `json:"email"`
-	Tag       string    `json:"tag"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type UserPasswordReset struct {
-	UserID string    `json:"user_id"`
-	Email  string    `json:"email"`
-	At     time.Time `json:"at"`
-}
-
-type UserOAuthLinked struct {
-	UserID   string    `json:"user_id"`
-	Email    string    `json:"email"`
-	Provider string    `json:"provider"`
-	At       time.Time `json:"at"`
-}
-
-type UserProfileUpdated struct {
-	UserID      string `json:"user_id"`
-	Tag         string `json:"tag"`
-	DisplayName string `json:"display_name"`
-}
 
 type Publisher struct {
 	js jetstream.JetStream
@@ -72,19 +46,19 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 	return &Publisher{js: js}, nil
 }
 
-func (p *Publisher) PublishUserRegistered(ctx context.Context, event UserRegistered) error {
+func (p *Publisher) PublishUserRegistered(ctx context.Context, event domain.UserRegistered) error {
 	return p.publish(ctx, SubjectUserRegistered, event)
 }
 
-func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event UserPasswordReset) error {
+func (p *Publisher) PublishUserPasswordReset(ctx context.Context, event domain.UserPasswordReset) error {
 	return p.publish(ctx, SubjectUserPasswordReset, event)
 }
 
-func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event UserOAuthLinked) error {
+func (p *Publisher) PublishUserOAuthLinked(ctx context.Context, event domain.UserOAuthLinked) error {
 	return p.publish(ctx, SubjectUserOAuthLinked, event)
 }
 
-func (p *Publisher) PublishUserProfileUpdated(ctx context.Context, event UserProfileUpdated) error {
+func (p *Publisher) PublishUserProfileUpdated(ctx context.Context, event domain.UserProfileUpdated) error {
 	return p.publish(ctx, SubjectUserProfileUpdated, event)
 }
 
