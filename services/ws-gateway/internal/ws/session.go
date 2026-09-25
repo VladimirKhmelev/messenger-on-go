@@ -7,10 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 	"github.com/gorilla/websocket"
-
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 const (
@@ -31,21 +29,49 @@ type clientMessage struct {
 }
 
 type serverMessage struct {
-	Type              string               `json:"type"`
-	Error             string               `json:"error,omitempty"`
-	MessageID         string               `json:"message_id,omitempty"`
-	Messages          []chatclient.Message `json:"messages,omitempty"`
-	ChatID            string               `json:"chat_id,omitempty"`
-	Message           *chatclient.Message  `json:"message,omitempty"`
-	PeerUserID        string               `json:"peer_user_id,omitempty"`
-	PeerTag           string               `json:"peer_tag,omitempty"`
-	PeerDisplayName   string               `json:"peer_display_name,omitempty"`
-	Online            bool                 `json:"online,omitempty"`
-	LastSeenUnix      int64                `json:"last_seen_unix,omitempty"`
-	NewText           *string              `json:"new_text,omitempty"`
-	Deleted           bool                 `json:"deleted,omitempty"`
-	Offset            int32                `json:"offset,omitempty"`
-	LastReadMessageID string               `json:"last_read_message_id,omitempty"`
+	Type              string        `json:"type"`
+	Error             string        `json:"error,omitempty"`
+	MessageID         string        `json:"message_id,omitempty"`
+	Messages          []wireMessage `json:"messages,omitempty"`
+	ChatID            string        `json:"chat_id,omitempty"`
+	Message           *wireMessage  `json:"message,omitempty"`
+	PeerUserID        string        `json:"peer_user_id,omitempty"`
+	PeerTag           string        `json:"peer_tag,omitempty"`
+	PeerDisplayName   string        `json:"peer_display_name,omitempty"`
+	Online            bool          `json:"online,omitempty"`
+	LastSeenUnix      int64         `json:"last_seen_unix,omitempty"`
+	NewText           *string       `json:"new_text,omitempty"`
+	Deleted           bool          `json:"deleted,omitempty"`
+	Offset            int32         `json:"offset,omitempty"`
+	LastReadMessageID string        `json:"last_read_message_id,omitempty"`
+}
+
+type wireMessage struct {
+	MessageID     string `json:"message_id"`
+	SenderUserID  string `json:"sender_user_id"`
+	Text          string `json:"text"`
+	CreatedAtUnix int64  `json:"created_at_unix"`
+	EditedAtUnix  int64  `json:"edited_at_unix"`
+	Deleted       bool   `json:"deleted"`
+}
+
+func toWireMessage(m domain.Message) wireMessage {
+	return wireMessage{
+		MessageID:     m.MessageID,
+		SenderUserID:  m.SenderUserID,
+		Text:          m.Text,
+		CreatedAtUnix: m.CreatedAtUnix,
+		EditedAtUnix:  m.EditedAtUnix,
+		Deleted:       m.Deleted,
+	}
+}
+
+func toWireMessages(ms []domain.Message) []wireMessage {
+	out := make([]wireMessage, len(ms))
+	for i, m := range ms {
+		out[i] = toWireMessage(m)
+	}
+	return out
 }
 
 type session struct {
@@ -158,7 +184,7 @@ func (s *session) markOffline() {
 }
 
 func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUnix int64) {
-	if err := s.presence.PublishPresenceChanged(ctx, events.PresenceChanged{
+	if err := s.presence.PublishPresenceChanged(ctx, domain.PresenceChanged{
 		UserID:       s.userID,
 		Online:       online,
 		LastSeenUnix: lastSeenUnix,
@@ -192,7 +218,7 @@ func (s *session) handle(data []byte) {
 			s.writeError(err.Error())
 			return
 		}
-		s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: messages, Offset: msg.Offset})
+		s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: toWireMessages(messages), Offset: msg.Offset})
 
 	case "get_presence":
 		online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)
@@ -260,7 +286,7 @@ func (s *session) handle(data []byte) {
 			log.Printf("ws-gateway: failed to set typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
 			return
 		}
-		if err := s.presence.PublishTypingChanged(ctx, events.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil {
+		if err := s.presence.PublishTypingChanged(ctx, domain.TypingChanged{ChatID: msg.ChatID, UserID: s.userID}); err != nil {
 			log.Printf("ws-gateway: failed to publish typing for user %s in chat %s: %v", s.userID, msg.ChatID, err)
 		}
 

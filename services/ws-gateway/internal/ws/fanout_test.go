@@ -8,10 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 	"github.com/gorilla/websocket"
-
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
-	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
 )
 
 type fakeMembersLister struct {
@@ -24,11 +22,11 @@ func (l *fakeMembersLister) ListMembers(_ context.Context, _ string) ([]string, 
 }
 
 type fakeMessageGetter struct {
-	message chatclient.Message
+	message domain.Message
 	err     error
 }
 
-func (g *fakeMessageGetter) GetMessage(_ context.Context, _ string) (chatclient.Message, error) {
+func (g *fakeMessageGetter) GetMessage(_ context.Context, _ string) (domain.Message, error) {
 	return g.message, g.err
 }
 
@@ -70,11 +68,11 @@ func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 	fanout := NewFanout(
 		registry,
 		&fakeMembersLister{userIDs: []string{"member-1"}},
-		&fakeMessageGetter{message: chatclient.Message{MessageID: "m1", SenderUserID: "member-1", Text: "hello"}},
+		&fakeMessageGetter{message: domain.Message{MessageID: "m1", SenderUserID: "member-1", Text: "hello"}},
 		&fakeContactsLister{},
 	)
 
-	fanout.HandleMessageCreated(context.Background(), events.MessageCreated{MessageID: "m1", ChatID: "chat-1"})
+	fanout.HandleMessageCreated(context.Background(), domain.MessageCreated{MessageID: "m1", ChatID: "chat-1"})
 
 	_ = memberConn.SetReadDeadline(time.Now().Add(time.Second))
 	_, data, err := memberConn.ReadMessage()
