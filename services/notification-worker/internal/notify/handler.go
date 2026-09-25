@@ -6,27 +6,8 @@ import (
 	"log"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events"
-	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/webpush"
+	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
-
-type ChatClient interface {
-	ListMembers(ctx context.Context, chatID string) ([]string, error)
-	IsOnline(ctx context.Context, userID string) (bool, error)
-}
-
-type AuthClient interface {
-	ListPushSubscriptions(ctx context.Context, userID string) ([]authclient.PushSubscription, error)
-}
-
-type WebPushSender interface {
-	Send(ctx context.Context, sub webpush.Subscription, payload webpush.Payload)
-}
-
-type EventPublisher interface {
-	PublishNotifyPush(ctx context.Context, event events.NotifyPush) error
-}
 
 type Handler struct {
 	chat    ChatClient
@@ -40,7 +21,7 @@ func NewHandler(chat ChatClient, auth AuthClient, webpushSender WebPushSender, e
 }
 
 func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) {
-	var event events.MessageCreated
+	var event domain.MessageCreated
 	if err := json.Unmarshal(data, &event); err != nil {
 		log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
 		metrics.NATSConsumeErrorsTotal.Inc()
@@ -55,7 +36,7 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
 	}
 
 	for _, userID := range recipients {
-		if err := h.events.PublishNotifyPush(ctx, events.NotifyPush{
+		if err := h.events.PublishNotifyPush(ctx, domain.NotifyPush{
 			UserID:    userID,
 			ChatID:    event.ChatID,
 			MessageID: event.MessageID,
@@ -69,24 +50,20 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
 	}
 }
 
-func (h *Handler) sendWebPush(ctx context.Context, userID string, event events.MessageCreated) {
+func (h *Handler) sendWebPush(ctx context.Context, userID string, event domain.MessageCreated) {
 	subs, err := h.auth.ListPushSubscriptions(ctx, userID)
 	if err != nil {
 		log.Printf("notification-worker: failed to list push subscriptions for user %s: %v", userID, err)
 		return
 	}
 
-	payload := webpush.Payload{ChatID: event.ChatID, MessageID: event.MessageID}
+	payload := domain.PushPayload{ChatID: event.ChatID, MessageID: event.MessageID}
 	for _, sub := range subs {
-		h.webpush.Send(ctx, webpush.Subscription{
-			Endpoint:  sub.Endpoint,
-			P256dhKey: sub.P256dhKey,
-			AuthKey:   sub.AuthKey,
-		}, payload)
+		h.webpush.Send(ctx, sub, payload)
 	}
 }
 
-func (h *Handler) recipientsNeedingNotification(ctx context.Context, event events.MessageCreated) ([]string, error) {
+func (h *Handler) recipientsNeedingNotification(ctx context.Context, event domain.MessageCreated) ([]string, error) {
 	memberIDs, err := h.chat.ListMembers(ctx, event.ChatID)
 	if err != nil {
 		return nil, err
