@@ -1,4 +1,4 @@
-package ws
+package hub
 
 import (
 	"context"
@@ -30,17 +30,8 @@ func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageC
 		log.Printf("ws-gateway: failed to fetch message %s for fanout: %v", event.MessageID, err)
 		return
 	}
-	wire := toWireMessage(message)
 
-	payload := serverMessage{
-		Type:    "message_received",
-		ChatID:  event.ChatID,
-		Message: &wire,
-	}
-
-	for _, userID := range userIDs {
-		f.registry.Broadcast(userID, payload)
-	}
+	f.broadcast(userIDs, "", MessageReceived{ChatID: event.ChatID, Message: message})
 }
 
 func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageUpdated) {
@@ -50,17 +41,7 @@ func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageU
 		return
 	}
 
-	payload := serverMessage{
-		Type:      "message_updated",
-		ChatID:    event.ChatID,
-		MessageID: event.MessageID,
-		NewText:   event.NewBody,
-		Deleted:   event.Deleted,
-	}
-
-	for _, userID := range userIDs {
-		f.registry.Broadcast(userID, payload)
-	}
+	f.broadcast(userIDs, "", event)
 }
 
 func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead) {
@@ -70,29 +51,11 @@ func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead
 		return
 	}
 
-	payload := serverMessage{
-		Type:              "read_status",
-		ChatID:            event.ChatID,
-		PeerUserID:        event.UserID,
-		LastReadMessageID: event.MessageID,
-	}
-
-	for _, userID := range userIDs {
-		if userID == event.UserID {
-			continue
-		}
-		f.registry.Broadcast(userID, payload)
-	}
+	f.broadcast(userIDs, event.UserID, event)
 }
 
 func (f *Fanout) HandleNotifyPush(_ context.Context, event domain.NotifyPush) {
-	payload := serverMessage{
-		Type:      "notify_push",
-		ChatID:    event.ChatID,
-		MessageID: event.MessageID,
-	}
-
-	f.registry.Broadcast(event.UserID, payload)
+	f.registry.Broadcast(event.UserID, event)
 }
 
 func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.PresenceChanged) {
@@ -102,16 +65,7 @@ func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.Presenc
 		return
 	}
 
-	payload := serverMessage{
-		Type:         "presence_changed",
-		PeerUserID:   event.UserID,
-		Online:       event.Online,
-		LastSeenUnix: event.LastSeenUnix,
-	}
-
-	for _, contactID := range contacts {
-		f.registry.Broadcast(contactID, payload)
-	}
+	f.broadcast(contacts, "", event)
 }
 
 func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingChanged) {
@@ -121,29 +75,11 @@ func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingCha
 		return
 	}
 
-	payload := serverMessage{
-		Type:       "typing_changed",
-		ChatID:     event.ChatID,
-		PeerUserID: event.UserID,
-	}
-
-	for _, userID := range userIDs {
-		if userID == event.UserID {
-			continue
-		}
-		f.registry.Broadcast(userID, payload)
-	}
+	f.broadcast(userIDs, event.UserID, event)
 }
 
 func (f *Fanout) HandleChatDeleted(_ context.Context, event domain.ChatDeleted) {
-	payload := serverMessage{
-		Type:   "chat_deleted",
-		ChatID: event.ChatID,
-	}
-
-	for _, userID := range event.MemberUserIDs {
-		f.registry.Broadcast(userID, payload)
-	}
+	f.broadcast(event.MemberUserIDs, "", event)
 }
 
 func (f *Fanout) HandleProfileUpdated(ctx context.Context, event domain.ProfileUpdated) {
@@ -153,14 +89,14 @@ func (f *Fanout) HandleProfileUpdated(ctx context.Context, event domain.ProfileU
 		return
 	}
 
-	payload := serverMessage{
-		Type:            "profile_updated",
-		PeerUserID:      event.UserID,
-		PeerTag:         event.Tag,
-		PeerDisplayName: event.DisplayName,
-	}
+	f.broadcast(contacts, "", event)
+}
 
-	for _, contactID := range contacts {
-		f.registry.Broadcast(contactID, payload)
+func (f *Fanout) broadcast(userIDs []string, skipUserID string, notification any) {
+	for _, userID := range userIDs {
+		if skipUserID != "" && userID == skipUserID {
+			continue
+		}
+		f.registry.Broadcast(userID, notification)
 	}
 }
