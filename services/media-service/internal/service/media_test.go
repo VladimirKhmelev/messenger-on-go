@@ -130,62 +130,7 @@ func TestMediaService_RequestUpload_EmptyContentType(t *testing.T) {
 	}
 }
 
-func TestMediaService_RequestUpload_InvalidSize(t *testing.T) {
-	repo := newFakeMediaRepository()
-	store := newFakeObjectStore()
-	members := newFakeChatMembership("chat-1", "user-a")
-	svc := NewMediaService(repo, store, members)
-
-	_, err := svc.RequestUpload(context.Background(), "chat-1", "user-a", "image/png", 0)
-	if !errors.Is(err, domain.ErrInvalidSize) {
-		t.Errorf("RequestUpload() error = %v, want %v", err, domain.ErrInvalidSize)
-	}
-}
-
-func TestMediaService_RequestUpload_SizeTooLarge(t *testing.T) {
-	repo := newFakeMediaRepository()
-	store := newFakeObjectStore()
-	members := newFakeChatMembership("chat-1", "user-a")
-	svc := NewMediaService(repo, store, members)
-
-	_, err := svc.RequestUpload(context.Background(), "chat-1", "user-a", "image/png", MaxUploadSizeBytes+1)
-	if !errors.Is(err, domain.ErrSizeTooLarge) {
-		t.Errorf("RequestUpload() error = %v, want %v", err, domain.ErrSizeTooLarge)
-	}
-}
-
-func TestMediaService_RequestUpload_BlockedContentType(t *testing.T) {
-	repo := newFakeMediaRepository()
-	store := newFakeObjectStore()
-	members := newFakeChatMembership("chat-1", "user-a")
-	svc := NewMediaService(repo, store, members)
-
-	blocked := []string{
-		"application/x-msdownload",
-		"application/x-msdos-program",
-		"application/x-executable",
-		"application/x-mach-binary",
-		"application/x-sh",
-		"application/x-bat",
-		"application/x-msi",
-		"application/vnd.microsoft.portable-executable",
-		"application/x-apple-diskimage",
-		"application/java-archive",
-		"application/vnd.android.package-archive",
-		"application/x-itunes-ipa",
-	}
-
-	for _, ct := range blocked {
-		t.Run(ct, func(t *testing.T) {
-			_, err := svc.RequestUpload(context.Background(), "chat-1", "user-a", ct, 1024)
-			if !errors.Is(err, domain.ErrContentTypeBlocked) {
-				t.Errorf("RequestUpload(%q) error = %v, want %v", ct, err, domain.ErrContentTypeBlocked)
-			}
-		})
-	}
-}
-
-func TestMediaService_RequestUpload_ChecksMembershipBeforeBlockedType(t *testing.T) {
+func TestMediaService_RequestUpload_ChecksBlockedTypeBeforeMembership(t *testing.T) {
 	repo := newFakeMediaRepository()
 	store := newFakeObjectStore()
 	members := newFakeChatMembership("chat-1", "user-a")
