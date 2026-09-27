@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/hub"
 	"github.com/gorilla/websocket"
 )
 
@@ -17,62 +18,6 @@ const (
 	maxReadBytes  = 256 * 1024
 	handleTimeout = 10 * time.Second
 )
-
-type clientMessage struct {
-	Type       string `json:"type"`
-	ChatID     string `json:"chat_id"`
-	MessageID  string `json:"message_id,omitempty"`
-	Text       string `json:"text,omitempty"`
-	Limit      int32  `json:"limit,omitempty"`
-	Offset     int32  `json:"offset,omitempty"`
-	PeerUserID string `json:"peer_user_id,omitempty"`
-}
-
-type serverMessage struct {
-	Type              string        `json:"type"`
-	Error             string        `json:"error,omitempty"`
-	MessageID         string        `json:"message_id,omitempty"`
-	Messages          []wireMessage `json:"messages,omitempty"`
-	ChatID            string        `json:"chat_id,omitempty"`
-	Message           *wireMessage  `json:"message,omitempty"`
-	PeerUserID        string        `json:"peer_user_id,omitempty"`
-	PeerTag           string        `json:"peer_tag,omitempty"`
-	PeerDisplayName   string        `json:"peer_display_name,omitempty"`
-	Online            bool          `json:"online,omitempty"`
-	LastSeenUnix      int64         `json:"last_seen_unix,omitempty"`
-	NewText           *string       `json:"new_text,omitempty"`
-	Deleted           bool          `json:"deleted,omitempty"`
-	Offset            int32         `json:"offset,omitempty"`
-	LastReadMessageID string        `json:"last_read_message_id,omitempty"`
-}
-
-type wireMessage struct {
-	MessageID     string `json:"message_id"`
-	SenderUserID  string `json:"sender_user_id"`
-	Text          string `json:"text"`
-	CreatedAtUnix int64  `json:"created_at_unix"`
-	EditedAtUnix  int64  `json:"edited_at_unix"`
-	Deleted       bool   `json:"deleted"`
-}
-
-func toWireMessage(m domain.Message) wireMessage {
-	return wireMessage{
-		MessageID:     m.MessageID,
-		SenderUserID:  m.SenderUserID,
-		Text:          m.Text,
-		CreatedAtUnix: m.CreatedAtUnix,
-		EditedAtUnix:  m.EditedAtUnix,
-		Deleted:       m.Deleted,
-	}
-}
-
-func toWireMessages(ms []domain.Message) []wireMessage {
-	out := make([]wireMessage, len(ms))
-	for i, m := range ms {
-		out[i] = toWireMessage(m)
-	}
-	return out
-}
 
 type session struct {
 	userID         string
@@ -89,10 +34,10 @@ func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, pre
 	return &session{userID: userID, token: token, conn: conn, chat: chat, presence: presence}
 }
 
-func (s *session) run(registry *Registry) {
-	registry.add(s)
+func (s *session) run(registry *hub.Registry) {
+	registry.Add(s.userID, s)
 	defer func() {
-		if hasOtherSessions := registry.remove(s); !hasOtherSessions {
+		if hasOtherSessions := registry.Remove(s.userID, s); !hasOtherSessions {
 			s.markOffline()
 		}
 	}()
@@ -293,6 +238,15 @@ func (s *session) handle(data []byte) {
 	default:
 		s.writeError("unknown message type: " + msg.Type)
 	}
+}
+
+func (s *session) Deliver(notification any) {
+	msg, ok := toServerMessage(notification)
+	if !ok {
+		log.Printf("ws-gateway: no wire format for notification %T, dropped for user %s", notification, s.userID)
+		return
+	}
+	s.write(msg)
 }
 
 func (s *session) writeError(message string) {

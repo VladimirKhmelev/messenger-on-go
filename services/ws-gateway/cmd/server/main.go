@@ -20,6 +20,7 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/hub"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/ws"
 )
 
@@ -81,8 +82,8 @@ func main() {
 	}
 	defer presencePublisher.Close()
 
-	registry := ws.NewRegistry()
-	fanout := ws.NewFanout(registry, chatClient, chatClient, chatClient)
+	registry := hub.NewRegistry()
+	fanout := hub.NewFanout(registry, chatClient, chatClient, chatClient)
 
 	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
 	defer cancelConsumer()

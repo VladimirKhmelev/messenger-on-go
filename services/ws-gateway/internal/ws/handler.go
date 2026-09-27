@@ -7,18 +7,19 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/hub"
 )
 
 type Handler struct {
 	jwtSecret      string
 	chat           ChatClient
-	registry       *Registry
+	registry       *hub.Registry
 	presence       PresencePublisher
 	allowedOrigins map[string]bool
 	upgrader       websocket.Upgrader
 }
 
-func NewHandler(jwtSecret string, chat ChatClient, registry *Registry, presence PresencePublisher, allowedOrigins []string) *Handler {
+func NewHandler(jwtSecret string, chat ChatClient, registry *hub.Registry, presence PresencePublisher, allowedOrigins []string) *Handler {
 	origins := make(map[string]bool, len(allowedOrigins))
 	for _, o := range allowedOrigins {
 		if o != "" {

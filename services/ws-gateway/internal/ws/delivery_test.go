@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
+	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/hub"
 	"github.com/gorilla/websocket"
 )
 
@@ -53,7 +54,7 @@ func connectSession(t *testing.T, server *httptest.Server, userID string) *webso
 }
 
 func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
-	registry := NewRegistry()
+	registry := hub.NewRegistry()
 	server := httptest.NewServer(NewHandler(testJWTSecret, &fakeChatClient{}, registry, fakePresencePublisher{}, nil))
 	defer server.Close()
 
@@ -65,7 +66,7 @@ func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	fanout := NewFanout(
+	fanout := hub.NewFanout(
 		registry,
 		&fakeMembersLister{userIDs: []string{"member-1"}},
 		&fakeMessageGetter{message: domain.Message{MessageID: "m1", SenderUserID: "member-1", Text: "hello"}},
