@@ -65,11 +65,13 @@
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/service/media.go (85.7%)</option>
+				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/service/media.go (83.7%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/service/validate.go (100.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc/media_server.go (58.6%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc/interceptor.go (95.7%)</option>
+				
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/transport/grpc/media_server.go (58.6%)</option>
 				
 				</select>
 			</div>
@@ -532,21 +534,6 @@ const (
         downloadURLTTL = 15 * time.Minute
 )
 
-var blockedContentTypes = map[string]bool{
-        "application/x-msdownload":                      true, // .exe, .dll
-        "application/x-msdos-program":                   true, // .exe, .com
-        "application/x-executable":                      true, // ELF binaries (Linux)
-        "application/x-mach-binary":                     true, // macOS executables
-        "application/x-sh":                              true, // .sh
-        "application/x-bat":                             true, // .bat
-        "application/x-msi":                             true, // .msi
-        "application/vnd.microsoft.portable-executable": true, // .exe, .dll (modern browsers)
-        "application/x-apple-diskimage":                 true, // .dmg
-        "application/java-archive":                      true, // .jar
-        "application/vnd.android.package-archive":       true, // .apk
-        "application/x-itunes-ipa":                      true, // .ipa
-}
-
 type MediaService struct {
         media   MediaRepository
         store   ObjectStore
@@ -564,17 +551,8 @@ type UploadTicket struct {
 }
 
 func (s *MediaService) RequestUpload(ctx context.Context, chatID, requesterID, contentType string, sizeBytes int64) (*UploadTicket, error) <span class="cov8" title="1">{
-        if contentType == "" </span><span class="cov8" title="1">{
-                return nil, domain.ErrEmptyContentType
-        }</span>
-        <span class="cov8" title="1">if blockedContentTypes[contentType] </span><span class="cov8" title="1">{
-                return nil, domain.ErrContentTypeBlocked
-        }</span>
-        <span class="cov8" title="1">if sizeBytes &lt;= 0 </span><span class="cov8" title="1">{
-                return nil, domain.ErrInvalidSize
-        }</span>
-        <span class="cov8" title="1">if sizeBytes &gt; MaxUploadSizeBytes </span><span class="cov8" title="1">{
-                return nil, domain.ErrSizeTooLarge
+        if err := validateUpload(contentType, sizeBytes); err != nil </span><span class="cov8" title="1">{
+                return nil, err
         }</span>
 
         <span class="cov8" title="1">isMember, err := s.members.IsMember(ctx, chatID, requesterID)
@@ -670,7 +648,43 @@ func (s *MediaService) GetDownloadURL(ctx context.Context, mediaID, requesterID 
 }
 </pre>
 		
-		<pre class="file" id="file6" style="display: none">package grpc
+		<pre class="file" id="file6" style="display: none">package service
+
+import "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/domain"
+
+var blockedContentTypes = map[string]bool{
+        "application/x-msdownload":                      true, // .exe, .dll
+        "application/x-msdos-program":                   true, // .exe, .com
+        "application/x-executable":                      true, // ELF binaries (Linux)
+        "application/x-mach-binary":                     true, // macOS executables
+        "application/x-sh":                              true, // .sh
+        "application/x-bat":                             true, // .bat
+        "application/x-msi":                             true, // .msi
+        "application/vnd.microsoft.portable-executable": true, // .exe, .dll (modern browsers)
+        "application/x-apple-diskimage":                 true, // .dmg
+        "application/java-archive":                      true, // .jar
+        "application/vnd.android.package-archive":       true, // .apk
+        "application/x-itunes-ipa":                      true, // .ipa
+}
+
+func validateUpload(contentType string, sizeBytes int64) error <span class="cov8" title="1">{
+        if contentType == "" </span><span class="cov8" title="1">{
+                return domain.ErrEmptyContentType
+        }</span>
+        <span class="cov8" title="1">if blockedContentTypes[contentType] </span><span class="cov8" title="1">{
+                return domain.ErrContentTypeBlocked
+        }</span>
+        <span class="cov8" title="1">if sizeBytes &lt;= 0 </span><span class="cov8" title="1">{
+                return domain.ErrInvalidSize
+        }</span>
+        <span class="cov8" title="1">if sizeBytes &gt; MaxUploadSizeBytes </span><span class="cov8" title="1">{
+                return domain.ErrSizeTooLarge
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package grpc
 
 import (
         "context"
@@ -740,7 +754,7 @@ func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" ti
 }</span>
 </pre>
 		
-		<pre class="file" id="file7" style="display: none">package grpc
+		<pre class="file" id="file8" style="display: none">package grpc
 
 import (
         "context"

@@ -71,13 +71,23 @@
 				
 				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (36.7%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (25.3%)</option>
 				
-				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
+				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/group.go (20.9%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (28.8%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/message.go (62.8%)</option>
 				
-				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
+				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/moderation.go (57.1%)</option>
+				
+				<option value="file12">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/presence.go (54.5%)</option>
+				
+				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/validate.go (100.0%)</option>
+				
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
+				
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (28.8%)</option>
+				
+				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
 				</select>
 			</div>
@@ -1052,14 +1062,10 @@ func (r *PostgresChatRepository) HasReported(ctx context.Context, messageID, rep
 import (
         "context"
         "errors"
-        "log"
-        "net/http"
         "time"
 
-        "github.com/google/uuid"
-
-        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+        "github.com/google/uuid"
 )
 
 const (
@@ -1132,9 +1138,172 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
         <span class="cov8" title="1">return chat, nil</span>
 }
 
-func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requesterID, name string, targetUserIDs []string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov0" title="0">{
-        if name == "" </span><span class="cov0" title="0">{
-                return nil, domain.ErrGroupNameRequired
+func (s *ChatService) GetChatKey(ctx context.Context, chatID, requesterID string) (string, error) <span class="cov0" title="0">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
+                return "", domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.GetChatKeyForUser(ctx, chatID, requesterID)</span>
+}
+
+func (s *ChatService) ListChatKeys(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
+                return nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.ListMembers(ctx, chatID)</span>
+}
+
+func (s *ChatService) UpdateChatKey(ctx context.Context, chatID, requesterID, targetUserID, encryptedChatKey, wrappedForPublicKey string) error <span class="cov0" title="0">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
+                return domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov0" title="0">if encryptedChatKey == "" || wrappedForPublicKey == "" </span><span class="cov0" title="0">{
+                return domain.ErrMissingChatKey
+        }</span>
+
+        <span class="cov0" title="0">return s.chats.UpdateChatKey(ctx, chatID, targetUserID, encryptedChatKey, wrappedForPublicKey)</span>
+}
+
+type ChatSummary struct {
+        ChatID        string
+        MemberUserIDs []string
+        LastMessage   *domain.Message
+        ChatType      domain.ChatType
+        Name          string
+}
+
+func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSummary, error) <span class="cov0" title="0">{
+        chats, err := s.chats.ListChatsForUser(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">summaries := make([]*ChatSummary, 0, len(chats))
+        for _, chat := range chats </span><span class="cov0" title="0">{
+                members, err := s.chats.ListMembers(ctx, chat.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">memberIDs := make([]string, 0, len(members))
+                for _, m := range members </span><span class="cov0" title="0">{
+                        memberIDs = append(memberIDs, m.UserID)
+                }</span>
+
+                <span class="cov0" title="0">lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID, userID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">name := ""
+                if chat.Name != nil </span><span class="cov0" title="0">{
+                        name = *chat.Name
+                }</span>
+
+                <span class="cov0" title="0">summaries = append(summaries, &amp;ChatSummary{
+                        ChatID:        chat.ID,
+                        MemberUserIDs: memberIDs,
+                        LastMessage:   lastMessage,
+                        ChatType:      chat.ChatType,
+                        Name:          name,
+                })</span>
+        }
+
+        <span class="cov0" title="0">return summaries, nil</span>
+}
+
+func (s *ChatService) ListContacts(ctx context.Context, userID string) ([]string, error) <span class="cov0" title="0">{
+        chats, err := s.chats.ListChatsForUser(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">seen := make(map[string]bool)
+        contacts := make([]string, 0, len(chats))
+        for _, chat := range chats </span><span class="cov0" title="0">{
+                members, err := s.chats.ListMembers(ctx, chat.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov0" title="0">for _, m := range members </span><span class="cov0" title="0">{
+                        if m.UserID == userID || seen[m.UserID] </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">seen[m.UserID] = true
+                        contacts = append(contacts, m.UserID)</span>
+                }
+        }
+
+        <span class="cov0" title="0">return contacts, nil</span>
+}
+
+func (s *ChatService) ListChatMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
+        return s.chats.ListMembers(ctx, chatID)
+}</span>
+
+func (s *ChatService) ListMembersForUser(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, *domain.Chat, error) <span class="cov0" title="0">{
+        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
+                return nil, nil, domain.ErrNotChatMember
+        }</span>
+
+        <span class="cov0" title="0">chat, err := s.chats.GetChat(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+
+        <span class="cov0" title="0">members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, err
+        }</span>
+
+        <span class="cov0" title="0">return members, chat, nil</span>
+}
+
+func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
+        members, err := s.chats.ListMembers(ctx, chatID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">userIDs := make([]string, 0, len(members))
+        for _, m := range members </span><span class="cov8" title="1">{
+                userIDs = append(userIDs, m.UserID)
+        }</span>
+        <span class="cov8" title="1">return userIDs, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package service
+
+import (
+        "context"
+        "log"
+        "time"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+        "github.com/google/uuid"
+)
+
+func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requesterID, name string, targetUserIDs []string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov8" title="1">{
+        if err := validateGroupName(name); err != nil </span><span class="cov8" title="1">{
+                return nil, err
         }</span>
         <span class="cov0" title="0">if len(targetUserIDs) &lt; 2 </span><span class="cov0" title="0">{
                 return nil, domain.ErrTooFewMembers
@@ -1274,9 +1443,9 @@ func (s *ChatService) RemoveMember(ctx context.Context, chatID, requesterID, tar
         <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, targetUserID)</span>
 }
 
-func (s *ChatService) SetMemberRole(ctx context.Context, chatID, requesterID, targetUserID string, role domain.MemberRole) error <span class="cov0" title="0">{
-        if role != domain.MemberRoleAdmin &amp;&amp; role != domain.MemberRoleMember </span><span class="cov0" title="0">{
-                return domain.ErrInvalidRole
+func (s *ChatService) SetMemberRole(ctx context.Context, chatID, requesterID, targetUserID string, role domain.MemberRole) error <span class="cov8" title="1">{
+        if err := validateMemberRole(role); err != nil </span><span class="cov8" title="1">{
+                return err
         }</span>
 
         <span class="cov0" title="0">chat, err := s.chats.GetChat(ctx, chatID)
@@ -1358,52 +1527,56 @@ func isCreator(chat *domain.Chat, userID string) bool <span class="cov8" title="
         return chat.CreatedBy != nil &amp;&amp; *chat.CreatedBy == userID
 }</span>
 
-func (s *ChatService) GetChatKey(ctx context.Context, chatID, requesterID string) (string, error) <span class="cov0" title="0">{
-        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
-        if err != nil </span><span class="cov0" title="0">{
-                return "", err
-        }</span>
-        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
-                return "", domain.ErrNotChatMember
-        }</span>
-
-        <span class="cov0" title="0">return s.chats.GetChatKeyForUser(ctx, chatID, requesterID)</span>
-}
-
-func (s *ChatService) ListChatKeys(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
-        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
-        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
-                return nil, domain.ErrNotChatMember
-        }</span>
-
-        <span class="cov0" title="0">return s.chats.ListMembers(ctx, chatID)</span>
-}
-
-func (s *ChatService) UpdateChatKey(ctx context.Context, chatID, requesterID, targetUserID, encryptedChatKey, wrappedForPublicKey string) error <span class="cov0" title="0">{
-        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
+func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov8" title="1">{
+        chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
-                return domain.ErrNotChatMember
+        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+                return domain.ErrNotGroupChat
         }</span>
 
-        <span class="cov0" title="0">if encryptedChatKey == "" || wrappedForPublicKey == "" </span><span class="cov0" title="0">{
-                return domain.ErrMissingChatKey
+        <span class="cov8" title="1">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">if !isAdmin </span><span class="cov0" title="0">{
+                return domain.ErrNotChatAdmin
         }</span>
 
-        <span class="cov0" title="0">return s.chats.UpdateChatKey(ctx, chatID, targetUserID, encryptedChatKey, wrappedForPublicKey)</span>
+        <span class="cov8" title="1">contentType, err := validateGroupAvatar(data)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return s.chats.UpsertChatAvatar(ctx, &amp;domain.ChatAvatar{
+                ChatID:      chatID,
+                Data:        data,
+                ContentType: contentType,
+                UpdatedAt:   time.Now(),
+        })</span>
 }
 
+func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov8" title="1">{
+        return s.chats.GetChatAvatar(ctx, chatID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package service
+
+import (
+        "context"
+        "log"
+        "time"
+
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+        "github.com/google/uuid"
+)
+
 func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) <span class="cov8" title="1">{
-        if body == "" </span><span class="cov8" title="1">{
-                return nil, domain.ErrEmptyMessage
-        }</span>
-        <span class="cov8" title="1">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov0" title="0">{
-                return nil, domain.ErrMessageTooLarge
+        if err := validateMessageBody(body); err != nil </span><span class="cov8" title="1">{
+                return nil, err
         }</span>
 
         <span class="cov8" title="1">allowed, err := s.sendLimiter.Allow(ctx, senderID)
@@ -1506,11 +1679,8 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
 }
 
 func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov8" title="1">{
-        if newBody == "" </span><span class="cov0" title="0">{
-                return nil, domain.ErrEmptyMessage
-        }</span>
-        <span class="cov8" title="1">if len(newBody) &gt; MaxMessageBodyBytes </span><span class="cov0" title="0">{
-                return nil, domain.ErrMessageTooLarge
+        if err := validateMessageBody(newBody); err != nil </span><span class="cov8" title="1">{
+                return nil, err
         }</span>
 
         <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
@@ -1662,15 +1832,24 @@ func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, request
         <span class="cov0" title="0">return s.chats.HideMessageForUser(ctx, messageID, requesterID)</span>
 }
 
-var validReportCategories = map[domain.ReportCategory]bool{
-        domain.ReportCategorySpam:  true,
-        domain.ReportCategoryAbuse: true,
-        domain.ReportCategoryOther: true,
-}
+func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov8" title="1">{
+        return s.chats.GetMessage(ctx, messageID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package service
+
+import (
+        "context"
+        "time"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+        "github.com/google/uuid"
+)
 
 func (s *ChatService) ReportMessage(ctx context.Context, messageID, reporterID string, category domain.ReportCategory, comment string) error <span class="cov8" title="1">{
-        if !validReportCategories[category] </span><span class="cov8" title="1">{
-                return domain.ErrInvalidReportCategory
+        if err := validateReportCategory(category); err != nil </span><span class="cov8" title="1">{
+                return err
         }</span>
 
         <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
@@ -1705,120 +1884,25 @@ func (s *ChatService) ReportMessage(ctx context.Context, messageID, reporterID s
         })</span>
 }
 
-type ChatSummary struct {
-        ChatID        string
-        MemberUserIDs []string
-        LastMessage   *domain.Message
-        ChatType      domain.ChatType
-        Name          string
-}
-
-func (s *ChatService) ListChats(ctx context.Context, userID string) ([]*ChatSummary, error) <span class="cov0" title="0">{
-        chats, err := s.chats.ListChatsForUser(ctx, userID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
+func (s *ChatService) BlockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
+        if blockerID == blockedID </span><span class="cov0" title="0">{
+                return domain.ErrCannotBlockSelf
         }</span>
-
-        <span class="cov0" title="0">summaries := make([]*ChatSummary, 0, len(chats))
-        for _, chat := range chats </span><span class="cov0" title="0">{
-                members, err := s.chats.ListMembers(ctx, chat.ID)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-                <span class="cov0" title="0">memberIDs := make([]string, 0, len(members))
-                for _, m := range members </span><span class="cov0" title="0">{
-                        memberIDs = append(memberIDs, m.UserID)
-                }</span>
-
-                <span class="cov0" title="0">lastMessage, err := s.chats.GetLastMessage(ctx, chat.ID, userID)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-
-                <span class="cov0" title="0">name := ""
-                if chat.Name != nil </span><span class="cov0" title="0">{
-                        name = *chat.Name
-                }</span>
-
-                <span class="cov0" title="0">summaries = append(summaries, &amp;ChatSummary{
-                        ChatID:        chat.ID,
-                        MemberUserIDs: memberIDs,
-                        LastMessage:   lastMessage,
-                        ChatType:      chat.ChatType,
-                        Name:          name,
-                })</span>
-        }
-
-        <span class="cov0" title="0">return summaries, nil</span>
+        <span class="cov0" title="0">return s.chats.BlockUser(ctx, blockerID, blockedID)</span>
 }
 
-func (s *ChatService) ListContacts(ctx context.Context, userID string) ([]string, error) <span class="cov0" title="0">{
-        chats, err := s.chats.ListChatsForUser(ctx, userID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
-
-        <span class="cov0" title="0">seen := make(map[string]bool)
-        contacts := make([]string, 0, len(chats))
-        for _, chat := range chats </span><span class="cov0" title="0">{
-                members, err := s.chats.ListMembers(ctx, chat.ID)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-                <span class="cov0" title="0">for _, m := range members </span><span class="cov0" title="0">{
-                        if m.UserID == userID || seen[m.UserID] </span><span class="cov0" title="0">{
-                                continue</span>
-                        }
-                        <span class="cov0" title="0">seen[m.UserID] = true
-                        contacts = append(contacts, m.UserID)</span>
-                }
-        }
-
-        <span class="cov0" title="0">return contacts, nil</span>
-}
-
-func (s *ChatService) ListChatMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
-        return s.chats.ListMembers(ctx, chatID)
+func (s *ChatService) UnblockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
+        return s.chats.UnblockUser(ctx, blockerID, blockedID)
 }</span>
 
-func (s *ChatService) ListMembersForUser(ctx context.Context, chatID, requesterID string) ([]*domain.ChatMember, *domain.Chat, error) <span class="cov0" title="0">{
-        isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, nil, err
-        }</span>
-        <span class="cov0" title="0">if !isMember </span><span class="cov0" title="0">{
-                return nil, nil, domain.ErrNotChatMember
-        }</span>
-
-        <span class="cov0" title="0">chat, err := s.chats.GetChat(ctx, chatID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, nil, err
-        }</span>
-
-        <span class="cov0" title="0">members, err := s.chats.ListMembers(ctx, chatID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, nil, err
-        }</span>
-
-        <span class="cov0" title="0">return members, chat, nil</span>
-}
-
-func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
-        members, err := s.chats.ListMembers(ctx, chatID)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
-
-        <span class="cov8" title="1">userIDs := make([]string, 0, len(members))
-        for _, m := range members </span><span class="cov8" title="1">{
-                userIDs = append(userIDs, m.UserID)
-        }</span>
-        <span class="cov8" title="1">return userIDs, nil</span>
-}
-
-func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov8" title="1">{
-        return s.chats.GetMessage(ctx, messageID)
+func (s *ChatService) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) <span class="cov0" title="0">{
+        return s.chats.ListBlockedUsers(ctx, blockerID)
 }</span>
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package service
+
+import "context"
 
 func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) <span class="cov8" title="1">{
         online, err = s.presence.IsOnline(ctx, userID)
@@ -1849,8 +1933,23 @@ func (s *ChatService) SetTyping(ctx context.Context, chatID, userID string) erro
 func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
         return s.presence.IsTyping(ctx, chatID, userID)
 }</span>
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package service
+
+import (
+        "net/http"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+)
 
 const MaxGroupAvatarSizeBytes = 2 * 1024 * 1024 // 2MB
+
+var validReportCategories = map[domain.ReportCategory]bool{
+        domain.ReportCategorySpam:  true,
+        domain.ReportCategoryAbuse: true,
+        domain.ReportCategoryOther: true,
+}
 
 var allowedGroupAvatarContentTypes = map[string]bool{
         "image/jpeg": true,
@@ -1859,61 +1958,50 @@ var allowedGroupAvatarContentTypes = map[string]bool{
         "image/webp": true,
 }
 
-func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov8" title="1">{
-        chat, err := s.chats.GetChat(ctx, chatID)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
+func validateMessageBody(body string) error <span class="cov8" title="1">{
+        if body == "" </span><span class="cov8" title="1">{
+                return domain.ErrEmptyMessage
         }</span>
-        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
-                return domain.ErrNotGroupChat
+        <span class="cov8" title="1">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov8" title="1">{
+                return domain.ErrMessageTooLarge
         }</span>
+        <span class="cov8" title="1">return nil</span>
+}
 
-        <span class="cov8" title="1">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
+func validateGroupName(name string) error <span class="cov8" title="1">{
+        if name == "" </span><span class="cov8" title="1">{
+                return domain.ErrGroupNameRequired
         }</span>
-        <span class="cov8" title="1">if !isAdmin </span><span class="cov0" title="0">{
-                return domain.ErrNotChatAdmin
-        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
 
-        <span class="cov8" title="1">if len(data) &gt; MaxGroupAvatarSizeBytes </span><span class="cov0" title="0">{
-                return domain.ErrGroupAvatarTooLarge
+func validateMemberRole(role domain.MemberRole) error <span class="cov8" title="1">{
+        if role != domain.MemberRoleAdmin &amp;&amp; role != domain.MemberRoleMember </span><span class="cov8" title="1">{
+                return domain.ErrInvalidRole
         }</span>
+        <span class="cov8" title="1">return nil</span>
+}
 
+func validateReportCategory(category domain.ReportCategory) error <span class="cov8" title="1">{
+        if !validReportCategories[category] </span><span class="cov8" title="1">{
+                return domain.ErrInvalidReportCategory
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func validateGroupAvatar(data []byte) (string, error) <span class="cov8" title="1">{
+        if len(data) &gt; MaxGroupAvatarSizeBytes </span><span class="cov8" title="1">{
+                return "", domain.ErrGroupAvatarTooLarge
+        }</span>
         <span class="cov8" title="1">contentType := http.DetectContentType(data)
-        if !allowedGroupAvatarContentTypes[contentType] </span><span class="cov0" title="0">{
-                return domain.ErrInvalidGroupAvatarType
+        if !allowedGroupAvatarContentTypes[contentType] </span><span class="cov8" title="1">{
+                return "", domain.ErrInvalidGroupAvatarType
         }</span>
-
-        <span class="cov8" title="1">return s.chats.UpsertChatAvatar(ctx, &amp;domain.ChatAvatar{
-                ChatID:      chatID,
-                Data:        data,
-                ContentType: contentType,
-                UpdatedAt:   time.Now(),
-        })</span>
+        <span class="cov8" title="1">return contentType, nil</span>
 }
-
-func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov8" title="1">{
-        return s.chats.GetChatAvatar(ctx, chatID)
-}</span>
-
-func (s *ChatService) BlockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
-        if blockerID == blockedID </span><span class="cov0" title="0">{
-                return domain.ErrCannotBlockSelf
-        }</span>
-        <span class="cov0" title="0">return s.chats.BlockUser(ctx, blockerID, blockedID)</span>
-}
-
-func (s *ChatService) UnblockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
-        return s.chats.UnblockUser(ctx, blockerID, blockedID)
-}</span>
-
-func (s *ChatService) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) <span class="cov0" title="0">{
-        return s.chats.ListBlockedUsers(ctx, blockerID)
-}</span>
 </pre>
 		
-		<pre class="file" id="file9" style="display: none">package groupavatar
+		<pre class="file" id="file14" style="display: none">package groupavatar
 
 import (
         "context"
@@ -2025,7 +2113,7 @@ func writeDomainError(w http.ResponseWriter, err error) <span class="cov0" title
 }
 </pre>
 		
-		<pre class="file" id="file10" style="display: none">package grpc
+		<pre class="file" id="file15" style="display: none">package grpc
 
 import (
         "context"
@@ -2550,7 +2638,7 @@ func toGRPCError(err error) error <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file11" style="display: none">package grpc
+		<pre class="file" id="file16" style="display: none">package grpc
 
 import (
         "context"
