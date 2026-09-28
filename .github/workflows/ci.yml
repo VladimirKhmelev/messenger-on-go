@@ -8,7 +8,74 @@ env:
   GO_VERSION: "1.26.8"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.services.outputs.list }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      chat-service: ${{ steps.filter.outputs.chat-service }}
+      proto: ${{ steps.filter.outputs.proto }}
+      pkg-jwtutil: ${{ steps.filter.outputs.pkg-jwtutil }}
+      pkg-metrics: ${{ steps.filter.outputs.pkg-metrics }}
+      pkg-tracing: ${{ steps.filter.outputs.pkg-tracing }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            # every Go service builds against these, so a change here
+            # re-tests all of them
+            shared: &shared
+              - 'pkg/**'
+              - 'proto/**'
+              - 'go.work'
+              - 'go.work.sum'
+              - '.github/workflows/ci.yml'
+            auth-service:
+              - *shared
+              - 'services/auth-service/**'
+            chat-service:
+              - *shared
+              - 'services/chat-service/**'
+            ws-gateway:
+              - *shared
+              - 'services/ws-gateway/**'
+            notification-worker:
+              - *shared
+              - 'services/notification-worker/**'
+            media-service:
+              - *shared
+              - 'services/media-service/**'
+            proto:
+              - 'proto/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+            pkg-jwtutil:
+              - 'pkg/jwtutil/**'
+              - '.github/workflows/ci.yml'
+            pkg-metrics:
+              - 'pkg/metrics/**'
+              - '.github/workflows/ci.yml'
+            pkg-tracing:
+              - 'pkg/tracing/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+      - name: Collect changed services
+        id: services
+        env:
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          list=$(jq -c '[.[] | select(IN("auth-service", "chat-service", "ws-gateway", "notification-worker", "media-service"))]' <<< "$CHANGED")
+          echo "changed services: $list"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
   proto-lint:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +89,8 @@ jobs:
         run: protolint lint proto/auth/v1/auth.proto proto/chat/v1/chat.proto proto/media/v1/media.proto
 
   swagger:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,15 +127,12 @@ jobs:
           path: proto/gen/openapi/messenger.swagger.json
 
   service:
+    needs: changes
+    if: needs.changes.outputs.services != '[]'
     strategy:
       fail-fast: false
       matrix:
-        service:
-          - auth-service
-          - chat-service
-          - ws-gateway
-          - notification-worker
-          - media-service
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -108,7 +174,7 @@ jobs:
       - run: go build ./...
 
       - name: Run tests with coverage
-        run: go test ./... -cover -coverprofile=cover.out
+        run: go test -race ./... -cover -coverprofile=cover.out
       - name: Generate HTML coverage report
         run: go tool cover -html=cover.out -o cover.html
       - name: Upload coverage report
@@ -118,6 +184,8 @@ jobs:
           path: services/${{ matrix.service }}/cover.html
 
   pkg-jwtutil:
+    needs: changes
+    if: needs.changes.outputs.pkg-jwtutil == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -157,9 +225,11 @@ jobs:
         continue-on-error: true
 
       - run: go build ./...
-      - run: go test ./... -cover
+      - run: go test -race ./... -cover
 
   pkg-metrics:
+    needs: changes
+    if: needs.changes.outputs.pkg-metrics == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -199,9 +269,11 @@ jobs:
         continue-on-error: true
 
       - run: go build ./...
-      - run: go test ./... -cover
+      - run: go test -race ./... -cover
 
   pkg-tracing:
+    needs: changes
+    if: needs.changes.outputs.pkg-tracing == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -241,9 +313,11 @@ jobs:
         continue-on-error: true
 
       - run: go build ./...
-      - run: go test ./... -cover
+      - run: go test -race ./... -cover
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -254,6 +328,8 @@ jobs:
           done
 
   auth-service-integration:
+    needs: changes
+    if: needs.changes.outputs.auth-service == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -268,6 +344,8 @@ jobs:
         run: go test -tags=integration ./... -v
 
   chat-service-integration:
+    needs: changes
+    if: needs.changes.outputs.chat-service == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

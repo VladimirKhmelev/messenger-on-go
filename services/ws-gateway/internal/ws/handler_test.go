@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 const testJWTSecret = "test-secret"
 
 type fakeChatClient struct {
+	mu sync.Mutex
+
 	sendMessageErr error
 	sentText       string
 	sentChatID     string
@@ -49,6 +52,9 @@ type fakeChatClient struct {
 }
 
 func (c *fakeChatClient) SendMessage(_ context.Context, _, chatID, text string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.sendMessageErr != nil {
 		return "", c.sendMessageErr
 	}
@@ -58,6 +64,9 @@ func (c *fakeChatClient) SendMessage(_ context.Context, _, chatID, text string) 
 }
 
 func (c *fakeChatClient) GetHistory(_ context.Context, _, _ string, _, _ int32) ([]domain.Message, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.getHistoryErr != nil {
 		return nil, c.getHistoryErr
 	}
@@ -65,6 +74,9 @@ func (c *fakeChatClient) GetHistory(_ context.Context, _, _ string, _, _ int32) 
 }
 
 func (c *fakeChatClient) GetPresence(_ context.Context, _ string) (bool, int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.presenceErr != nil {
 		return false, 0, c.presenceErr
 	}
@@ -72,16 +84,25 @@ func (c *fakeChatClient) GetPresence(_ context.Context, _ string) (bool, int64, 
 }
 
 func (c *fakeChatClient) SetOnline(_ context.Context, _ string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.setOnlineCalled = true
 	return c.setOnlineErr
 }
 
 func (c *fakeChatClient) SetOffline(_ context.Context, _ string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.setOfflineCalled = true
 	return c.setOfflineErr
 }
 
 func (c *fakeChatClient) EditMessage(_ context.Context, _, _, _, text string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.editMessageErr != nil {
 		return c.editMessageErr
 	}
@@ -90,6 +111,9 @@ func (c *fakeChatClient) EditMessage(_ context.Context, _, _, _, text string) er
 }
 
 func (c *fakeChatClient) DeleteMessageForAll(_ context.Context, _, _, messageID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.deleteForAllErr != nil {
 		return c.deleteForAllErr
 	}
@@ -98,6 +122,9 @@ func (c *fakeChatClient) DeleteMessageForAll(_ context.Context, _, _, messageID 
 }
 
 func (c *fakeChatClient) DeleteMessageForMe(_ context.Context, _, _, messageID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.deleteForMeErr != nil {
 		return c.deleteForMeErr
 	}
@@ -106,6 +133,9 @@ func (c *fakeChatClient) DeleteMessageForMe(_ context.Context, _, _, messageID s
 }
 
 func (c *fakeChatClient) MarkRead(_ context.Context, _, _, messageID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.markReadErr != nil {
 		return c.markReadErr
 	}
@@ -114,6 +144,9 @@ func (c *fakeChatClient) MarkRead(_ context.Context, _, _, messageID string) err
 }
 
 func (c *fakeChatClient) GetReadStatus(_ context.Context, _, _ string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.readStatusErr != nil {
 		return "", c.readStatusErr
 	}
@@ -121,7 +154,16 @@ func (c *fakeChatClient) GetReadStatus(_ context.Context, _, _ string) (string, 
 }
 
 func (c *fakeChatClient) SetTyping(_ context.Context, _, _ string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	return nil
+}
+
+func (c *fakeChatClient) read(f func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	f()
 }
 
 type fakePresencePublisher struct{}
@@ -239,8 +281,10 @@ func TestHandler_SendMessage_ForwardsToChatClient(t *testing.T) {
 	if resp.Type != "message_sent" || resp.MessageID != "message-1" {
 		t.Errorf("response = %+v, want type=message_sent, message_id=message-1", resp)
 	}
-	if chat.sentChatID != "chat-1" || chat.sentText != "hello" {
-		t.Errorf("chatclient received chatID=%q text=%q, want chat-1/hello", chat.sentChatID, chat.sentText)
+	var sentChatID, sentText string
+	chat.read(func() { sentChatID, sentText = chat.sentChatID, chat.sentText })
+	if sentChatID != "chat-1" || sentText != "hello" {
+		t.Errorf("chatclient received chatID=%q text=%q, want chat-1/hello", sentChatID, sentText)
 	}
 }
 
@@ -299,8 +343,10 @@ func TestHandler_EditMessage_ForwardsToChatClient(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	if chat.editedText != "edited" {
-		t.Errorf("chatclient received editedText=%q, want %q", chat.editedText, "edited")
+	var editedText string
+	chat.read(func() { editedText = chat.editedText })
+	if editedText != "edited" {
+		t.Errorf("chatclient received editedText=%q, want %q", editedText, "edited")
 	}
 }
 
@@ -325,7 +371,9 @@ func TestHandler_MarkRead_ForwardsToChatClient(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	if chat.markReadMessageID != "m1" {
-		t.Errorf("chatclient received markReadMessageID=%q, want %q", chat.markReadMessageID, "m1")
+	var markReadMessageID string
+	chat.read(func() { markReadMessageID = chat.markReadMessageID })
+	if markReadMessageID != "m1" {
+		t.Errorf("chatclient received markReadMessageID=%q, want %q", markReadMessageID, "m1")
 	}
 }
