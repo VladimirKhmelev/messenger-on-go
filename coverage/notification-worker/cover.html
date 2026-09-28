@@ -74,8 +74,17 @@
 			<div id="legend">
 				<span>not tracked</span>
 			
-				<span class="cov0">not covered</span>
-				<span class="cov8">covered</span>
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
 			
 			</div>
 		</div>
@@ -542,26 +551,26 @@ type Handler struct {
         events  EventPublisher
 }
 
-func NewHandler(chat ChatClient, auth AuthClient, webpushSender WebPushSender, eventPublisher EventPublisher) *Handler <span class="cov8" title="1">{
+func NewHandler(chat ChatClient, auth AuthClient, webpushSender WebPushSender, eventPublisher EventPublisher) *Handler <span class="cov8" title="6">{
         return &amp;Handler{chat: chat, auth: auth, webpush: webpushSender, events: eventPublisher}
 }</span>
 
-func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) <span class="cov8" title="1">{
+func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data []byte) <span class="cov8" title="6">{
         var event domain.MessageCreated
-        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov8" title="1">{
+        if err := json.Unmarshal(data, &amp;event); err != nil </span><span class="cov1" title="1">{
                 log.Printf("notification-worker: failed to unmarshal %s: %v", subject, err)
                 metrics.NATSConsumeErrorsTotal.Inc()
                 return
         }</span>
 
-        <span class="cov8" title="1">recipients, err := h.recipientsNeedingNotification(ctx, event)
-        if err != nil </span><span class="cov8" title="1">{
+        <span class="cov7" title="5">recipients, err := h.recipientsNeedingNotification(ctx, event)
+        if err != nil </span><span class="cov1" title="1">{
                 log.Printf("notification-worker: failed to resolve recipients for message %s: %v", event.MessageID, err)
                 metrics.NATSConsumeErrorsTotal.Inc()
                 return
         }</span>
 
-        <span class="cov8" title="1">for _, userID := range recipients </span><span class="cov8" title="1">{
+        <span class="cov6" title="4">for _, userID := range recipients </span><span class="cov5" title="3">{
                 if err := h.events.PublishNotifyPush(ctx, domain.NotifyPush{
                         UserID:    userID,
                         ChatID:    event.ChatID,
@@ -572,45 +581,45 @@ func (h *Handler) HandleMessageCreated(ctx context.Context, subject string, data
                         metrics.NATSConsumeErrorsTotal.Inc()
                 }</span>
 
-                <span class="cov8" title="1">h.sendWebPush(ctx, userID, event)</span>
+                <span class="cov5" title="3">h.sendWebPush(ctx, userID, event)</span>
         }
 }
 
-func (h *Handler) sendWebPush(ctx context.Context, userID string, event domain.MessageCreated) <span class="cov8" title="1">{
+func (h *Handler) sendWebPush(ctx context.Context, userID string, event domain.MessageCreated) <span class="cov5" title="3">{
         subs, err := h.auth.ListPushSubscriptions(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("notification-worker: failed to list push subscriptions for user %s: %v", userID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">payload := domain.PushPayload{ChatID: event.ChatID, MessageID: event.MessageID}
-        for _, sub := range subs </span><span class="cov8" title="1">{
+        <span class="cov5" title="3">payload := domain.PushPayload{ChatID: event.ChatID, MessageID: event.MessageID}
+        for _, sub := range subs </span><span class="cov3" title="2">{
                 h.webpush.Send(ctx, sub, payload)
         }</span>
 }
 
-func (h *Handler) recipientsNeedingNotification(ctx context.Context, event domain.MessageCreated) ([]string, error) <span class="cov8" title="1">{
+func (h *Handler) recipientsNeedingNotification(ctx context.Context, event domain.MessageCreated) ([]string, error) <span class="cov7" title="5">{
         memberIDs, err := h.chat.ListMembers(ctx, event.ChatID)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">var recipients []string
-        for _, userID := range memberIDs </span><span class="cov8" title="1">{
-                if userID == event.SenderID </span><span class="cov8" title="1">{
+        <span class="cov6" title="4">var recipients []string
+        for _, userID := range memberIDs </span><span class="cov10" title="9">{
+                if userID == event.SenderID </span><span class="cov6" title="4">{
                         continue</span>
                 }
 
-                <span class="cov8" title="1">online, err := h.chat.IsOnline(ctx, userID)
+                <span class="cov7" title="5">online, err := h.chat.IsOnline(ctx, userID)
                 if err != nil </span><span class="cov0" title="0">{
                         log.Printf("notification-worker: failed to check presence for user %s: %v", userID, err)
                         continue</span>
                 }
-                <span class="cov8" title="1">if !online </span><span class="cov8" title="1">{
+                <span class="cov7" title="5">if !online </span><span class="cov5" title="3">{
                         recipients = append(recipients, userID)
                 }</span>
         }
-        <span class="cov8" title="1">return recipients, nil</span>
+        <span class="cov6" title="4">return recipients, nil</span>
 }
 
 func (h *Handler) HandleUserEvent(_ context.Context, subject string, data []byte) <span class="cov0" title="0">{

@@ -76,8 +76,17 @@
 			<div id="legend">
 				<span>not tracked</span>
 			
-				<span class="cov0">not covered</span>
-				<span class="cov8">covered</span>
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
 			
 			</div>
 		</div>
@@ -690,24 +699,24 @@ type Fanout struct {
         contacts ContactsLister
 }
 
-func NewFanout(registry *Registry, members MembersLister, messages MessageGetter, contacts ContactsLister) *Fanout <span class="cov8" title="1">{
+func NewFanout(registry *Registry, members MembersLister, messages MessageGetter, contacts ContactsLister) *Fanout <span class="cov9" title="6">{
         return &amp;Fanout{registry: registry, members: members, messages: messages, contacts: contacts}
 }</span>
 
-func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageCreated) <span class="cov8" title="1">{
+func (f *Fanout) HandleMessageCreated(ctx context.Context, event domain.MessageCreated) <span class="cov4" title="2">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">message, err := f.messages.GetMessage(ctx, event.MessageID)
-        if err != nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="2">message, err := f.messages.GetMessage(ctx, event.MessageID)
+        if err != nil </span><span class="cov1" title="1">{
                 log.Printf("ws-gateway: failed to fetch message %s for fanout: %v", event.MessageID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">f.broadcast(userIDs, "", MessageReceived{ChatID: event.ChatID, Message: message})</span>
+        <span class="cov1" title="1">f.broadcast(userIDs, "", MessageReceived{ChatID: event.ChatID, Message: message})</span>
 }
 
 func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageUpdated) <span class="cov0" title="0">{
@@ -720,38 +729,38 @@ func (f *Fanout) HandleMessageUpdated(ctx context.Context, event domain.MessageU
         <span class="cov0" title="0">f.broadcast(userIDs, "", event)</span>
 }
 
-func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead) <span class="cov8" title="1">{
+func (f *Fanout) HandleMessageRead(ctx context.Context, event domain.MessageRead) <span class="cov1" title="1">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">f.broadcast(userIDs, event.UserID, event)</span>
+        <span class="cov1" title="1">f.broadcast(userIDs, event.UserID, event)</span>
 }
 
-func (f *Fanout) HandleNotifyPush(_ context.Context, event domain.NotifyPush) <span class="cov8" title="1">{
+func (f *Fanout) HandleNotifyPush(_ context.Context, event domain.NotifyPush) <span class="cov1" title="1">{
         f.registry.Broadcast(event.UserID, event)
 }</span>
 
-func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.PresenceChanged) <span class="cov8" title="1">{
+func (f *Fanout) HandlePresenceChanged(ctx context.Context, event domain.PresenceChanged) <span class="cov1" title="1">{
         contacts, err := f.contacts.ListContacts(ctx, event.UserID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list contacts for presence fanout of %s: %v", event.UserID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">f.broadcast(contacts, "", event)</span>
+        <span class="cov1" title="1">f.broadcast(contacts, "", event)</span>
 }
 
-func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingChanged) <span class="cov8" title="1">{
+func (f *Fanout) HandleTypingChanged(ctx context.Context, event domain.TypingChanged) <span class="cov1" title="1">{
         userIDs, err := f.members.ListMembers(ctx, event.ChatID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to list members for chat %s: %v", event.ChatID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">f.broadcast(userIDs, event.UserID, event)</span>
+        <span class="cov1" title="1">f.broadcast(userIDs, event.UserID, event)</span>
 }
 
 func (f *Fanout) HandleChatDeleted(_ context.Context, event domain.ChatDeleted) <span class="cov0" title="0">{
@@ -768,12 +777,12 @@ func (f *Fanout) HandleProfileUpdated(ctx context.Context, event domain.ProfileU
         <span class="cov0" title="0">f.broadcast(contacts, "", event)</span>
 }
 
-func (f *Fanout) broadcast(userIDs []string, skipUserID string, notification any) <span class="cov8" title="1">{
-        for _, userID := range userIDs </span><span class="cov8" title="1">{
-                if skipUserID != "" &amp;&amp; userID == skipUserID </span><span class="cov8" title="1">{
+func (f *Fanout) broadcast(userIDs []string, skipUserID string, notification any) <span class="cov7" title="4">{
+        for _, userID := range userIDs </span><span class="cov10" title="7">{
+                if skipUserID != "" &amp;&amp; userID == skipUserID </span><span class="cov4" title="2">{
                         continue</span>
                 }
-                <span class="cov8" title="1">f.registry.Broadcast(userID, notification)</span>
+                <span class="cov8" title="5">f.registry.Broadcast(userID, notification)</span>
         }
 }
 </pre>
@@ -791,39 +800,39 @@ type Registry struct {
         clients map[string]map[Client]struct{}
 }
 
-func NewRegistry() *Registry <span class="cov8" title="1">{
+func NewRegistry() *Registry <span class="cov7" title="8">{
         return &amp;Registry{clients: make(map[string]map[Client]struct{})}
 }</span>
 
-func (r *Registry) Add(userID string, c Client) <span class="cov8" title="1">{
+func (r *Registry) Add(userID string, c Client) <span class="cov10" title="16">{
         r.mu.Lock()
         defer r.mu.Unlock()
 
-        if r.clients[userID] == nil </span><span class="cov8" title="1">{
+        if r.clients[userID] == nil </span><span class="cov9" title="14">{
                 r.clients[userID] = make(map[Client]struct{})
         }</span>
-        <span class="cov8" title="1">r.clients[userID][c] = struct{}{}
+        <span class="cov10" title="16">r.clients[userID][c] = struct{}{}
         metrics.WSConnectionOpened()</span>
 }
 
-func (r *Registry) Remove(userID string, c Client) (hasOtherClients bool) <span class="cov8" title="1">{
+func (r *Registry) Remove(userID string, c Client) (hasOtherClients bool) <span class="cov3" title="2">{
         r.mu.Lock()
         defer r.mu.Unlock()
 
         delete(r.clients[userID], c)
         metrics.WSConnectionClosed()
-        if len(r.clients[userID]) == 0 </span><span class="cov8" title="1">{
+        if len(r.clients[userID]) == 0 </span><span class="cov1" title="1">{
                 delete(r.clients, userID)
                 return false
         }</span>
-        <span class="cov8" title="1">return true</span>
+        <span class="cov1" title="1">return true</span>
 }
 
-func (r *Registry) Broadcast(userID string, notification any) <span class="cov8" title="1">{
+func (r *Registry) Broadcast(userID string, notification any) <span class="cov7" title="7">{
         r.mu.RLock()
         defer r.mu.RUnlock()
 
-        for c := range r.clients[userID] </span><span class="cov8" title="1">{
+        for c := range r.clients[userID] </span><span class="cov7" title="8">{
                 c.Deliver(notification)
         }</span>
 }
@@ -850,7 +859,7 @@ type Handler struct {
         upgrader       websocket.Upgrader
 }
 
-func NewHandler(jwtSecret string, chat ChatClient, registry *hub.Registry, presence PresencePublisher, allowedOrigins []string) *Handler <span class="cov8" title="1">{
+func NewHandler(jwtSecret string, chat ChatClient, registry *hub.Registry, presence PresencePublisher, allowedOrigins []string) *Handler <span class="cov9" title="8">{
         origins := make(map[string]bool, len(allowedOrigins))
         for _, o := range allowedOrigins </span><span class="cov0" title="0">{
                 if o != "" </span><span class="cov0" title="0">{
@@ -858,38 +867,38 @@ func NewHandler(jwtSecret string, chat ChatClient, registry *hub.Registry, prese
                 }</span>
         }
 
-        <span class="cov8" title="1">h := &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence, allowedOrigins: origins}
+        <span class="cov9" title="8">h := &amp;Handler{jwtSecret: jwtSecret, chat: chat, registry: registry, presence: presence, allowedOrigins: origins}
         h.upgrader = websocket.Upgrader{CheckOrigin: h.checkOrigin}
         return h</span>
 }
 
-func (h *Handler) checkOrigin(r *http.Request) bool <span class="cov8" title="1">{
-        if len(h.allowedOrigins) == 0 </span><span class="cov8" title="1">{
+func (h *Handler) checkOrigin(r *http.Request) bool <span class="cov8" title="7">{
+        if len(h.allowedOrigins) == 0 </span><span class="cov8" title="7">{
                 return true
         }</span>
         <span class="cov0" title="0">return h.allowedOrigins[r.Header.Get("Origin")]</span>
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) <span class="cov10" title="9">{
         token := r.URL.Query().Get("token")
-        if token == "" </span><span class="cov8" title="1">{
+        if token == "" </span><span class="cov1" title="1">{
                 http.Error(w, "missing token query parameter", http.StatusUnauthorized)
                 return
         }</span>
 
-        <span class="cov8" title="1">userID, expiresAt, err := jwtutil.ValidateAccessTokenWithExpiry(token, h.jwtSecret)
-        if err != nil </span><span class="cov8" title="1">{
+        <span class="cov9" title="8">userID, expiresAt, err := jwtutil.ValidateAccessTokenWithExpiry(token, h.jwtSecret)
+        if err != nil </span><span class="cov1" title="1">{
                 http.Error(w, "invalid or expired token", http.StatusUnauthorized)
                 return
         }</span>
 
-        <span class="cov8" title="1">conn, err := h.upgrader.Upgrade(w, r, nil)
+        <span class="cov8" title="7">conn, err := h.upgrader.Upgrade(w, r, nil)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: upgrade failed for user %s: %v", userID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">session := newSession(userID, token, conn, h.chat, h.presence)
+        <span class="cov8" title="7">session := newSession(userID, token, conn, h.chat, h.presence)
         session.tokenExpiresAt = expiresAt
         session.run(h.registry)</span>
 }
@@ -939,7 +948,7 @@ type wireMessage struct {
         Deleted       bool   `json:"deleted"`
 }
 
-func toWireMessage(m domain.Message) wireMessage <span class="cov8" title="1">{
+func toWireMessage(m domain.Message) wireMessage <span class="cov6" title="4">{
         return wireMessage{
                 MessageID:     m.MessageID,
                 SenderUserID:  m.SenderUserID,
@@ -950,34 +959,34 @@ func toWireMessage(m domain.Message) wireMessage <span class="cov8" title="1">{
         }
 }</span>
 
-func toWireMessages(ms []domain.Message) []wireMessage <span class="cov8" title="1">{
+func toWireMessages(ms []domain.Message) []wireMessage <span class="cov1" title="1">{
         out := make([]wireMessage, len(ms))
-        for i, m := range ms </span><span class="cov8" title="1">{
+        for i, m := range ms </span><span class="cov1" title="1">{
                 out[i] = toWireMessage(m)
         }</span>
-        <span class="cov8" title="1">return out</span>
+        <span class="cov1" title="1">return out</span>
 }
 
-func toServerMessage(notification any) (serverMessage, bool) <span class="cov8" title="1">{
+func toServerMessage(notification any) (serverMessage, bool) <span class="cov10" title="10">{
         switch n := notification.(type) </span>{
-        case hub.MessageReceived:<span class="cov8" title="1">
+        case hub.MessageReceived:<span class="cov3" title="2">
                 wire := toWireMessage(n.Message)
                 return serverMessage{Type: "message_received", ChatID: n.ChatID, Message: &amp;wire}, true</span>
-        case domain.MessageUpdated:<span class="cov8" title="1">
+        case domain.MessageUpdated:<span class="cov1" title="1">
                 return serverMessage{Type: "message_updated", ChatID: n.ChatID, MessageID: n.MessageID, NewText: n.NewBody, Deleted: n.Deleted}, true</span>
-        case domain.MessageRead:<span class="cov8" title="1">
+        case domain.MessageRead:<span class="cov1" title="1">
                 return serverMessage{Type: "read_status", ChatID: n.ChatID, PeerUserID: n.UserID, LastReadMessageID: n.MessageID}, true</span>
-        case domain.NotifyPush:<span class="cov8" title="1">
+        case domain.NotifyPush:<span class="cov1" title="1">
                 return serverMessage{Type: "notify_push", ChatID: n.ChatID, MessageID: n.MessageID}, true</span>
-        case domain.PresenceChanged:<span class="cov8" title="1">
+        case domain.PresenceChanged:<span class="cov1" title="1">
                 return serverMessage{Type: "presence_changed", PeerUserID: n.UserID, Online: n.Online, LastSeenUnix: n.LastSeenUnix}, true</span>
-        case domain.TypingChanged:<span class="cov8" title="1">
+        case domain.TypingChanged:<span class="cov1" title="1">
                 return serverMessage{Type: "typing_changed", ChatID: n.ChatID, PeerUserID: n.UserID}, true</span>
-        case domain.ChatDeleted:<span class="cov8" title="1">
+        case domain.ChatDeleted:<span class="cov1" title="1">
                 return serverMessage{Type: "chat_deleted", ChatID: n.ChatID}, true</span>
-        case domain.ProfileUpdated:<span class="cov8" title="1">
+        case domain.ProfileUpdated:<span class="cov1" title="1">
                 return serverMessage{Type: "profile_updated", PeerUserID: n.UserID, PeerTag: n.Tag, PeerDisplayName: n.DisplayName}, true</span>
-        default:<span class="cov8" title="1">
+        default:<span class="cov1" title="1">
                 return serverMessage{}, false</span>
         }
 }
@@ -1015,27 +1024,27 @@ type session struct {
         writeMu sync.Mutex
 }
 
-func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, presence PresencePublisher) *session <span class="cov8" title="1">{
+func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, presence PresencePublisher) *session <span class="cov8" title="7">{
         return &amp;session{userID: userID, token: token, conn: conn, chat: chat, presence: presence}
 }</span>
 
-func (s *session) run(registry *hub.Registry) <span class="cov8" title="1">{
+func (s *session) run(registry *hub.Registry) <span class="cov8" title="7">{
         registry.Add(s.userID, s)
-        defer func() </span><span class="cov8" title="1">{
-                if hasOtherSessions := registry.Remove(s.userID, s); !hasOtherSessions </span><span class="cov8" title="1">{
+        defer func() </span><span class="cov8" title="7">{
+                if hasOtherSessions := registry.Remove(s.userID, s); !hasOtherSessions </span><span class="cov8" title="7">{
                         s.markOffline()
                 }</span>
         }()
 
-        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{ _ = s.conn.Close() }</span>()
+        <span class="cov8" title="7">defer func() </span><span class="cov8" title="7">{ _ = s.conn.Close() }</span>()
 
-        <span class="cov8" title="1">s.conn.SetReadLimit(maxReadBytes)
+        <span class="cov8" title="7">s.conn.SetReadLimit(maxReadBytes)
         _ = s.conn.SetReadDeadline(time.Now().Add(pongWait))
         s.conn.SetPongHandler(func(string) error </span><span class="cov0" title="0">{
                 return s.conn.SetReadDeadline(time.Now().Add(pongWait))
         }</span>)
 
-        <span class="cov8" title="1">stopPing := make(chan struct{})
+        <span class="cov8" title="7">stopPing := make(chan struct{})
         defer close(stopPing)
         go s.pingLoop(stopPing)
 
@@ -1043,32 +1052,32 @@ func (s *session) run(registry *hub.Registry) <span class="cov8" title="1">{
         defer close(stopExpiry)
         go s.expiryWatcher(stopExpiry)
 
-        for </span><span class="cov8" title="1">{
+        for </span><span class="cov10" title="11">{
                 _, data, err := s.conn.ReadMessage()
-                if err != nil </span><span class="cov8" title="1">{
+                if err != nil </span><span class="cov8" title="7">{
                         log.Printf("ws-gateway: connection closed for user %s: %v", s.userID, err)
                         return
                 }</span>
 
-                <span class="cov8" title="1">s.handle(data)</span>
+                <span class="cov6" title="4">s.handle(data)</span>
         }
 }
 
-func (s *session) expiryWatcher(stop &lt;-chan struct{}) <span class="cov8" title="1">{
+func (s *session) expiryWatcher(stop &lt;-chan struct{}) <span class="cov8" title="7">{
         if s.tokenExpiresAt.IsZero() </span><span class="cov0" title="0">{
                 return
         }</span>
 
-        <span class="cov8" title="1">wait := time.Until(s.tokenExpiresAt)
+        <span class="cov8" title="7">wait := time.Until(s.tokenExpiresAt)
         if wait &lt; 0 </span><span class="cov0" title="0">{
                 wait = 0
         }</span>
 
-        <span class="cov8" title="1">timer := time.NewTimer(wait)
+        <span class="cov8" title="7">timer := time.NewTimer(wait)
         defer timer.Stop()
 
         select </span>{
-        case &lt;-stop:<span class="cov8" title="1">
+        case &lt;-stop:<span class="cov8" title="7">
                 return</span>
         case &lt;-timer.C:<span class="cov0" title="0">
                 s.write(serverMessage{Type: "token_expired"})
@@ -1076,13 +1085,13 @@ func (s *session) expiryWatcher(stop &lt;-chan struct{}) <span class="cov8" titl
         }
 }
 
-func (s *session) pingLoop(stop &lt;-chan struct{}) <span class="cov8" title="1">{
+func (s *session) pingLoop(stop &lt;-chan struct{}) <span class="cov8" title="7">{
         ticker := time.NewTicker(pingPeriod)
         defer ticker.Stop()
 
-        for </span><span class="cov8" title="1">{
+        for </span><span class="cov8" title="7">{
                 select </span>{
-                case &lt;-stop:<span class="cov8" title="1">
+                case &lt;-stop:<span class="cov8" title="7">
                         return</span>
                 case &lt;-ticker.C:<span class="cov0" title="0">
                         s.writeMu.Lock()
@@ -1095,7 +1104,7 @@ func (s *session) pingLoop(stop &lt;-chan struct{}) <span class="cov8" title="1"
         }
 }
 
-func (s *session) markOffline() <span class="cov8" title="1">{
+func (s *session) markOffline() <span class="cov8" title="7">{
         ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
         defer cancel()
 
@@ -1104,16 +1113,16 @@ func (s *session) markOffline() <span class="cov8" title="1">{
                 return
         }</span>
 
-        <span class="cov8" title="1">_, lastSeenUnix, err := s.chat.GetPresence(ctx, s.userID)
+        <span class="cov8" title="7">_, lastSeenUnix, err := s.chat.GetPresence(ctx, s.userID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to read last-seen for user %s: %v", s.userID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">s.announcePresence(ctx, false, lastSeenUnix)</span>
+        <span class="cov8" title="7">s.announcePresence(ctx, false, lastSeenUnix)</span>
 }
 
-func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUnix int64) <span class="cov8" title="1">{
+func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUnix int64) <span class="cov8" title="7">{
         if err := s.presence.PublishPresenceChanged(ctx, domain.PresenceChanged{
                 UserID:       s.userID,
                 Online:       online,
@@ -1123,32 +1132,32 @@ func (s *session) announcePresence(ctx context.Context, online bool, lastSeenUni
         }</span>
 }
 
-func (s *session) handle(data []byte) <span class="cov8" title="1">{
+func (s *session) handle(data []byte) <span class="cov6" title="4">{
         var msg clientMessage
         if err := json.Unmarshal(data, &amp;msg); err != nil </span><span class="cov0" title="0">{
                 s.writeError("invalid message format")
                 return
         }</span>
 
-        <span class="cov8" title="1">ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+        <span class="cov6" title="4">ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
         defer cancel()
 
         switch msg.Type </span>{
-        case "send_message":<span class="cov8" title="1">
+        case "send_message":<span class="cov1" title="1">
                 messageID, err := s.chat.SendMessage(ctx, s.token, msg.ChatID, msg.Text)
                 if err != nil </span><span class="cov0" title="0">{
                         s.writeError(err.Error())
                         return
                 }</span>
-                <span class="cov8" title="1">s.write(serverMessage{Type: "message_sent", MessageID: messageID})</span>
+                <span class="cov1" title="1">s.write(serverMessage{Type: "message_sent", MessageID: messageID})</span>
 
-        case "get_history":<span class="cov8" title="1">
+        case "get_history":<span class="cov1" title="1">
                 messages, err := s.chat.GetHistory(ctx, s.token, msg.ChatID, msg.Limit, msg.Offset)
                 if err != nil </span><span class="cov0" title="0">{
                         s.writeError(err.Error())
                         return
                 }</span>
-                <span class="cov8" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: toWireMessages(messages), Offset: msg.Offset})</span>
+                <span class="cov1" title="1">s.write(serverMessage{Type: "history", ChatID: msg.ChatID, Messages: toWireMessages(messages), Offset: msg.Offset})</span>
 
         case "get_presence":<span class="cov0" title="0">
                 online, lastSeenUnix, err := s.chat.GetPresence(ctx, msg.PeerUserID)
@@ -1163,7 +1172,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                         LastSeenUnix: lastSeenUnix,
                 })</span>
 
-        case "edit_message":<span class="cov8" title="1">
+        case "edit_message":<span class="cov1" title="1">
                 if err := s.chat.EditMessage(ctx, s.token, msg.ChatID, msg.MessageID, msg.Text); err != nil </span><span class="cov0" title="0">{
                         s.writeError(err.Error())
                         return
@@ -1182,7 +1191,7 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
                 }</span>
                 <span class="cov0" title="0">s.write(serverMessage{Type: "message_updated", ChatID: msg.ChatID, MessageID: msg.MessageID, Deleted: true})</span>
 
-        case "mark_read":<span class="cov8" title="1">
+        case "mark_read":<span class="cov1" title="1">
                 if err := s.chat.MarkRead(ctx, s.token, msg.ChatID, msg.MessageID); err != nil </span><span class="cov0" title="0">{
                         s.writeError(err.Error())
                         return
@@ -1225,27 +1234,27 @@ func (s *session) handle(data []byte) <span class="cov8" title="1">{
         }
 }
 
-func (s *session) Deliver(notification any) <span class="cov8" title="1">{
+func (s *session) Deliver(notification any) <span class="cov1" title="1">{
         msg, ok := toServerMessage(notification)
         if !ok </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: no wire format for notification %T, dropped for user %s", notification, s.userID)
                 return
         }</span>
-        <span class="cov8" title="1">s.write(msg)</span>
+        <span class="cov1" title="1">s.write(msg)</span>
 }
 
 func (s *session) writeError(message string) <span class="cov0" title="0">{
         s.write(serverMessage{Type: "error", Error: message})
 }</span>
 
-func (s *session) write(msg serverMessage) <span class="cov8" title="1">{
+func (s *session) write(msg serverMessage) <span class="cov5" title="3">{
         payload, err := json.Marshal(msg)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("ws-gateway: failed to marshal message for user %s: %v", s.userID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">s.writeMu.Lock()
+        <span class="cov5" title="3">s.writeMu.Lock()
         defer s.writeMu.Unlock()
 
         if err := s.conn.WriteMessage(websocket.TextMessage, payload); err != nil </span><span class="cov0" title="0">{

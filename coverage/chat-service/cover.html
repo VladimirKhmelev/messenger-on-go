@@ -94,8 +94,17 @@
 			<div id="legend">
 				<span>not tracked</span>
 			
-				<span class="cov0">not covered</span>
-				<span class="cov8">covered</span>
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
 			
 			</div>
 		</div>
@@ -1082,45 +1091,45 @@ type ChatService struct {
         sendLimiter RateLimiter
 }
 
-func NewChatService(chats ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov8" title="1">{
+func NewChatService(chats ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov10" title="31">{
         return &amp;ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence, sendLimiter: sendLimiter}
 }</span>
 
-func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov8" title="1">{
+func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, targetID string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov5" title="5">{
         isSelfChat := requesterID == targetID
 
-        if !isSelfChat </span><span class="cov8" title="1">{
+        if !isSelfChat </span><span class="cov4" title="4">{
                 exists, err := s.auth.UserExists(ctx, bearerToken, targetID)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
-                <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
+                <span class="cov4" title="4">if !exists </span><span class="cov1" title="1">{
                         return nil, domain.ErrTargetUserNotFound
                 }</span>
 
-                <span class="cov8" title="1">blocked, err := s.chats.IsBlocked(ctx, requesterID, targetID)
+                <span class="cov3" title="3">blocked, err := s.chats.IsBlocked(ctx, requesterID, targetID)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
-                <span class="cov8" title="1">if blocked </span><span class="cov0" title="0">{
+                <span class="cov3" title="3">if blocked </span><span class="cov0" title="0">{
                         return nil, domain.ErrUserBlocked
                 }</span>
         }
 
-        <span class="cov8" title="1">existing, err := s.chats.FindPrivateChat(ctx, requesterID, targetID)
-        if err == nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="4">existing, err := s.chats.FindPrivateChat(ctx, requesterID, targetID)
+        if err == nil </span><span class="cov1" title="1">{
                 return existing, nil
         }</span>
-        <span class="cov8" title="1">if !errors.Is(err, domain.ErrChatNotFound) </span><span class="cov0" title="0">{
+        <span class="cov3" title="3">if !errors.Is(err, domain.ErrChatNotFound) </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if encryptedChatKeyByUserID[requesterID] == "" || encryptedChatKeyByUserID[targetID] == "" ||
+        <span class="cov3" title="3">if encryptedChatKeyByUserID[requesterID] == "" || encryptedChatKeyByUserID[targetID] == "" ||
                 wrappedForPublicKeyByUserID[requesterID] == "" || wrappedForPublicKeyByUserID[targetID] == "" </span><span class="cov0" title="0">{
                 return nil, domain.ErrMissingChatKey
         }</span>
 
-        <span class="cov8" title="1">chat := &amp;domain.Chat{
+        <span class="cov3" title="3">chat := &amp;domain.Chat{
                 ID:        uuid.NewString(),
                 CreatedAt: time.Now(),
                 ChatType:  domain.ChatTypePrivate,
@@ -1135,7 +1144,7 @@ func (s *ChatService) CreateChat(ctx context.Context, bearerToken, requesterID, 
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">return chat, nil</span>
+        <span class="cov3" title="3">return chat, nil</span>
 }
 
 func (s *ChatService) GetChatKey(ctx context.Context, chatID, requesterID string) (string, error) <span class="cov0" title="0">{
@@ -1276,17 +1285,17 @@ func (s *ChatService) ListMembersForUser(ctx context.Context, chatID, requesterI
         <span class="cov0" title="0">return members, chat, nil</span>
 }
 
-func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov8" title="1">{
+func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov1" title="1">{
         members, err := s.chats.ListMembers(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">userIDs := make([]string, 0, len(members))
-        for _, m := range members </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">userIDs := make([]string, 0, len(members))
+        for _, m := range members </span><span class="cov2" title="2">{
                 userIDs = append(userIDs, m.UserID)
         }</span>
-        <span class="cov8" title="1">return userIDs, nil</span>
+        <span class="cov1" title="1">return userIDs, nil</span>
 }
 </pre>
 		
@@ -1301,8 +1310,8 @@ import (
         "github.com/google/uuid"
 )
 
-func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requesterID, name string, targetUserIDs []string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov8" title="1">{
-        if err := validateGroupName(name); err != nil </span><span class="cov8" title="1">{
+func (s *ChatService) CreateGroupChat(ctx context.Context, bearerToken, requesterID, name string, targetUserIDs []string, encryptedChatKeyByUserID, wrappedForPublicKeyByUserID map[string]string) (*domain.Chat, error) <span class="cov1" title="1">{
+        if err := validateGroupName(name); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
         <span class="cov0" title="0">if len(targetUserIDs) &lt; 2 </span><span class="cov0" title="0">{
@@ -1443,8 +1452,8 @@ func (s *ChatService) RemoveMember(ctx context.Context, chatID, requesterID, tar
         <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, targetUserID)</span>
 }
 
-func (s *ChatService) SetMemberRole(ctx context.Context, chatID, requesterID, targetUserID string, role domain.MemberRole) error <span class="cov8" title="1">{
-        if err := validateMemberRole(role); err != nil </span><span class="cov8" title="1">{
+func (s *ChatService) SetMemberRole(ctx context.Context, chatID, requesterID, targetUserID string, role domain.MemberRole) error <span class="cov1" title="1">{
+        if err := validateMemberRole(role); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
@@ -1487,32 +1496,32 @@ func (s *ChatService) LeaveChat(ctx context.Context, chatID, requesterID string)
         <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, requesterID)</span>
 }
 
-func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID string) error <span class="cov8" title="1">{
+func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID string) error <span class="cov1" title="1">{
         chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
                 return domain.ErrNotGroupChat
         }</span>
-        <span class="cov8" title="1">if !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
                 return domain.ErrOnlyCreatorCanDeleteChat
         }</span>
 
-        <span class="cov8" title="1">members, err := s.chats.ListMembers(ctx, chatID)
+        <span class="cov1" title="1">members, err := s.chats.ListMembers(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">memberUserIDs := make([]string, 0, len(members))
-        for _, m := range members </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">memberUserIDs := make([]string, 0, len(members))
+        for _, m := range members </span><span class="cov10" title="3">{
                 memberUserIDs = append(memberUserIDs, m.UserID)
         }</span>
 
-        <span class="cov8" title="1">if err := s.chats.DeleteChat(ctx, chatID); err != nil </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if err := s.chats.DeleteChat(ctx, chatID); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
+        <span class="cov1" title="1">if err := s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
                 ChatID:        chatID,
                 MemberUserIDs: memberUserIDs,
                 DeletedAt:     time.Now(),
@@ -1520,36 +1529,36 @@ func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID s
                 log.Printf("chat-service: failed to publish chat.deleted event for %s: %v", chatID, err)
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov1" title="1">return nil</span>
 }
 
-func isCreator(chat *domain.Chat, userID string) bool <span class="cov8" title="1">{
+func isCreator(chat *domain.Chat, userID string) bool <span class="cov1" title="1">{
         return chat.CreatedBy != nil &amp;&amp; *chat.CreatedBy == userID
 }</span>
 
-func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov8" title="1">{
+func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov6" title="2">{
         chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+        <span class="cov6" title="2">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
                 return domain.ErrNotGroupChat
         }</span>
 
-        <span class="cov8" title="1">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+        <span class="cov6" title="2">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !isAdmin </span><span class="cov0" title="0">{
+        <span class="cov6" title="2">if !isAdmin </span><span class="cov0" title="0">{
                 return domain.ErrNotChatAdmin
         }</span>
 
-        <span class="cov8" title="1">contentType, err := validateGroupAvatar(data)
-        if err != nil </span><span class="cov8" title="1">{
+        <span class="cov6" title="2">contentType, err := validateGroupAvatar(data)
+        if err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">return s.chats.UpsertChatAvatar(ctx, &amp;domain.ChatAvatar{
+        <span class="cov1" title="1">return s.chats.UpsertChatAvatar(ctx, &amp;domain.ChatAvatar{
                 ChatID:      chatID,
                 Data:        data,
                 ContentType: contentType,
@@ -1557,7 +1566,7 @@ func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID
         })</span>
 }
 
-func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov8" title="1">{
+func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov1" title="1">{
         return s.chats.GetChatAvatar(ctx, chatID)
 }</span>
 </pre>
@@ -1574,32 +1583,32 @@ import (
         "github.com/google/uuid"
 )
 
-func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) <span class="cov8" title="1">{
-        if err := validateMessageBody(body); err != nil </span><span class="cov8" title="1">{
+func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) <span class="cov10" title="17">{
+        if err := validateMessageBody(body); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">allowed, err := s.sendLimiter.Allow(ctx, senderID)
+        <span class="cov9" title="16">allowed, err := s.sendLimiter.Allow(ctx, senderID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !allowed </span><span class="cov0" title="0">{
+        <span class="cov9" title="16">if !allowed </span><span class="cov0" title="0">{
                 return nil, domain.ErrTooManyMessages
         }</span>
 
-        <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, chatID, senderID)
+        <span class="cov9" title="16">isMember, err := s.chats.IsMember(ctx, chatID, senderID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+        <span class="cov9" title="16">if !isMember </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotChatMember
         }</span>
 
-        <span class="cov8" title="1">if err := s.checkNotBlockedInPrivateChat(ctx, chatID, senderID); err != nil </span><span class="cov8" title="1">{
+        <span class="cov9" title="15">if err := s.checkNotBlockedInPrivateChat(ctx, chatID, senderID); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">message := &amp;domain.Message{
+        <span class="cov9" title="14">message := &amp;domain.Message{
                 ID:        uuid.NewString(),
                 ChatID:    chatID,
                 SenderID:  senderID,
@@ -1610,91 +1619,91 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
         if err := s.chats.CreateMessage(ctx, message); err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">metrics.MessagesSentTotal.Inc()
+        <span class="cov9" title="14">metrics.MessagesSentTotal.Inc()
 
         if err := s.events.PublishMessageCreated(ctx, domain.MessageCreated{
                 MessageID: message.ID,
                 ChatID:    message.ChatID,
                 SenderID:  message.SenderID,
                 CreatedAt: message.CreatedAt,
-        }); err != nil </span><span class="cov8" title="1">{
+        }); err != nil </span><span class="cov1" title="1">{
                 log.Printf("chat-service: failed to publish msg.created event for %s: %v", message.ID, err)
         }</span>
 
-        <span class="cov8" title="1">return message, nil</span>
+        <span class="cov9" title="14">return message, nil</span>
 }
 
-func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, senderID string) error <span class="cov8" title="1">{
+func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, senderID string) error <span class="cov9" title="15">{
         chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if chat.ChatType != domain.ChatTypePrivate </span><span class="cov8" title="1">{
+        <span class="cov9" title="15">if chat.ChatType != domain.ChatTypePrivate </span><span class="cov9" title="14">{
                 return nil
         }</span>
 
-        <span class="cov8" title="1">members, err := s.chats.ListMembers(ctx, chatID)
+        <span class="cov1" title="1">members, err := s.chats.ListMembers(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">var otherID string
-        for _, m := range members </span><span class="cov8" title="1">{
-                if m.UserID != senderID </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">var otherID string
+        for _, m := range members </span><span class="cov1" title="1">{
+                if m.UserID != senderID </span><span class="cov1" title="1">{
                         otherID = m.UserID
                         break</span>
                 }
         }
-        <span class="cov8" title="1">if otherID == "" </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if otherID == "" </span><span class="cov0" title="0">{
                 return nil
         }</span>
 
-        <span class="cov8" title="1">blocked, err := s.chats.IsBlocked(ctx, senderID, otherID)
+        <span class="cov1" title="1">blocked, err := s.chats.IsBlocked(ctx, senderID, otherID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if blocked </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if blocked </span><span class="cov1" title="1">{
                 return domain.ErrUserBlocked
         }</span>
         <span class="cov0" title="0">return nil</span>
 }
 
-func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) <span class="cov8" title="1">{
+func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) <span class="cov3" title="2">{
         isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+        <span class="cov3" title="2">if !isMember </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotChatMember
         }</span>
 
-        <span class="cov8" title="1">if limit &lt;= 0 </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if limit &lt;= 0 </span><span class="cov1" title="1">{
                 limit = HistoryDefaultLimit
         }</span>
-        <span class="cov8" title="1">if offset &lt; 0 </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if offset &lt; 0 </span><span class="cov0" title="0">{
                 offset = 0
         }</span>
 
-        <span class="cov8" title="1">return s.chats.ListMessages(ctx, chatID, requesterID, limit, offset)</span>
+        <span class="cov1" title="1">return s.chats.ListMessages(ctx, chatID, requesterID, limit, offset)</span>
 }
 
-func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov8" title="1">{
-        if err := validateMessageBody(newBody); err != nil </span><span class="cov8" title="1">{
+func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov4" title="3">{
+        if err := validateMessageBody(newBody); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        <span class="cov3" title="2">message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if message.DeletedAt != nil </span><span class="cov0" title="0">{
+        <span class="cov3" title="2">if message.DeletedAt != nil </span><span class="cov0" title="0">{
                 return nil, domain.ErrMessageDeleted
         }</span>
-        <span class="cov8" title="1">if message.SenderID != requesterID </span><span class="cov8" title="1">{
+        <span class="cov3" title="2">if message.SenderID != requesterID </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotMessageSender
         }</span>
 
-        <span class="cov8" title="1">now := time.Now()
+        <span class="cov1" title="1">now := time.Now()
         if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
                 ID:        uuid.NewString(),
                 MessageID: messageID,
@@ -1707,7 +1716,7 @@ func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, n
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
+        <span class="cov1" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
                 MessageID: messageID,
                 ChatID:    message.ChatID,
                 NewBody:   &amp;newBody,
@@ -1716,20 +1725,20 @@ func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, n
                 log.Printf("chat-service: failed to publish msg.updated event for %s: %v", messageID, err)
         }</span>
 
-        <span class="cov8" title="1">message.Body = newBody
+        <span class="cov1" title="1">message.Body = newBody
         message.EditedAt = &amp;now
         return message, nil</span>
 }
 
-func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, requesterID string) error <span class="cov8" title="1">{
+func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, requesterID string) error <span class="cov1" title="1">{
         message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if message.DeletedAt != nil </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if message.DeletedAt != nil </span><span class="cov0" title="0">{
                 return nil
         }</span>
-        <span class="cov8" title="1">if message.SenderID != requesterID </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if message.SenderID != requesterID </span><span class="cov0" title="0">{
                 isAdmin, err := s.chats.IsAdmin(ctx, message.ChatID, requesterID)
                 if err != nil </span><span class="cov0" title="0">{
                         return err
@@ -1739,7 +1748,7 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
                 }</span>
         }
 
-        <span class="cov8" title="1">now := time.Now()
+        <span class="cov1" title="1">now := time.Now()
         if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
                 ID:        uuid.NewString(),
                 MessageID: messageID,
@@ -1751,7 +1760,7 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
+        <span class="cov1" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
                 MessageID: messageID,
                 ChatID:    message.ChatID,
                 Deleted:   true,
@@ -1760,23 +1769,23 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
                 log.Printf("chat-service: failed to publish msg.deleted event for %s: %v", messageID, err)
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov1" title="1">return nil</span>
 }
 
-func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error <span class="cov8" title="1">{
+func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error <span class="cov1" title="1">{
         isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if !isMember </span><span class="cov0" title="0">{
                 return domain.ErrNotChatMember
         }</span>
 
-        <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        <span class="cov1" title="1">message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if message.ChatID != chatID </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if message.ChatID != chatID </span><span class="cov1" title="1">{
                 return domain.ErrMessageNotInChat
         }</span>
 
@@ -1815,24 +1824,24 @@ func (s *ChatService) GetReadStatus(ctx context.Context, chatID, userID string) 
         <span class="cov0" title="0">return "", nil</span>
 }
 
-func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, requesterID string) error <span class="cov8" title="1">{
+func (s *ChatService) DeleteMessageForMe(ctx context.Context, messageID, requesterID string) error <span class="cov1" title="1">{
         message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, message.ChatID, requesterID)
+        <span class="cov1" title="1">isMember, err := s.chats.IsMember(ctx, message.ChatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if !isMember </span><span class="cov1" title="1">{
                 return domain.ErrNotChatMember
         }</span>
 
         <span class="cov0" title="0">return s.chats.HideMessageForUser(ctx, messageID, requesterID)</span>
 }
 
-func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov8" title="1">{
+func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov4" title="3">{
         return s.chats.GetMessage(ctx, messageID)
 }</span>
 </pre>
@@ -1847,33 +1856,33 @@ import (
         "github.com/google/uuid"
 )
 
-func (s *ChatService) ReportMessage(ctx context.Context, messageID, reporterID string, category domain.ReportCategory, comment string) error <span class="cov8" title="1">{
-        if err := validateReportCategory(category); err != nil </span><span class="cov8" title="1">{
+func (s *ChatService) ReportMessage(ctx context.Context, messageID, reporterID string, category domain.ReportCategory, comment string) error <span class="cov10" title="3">{
+        if err := validateReportCategory(category); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        <span class="cov6" title="2">message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">isMember, err := s.chats.IsMember(ctx, message.ChatID, reporterID)
+        <span class="cov6" title="2">isMember, err := s.chats.IsMember(ctx, message.ChatID, reporterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+        <span class="cov6" title="2">if !isMember </span><span class="cov1" title="1">{
                 return domain.ErrNotChatMember
         }</span>
 
-        <span class="cov8" title="1">alreadyReported, err := s.chats.HasReported(ctx, messageID, reporterID)
+        <span class="cov1" title="1">alreadyReported, err := s.chats.HasReported(ctx, messageID, reporterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if alreadyReported </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if alreadyReported </span><span class="cov0" title="0">{
                 return domain.ErrAlreadyReported
         }</span>
 
-        <span class="cov8" title="1">return s.chats.CreateMessageReport(ctx, &amp;domain.MessageReport{
+        <span class="cov1" title="1">return s.chats.CreateMessageReport(ctx, &amp;domain.MessageReport{
                 ID:         uuid.NewString(),
                 MessageID:  messageID,
                 ChatID:     message.ChatID,
@@ -1904,25 +1913,25 @@ func (s *ChatService) ListBlockedUsers(ctx context.Context, blockerID string) ([
 
 import "context"
 
-func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) <span class="cov8" title="1">{
+func (s *ChatService) GetPresence(ctx context.Context, userID string) (online bool, lastSeenUnix int64, err error) <span class="cov10" title="3">{
         online, err = s.presence.IsOnline(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 return false, 0, err
         }</span>
 
-        <span class="cov8" title="1">lastSeenUnix, err = s.presence.LastSeen(ctx, userID)
+        <span class="cov10" title="3">lastSeenUnix, err = s.presence.LastSeen(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 return false, 0, err
         }</span>
 
-        <span class="cov8" title="1">return online, lastSeenUnix, nil</span>
+        <span class="cov10" title="3">return online, lastSeenUnix, nil</span>
 }
 
 func (s *ChatService) SetOnline(ctx context.Context, userID string) error <span class="cov0" title="0">{
         return s.presence.SetOnline(ctx, userID)
 }</span>
 
-func (s *ChatService) SetOffline(ctx context.Context, userID string) error <span class="cov8" title="1">{
+func (s *ChatService) SetOffline(ctx context.Context, userID string) error <span class="cov1" title="1">{
         return s.presence.SetOffline(ctx, userID)
 }</span>
 
@@ -1958,46 +1967,46 @@ var allowedGroupAvatarContentTypes = map[string]bool{
         "image/webp": true,
 }
 
-func validateMessageBody(body string) error <span class="cov8" title="1">{
-        if body == "" </span><span class="cov8" title="1">{
+func validateMessageBody(body string) error <span class="cov10" title="25">{
+        if body == "" </span><span class="cov4" title="3">{
                 return domain.ErrEmptyMessage
         }</span>
-        <span class="cov8" title="1">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov8" title="1">{
+        <span class="cov9" title="22">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov2" title="2">{
                 return domain.ErrMessageTooLarge
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov9" title="20">return nil</span>
 }
 
-func validateGroupName(name string) error <span class="cov8" title="1">{
-        if name == "" </span><span class="cov8" title="1">{
+func validateGroupName(name string) error <span class="cov4" title="3">{
+        if name == "" </span><span class="cov2" title="2">{
                 return domain.ErrGroupNameRequired
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov1" title="1">return nil</span>
 }
 
-func validateMemberRole(role domain.MemberRole) error <span class="cov8" title="1">{
-        if role != domain.MemberRoleAdmin &amp;&amp; role != domain.MemberRoleMember </span><span class="cov8" title="1">{
+func validateMemberRole(role domain.MemberRole) error <span class="cov5" title="5">{
+        if role != domain.MemberRoleAdmin &amp;&amp; role != domain.MemberRoleMember </span><span class="cov4" title="3">{
                 return domain.ErrInvalidRole
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov2" title="2">return nil</span>
 }
 
-func validateReportCategory(category domain.ReportCategory) error <span class="cov8" title="1">{
-        if !validReportCategories[category] </span><span class="cov8" title="1">{
+func validateReportCategory(category domain.ReportCategory) error <span class="cov6" title="8">{
+        if !validReportCategories[category] </span><span class="cov4" title="3">{
                 return domain.ErrInvalidReportCategory
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov5" title="5">return nil</span>
 }
 
-func validateGroupAvatar(data []byte) (string, error) <span class="cov8" title="1">{
-        if len(data) &gt; MaxGroupAvatarSizeBytes </span><span class="cov8" title="1">{
+func validateGroupAvatar(data []byte) (string, error) <span class="cov5" title="5">{
+        if len(data) &gt; MaxGroupAvatarSizeBytes </span><span class="cov1" title="1">{
                 return "", domain.ErrGroupAvatarTooLarge
         }</span>
-        <span class="cov8" title="1">contentType := http.DetectContentType(data)
-        if !allowedGroupAvatarContentTypes[contentType] </span><span class="cov8" title="1">{
+        <span class="cov4" title="4">contentType := http.DetectContentType(data)
+        if !allowedGroupAvatarContentTypes[contentType] </span><span class="cov2" title="2">{
                 return "", domain.ErrInvalidGroupAvatarType
         }</span>
-        <span class="cov8" title="1">return contentType, nil</span>
+        <span class="cov2" title="2">return contentType, nil</span>
 }
 </pre>
 		
@@ -2134,17 +2143,17 @@ type ChatServer struct {
         chat *service.ChatService
 }
 
-func NewChatServer(chat *service.ChatService) *ChatServer <span class="cov8" title="1">{
+func NewChatServer(chat *service.ChatService) *ChatServer <span class="cov2" title="2">{
         return &amp;ChatServer{chat: chat}
 }</span>
 
-func (s *ChatServer) Health(ctx context.Context, req *chatv1.HealthRequest) (*chatv1.HealthResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) Health(ctx context.Context, req *chatv1.HealthRequest) (*chatv1.HealthResponse, error) <span class="cov1" title="1">{
         return &amp;chatv1.HealthResponse{Ok: true}, nil
 }</span>
 
-func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatRequest) (*chatv1.CreateChatResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatRequest) (*chatv1.CreateChatResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2161,9 +2170,9 @@ func (s *ChatServer) CreateChat(ctx context.Context, req *chatv1.CreateChatReque
         <span class="cov0" title="0">return &amp;chatv1.CreateChatResponse{ChatId: chat.ID}, nil</span>
 }
 
-func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGroupChatRequest) (*chatv1.CreateGroupChatResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGroupChatRequest) (*chatv1.CreateGroupChatResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2180,9 +2189,9 @@ func (s *ChatServer) CreateGroupChat(ctx context.Context, req *chatv1.CreateGrou
         <span class="cov0" title="0">return &amp;chatv1.CreateGroupChatResponse{ChatId: chat.ID}, nil</span>
 }
 
-func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest) (*chatv1.AddMemberResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest) (*chatv1.AddMemberResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2198,9 +2207,9 @@ func (s *ChatServer) AddMember(ctx context.Context, req *chatv1.AddMemberRequest
         <span class="cov0" title="0">return &amp;chatv1.AddMemberResponse{}, nil</span>
 }
 
-func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberRequest) (*chatv1.RemoveMemberResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberRequest) (*chatv1.RemoveMemberResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2211,9 +2220,9 @@ func (s *ChatServer) RemoveMember(ctx context.Context, req *chatv1.RemoveMemberR
         <span class="cov0" title="0">return &amp;chatv1.RemoveMemberResponse{}, nil</span>
 }
 
-func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRoleRequest) (*chatv1.SetMemberRoleResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRoleRequest) (*chatv1.SetMemberRoleResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2224,9 +2233,9 @@ func (s *ChatServer) SetMemberRole(ctx context.Context, req *chatv1.SetMemberRol
         <span class="cov0" title="0">return &amp;chatv1.SetMemberRoleResponse{}, nil</span>
 }
 
-func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest) (*chatv1.LeaveChatResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) LeaveChat(ctx context.Context, req *chatv1.LeaveChatRequest) (*chatv1.LeaveChatResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2250,9 +2259,9 @@ func (s *ChatServer) DeleteGroupChat(ctx context.Context, req *chatv1.DeleteGrou
         <span class="cov0" title="0">return &amp;chatv1.DeleteGroupChatResponse{}, nil</span>
 }
 
-func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageRequest) (*chatv1.SendMessageResponse, error) <span class="cov1" title="1">{
         senderID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2264,9 +2273,9 @@ func (s *ChatServer) SendMessage(ctx context.Context, req *chatv1.SendMessageReq
         <span class="cov0" title="0">return &amp;chatv1.SendMessageResponse{MessageId: message.ID}, nil</span>
 }
 
-func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryRequest) (*chatv1.GetHistoryResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryRequest) (*chatv1.GetHistoryResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2283,9 +2292,9 @@ func (s *ChatServer) GetHistory(ctx context.Context, req *chatv1.GetHistoryReque
         <span class="cov0" title="0">return &amp;chatv1.GetHistoryResponse{Messages: result}, nil</span>
 }
 
-func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest) (*chatv1.ListChatsResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) ListChats(ctx context.Context, req *chatv1.ListChatsRequest) (*chatv1.ListChatsResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2329,9 +2338,9 @@ func (s *ChatServer) ListMembers(ctx context.Context, req *chatv1.ListMembersReq
         <span class="cov0" title="0">return &amp;chatv1.ListMembersResponse{UserIds: userIDs, Members: memberInfos}, nil</span>
 }
 
-func (s *ChatServer) ListChatMembers(ctx context.Context, req *chatv1.ListChatMembersRequest) (*chatv1.ListChatMembersResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) ListChatMembers(ctx context.Context, req *chatv1.ListChatMembersRequest) (*chatv1.ListChatMembersResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2362,9 +2371,9 @@ func (s *ChatServer) GetMessage(ctx context.Context, req *chatv1.GetMessageReque
         <span class="cov0" title="0">return &amp;chatv1.GetMessageResponse{Message: toProtoMessage(message)}, nil</span>
 }
 
-func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageRequest) (*chatv1.EditMessageResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageRequest) (*chatv1.EditMessageResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2376,9 +2385,9 @@ func (s *ChatServer) EditMessage(ctx context.Context, req *chatv1.EditMessageReq
         <span class="cov0" title="0">return &amp;chatv1.EditMessageResponse{Message: toProtoMessage(message)}, nil</span>
 }
 
-func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.DeleteMessageForAllRequest) (*chatv1.DeleteMessageForAllResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.DeleteMessageForAllRequest) (*chatv1.DeleteMessageForAllResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2389,9 +2398,9 @@ func (s *ChatServer) DeleteMessageForAll(ctx context.Context, req *chatv1.Delete
         <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForAllResponse{}, nil</span>
 }
 
-func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteMessageForMeRequest) (*chatv1.DeleteMessageForMeResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteMessageForMeRequest) (*chatv1.DeleteMessageForMeResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2402,9 +2411,9 @@ func (s *ChatServer) DeleteMessageForMe(ctx context.Context, req *chatv1.DeleteM
         <span class="cov0" title="0">return &amp;chatv1.DeleteMessageForMeResponse{}, nil</span>
 }
 
-func (s *ChatServer) MarkRead(ctx context.Context, req *chatv1.MarkReadRequest) (*chatv1.MarkReadResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) MarkRead(ctx context.Context, req *chatv1.MarkReadRequest) (*chatv1.MarkReadResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2424,9 +2433,9 @@ func (s *ChatServer) GetReadStatus(ctx context.Context, req *chatv1.GetReadStatu
         <span class="cov0" title="0">return &amp;chatv1.GetReadStatusResponse{LastReadMessageId: lastReadMessageID}, nil</span>
 }
 
-func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyRequest) (*chatv1.GetChatKeyResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyRequest) (*chatv1.GetChatKeyResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2438,9 +2447,9 @@ func (s *ChatServer) GetChatKey(ctx context.Context, req *chatv1.GetChatKeyReque
         <span class="cov0" title="0">return &amp;chatv1.GetChatKeyResponse{EncryptedChatKey: encryptedChatKey}, nil</span>
 }
 
-func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysRequest) (*chatv1.ListChatKeysResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysRequest) (*chatv1.ListChatKeysResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2461,9 +2470,9 @@ func (s *ChatServer) ListChatKeys(ctx context.Context, req *chatv1.ListChatKeysR
         <span class="cov0" title="0">return &amp;chatv1.ListChatKeysResponse{MemberKeys: memberKeys}, nil</span>
 }
 
-func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKeyRequest) (*chatv1.UpdateChatKeyResponse, error) <span class="cov8" title="1">{
+func (s *ChatServer) UpdateChatKey(ctx context.Context, req *chatv1.UpdateChatKeyRequest) (*chatv1.UpdateChatKeyResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -2531,7 +2540,7 @@ func (s *ChatServer) ReportMessage(ctx context.Context, req *chatv1.ReportMessag
         <span class="cov0" title="0">return &amp;chatv1.ReportMessageResponse{}, nil</span>
 }
 
-func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov8" title="1">{
+func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov1" title="1">{
         result := &amp;chatv1.Message{
                 MessageId:     m.ID,
                 SenderUserId:  m.SenderID,
@@ -2542,7 +2551,7 @@ func toProtoMessage(m *domain.Message) *chatv1.Message <span class="cov8" title=
         if m.EditedAt != nil </span><span class="cov0" title="0">{
                 result.EditedAtUnix = m.EditedAt.Unix()
         }</span>
-        <span class="cov8" title="1">return result</span>
+        <span class="cov1" title="1">return result</span>
 }
 
 func (s *ChatServer) GetPresence(ctx context.Context, req *chatv1.GetPresenceRequest) (*chatv1.GetPresenceResponse, error) <span class="cov0" title="0">{
@@ -2596,7 +2605,7 @@ func (s *ChatServer) GetTyping(ctx context.Context, req *chatv1.GetTypingRequest
         <span class="cov0" title="0">return &amp;chatv1.GetTypingResponse{Typing: typing}, nil</span>
 }
 
-func toGRPCError(err error) error <span class="cov8" title="1">{
+func toGRPCError(err error) error <span class="cov10" title="23">{
         switch </span>{
         case errors.Is(err, domain.ErrCannotChatWithSelf),
                 errors.Is(err, domain.ErrEmptyMessage),
@@ -2609,29 +2618,29 @@ func toGRPCError(err error) error <span class="cov8" title="1">{
                 errors.Is(err, domain.ErrNotGroupChat),
                 errors.Is(err, domain.ErrInvalidRole),
                 errors.Is(err, domain.ErrCannotBlockSelf),
-                errors.Is(err, domain.ErrInvalidReportCategory):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrInvalidReportCategory):<span class="cov7" title="10">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
         case errors.Is(err, domain.ErrAlreadyReported):<span class="cov0" title="0">
                 return status.Error(codes.AlreadyExists, err.Error())</span>
         case errors.Is(err, domain.ErrTargetUserNotFound),
                 errors.Is(err, domain.ErrChatNotFound),
-                errors.Is(err, domain.ErrMessageNotFound):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrMessageNotFound):<span class="cov4" title="3">
                 return status.Error(codes.NotFound, err.Error())</span>
         case errors.Is(err, domain.ErrNotChatMember),
                 errors.Is(err, domain.ErrNotMessageSender),
                 errors.Is(err, domain.ErrNotChatAdmin),
                 errors.Is(err, domain.ErrCannotRemoveCreator),
                 errors.Is(err, domain.ErrOnlyCreatorCanManageAdmins),
-                errors.Is(err, domain.ErrOnlyCreatorCanDeleteChat):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrOnlyCreatorCanDeleteChat):<span class="cov5" title="5">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
         case errors.Is(err, domain.ErrMessageDeleted),
-                errors.Is(err, domain.ErrUserBlocked):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrUserBlocked):<span class="cov1" title="1">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
-        case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov8" title="1">
+        case errors.Is(err, domain.ErrMessageNotInChat):<span class="cov1" title="1">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
-        case errors.Is(err, domain.ErrTooManyMessages):<span class="cov8" title="1">
+        case errors.Is(err, domain.ErrTooManyMessages):<span class="cov1" title="1">
                 return status.Error(codes.ResourceExhausted, err.Error())</span>
-        default:<span class="cov8" title="1">
+        default:<span class="cov2" title="2">
                 log.Printf("chat-service: internal error: %v", err)
                 return status.Error(codes.Internal, "internal error")</span>
         }
@@ -2674,68 +2683,68 @@ var internalMethods = map[string]bool{
         "/chat.v1.ChatService/GetTyping":     true,
 }
 
-func AuthInterceptor(jwtSecret, internalSecret string) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
-        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
-                if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
+func AuthInterceptor(jwtSecret, internalSecret string) grpc.UnaryServerInterceptor <span class="cov7" title="8">{
+        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov7" title="8">{
+                if publicMethods[info.FullMethod] </span><span class="cov1" title="1">{
                         return handler(ctx, req)
                 }</span>
 
-                <span class="cov8" title="1">if internalMethods[info.FullMethod] </span><span class="cov8" title="1">{
-                        if err := checkInternalSecret(ctx, internalSecret); err != nil </span><span class="cov8" title="1">{
+                <span class="cov7" title="7">if internalMethods[info.FullMethod] </span><span class="cov4" title="3">{
+                        if err := checkInternalSecret(ctx, internalSecret); err != nil </span><span class="cov1" title="1">{
                                 return nil, err
                         }</span>
-                        <span class="cov8" title="1">return handler(ctx, req)</span>
+                        <span class="cov3" title="2">return handler(ctx, req)</span>
                 }
 
-                <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
-                if err != nil </span><span class="cov8" title="1">{
+                <span class="cov5" title="4">token, err := bearerTokenFromContext(ctx)
+                if err != nil </span><span class="cov3" title="2">{
                         return nil, err
                 }</span>
 
-                <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
-                if err != nil </span><span class="cov8" title="1">{
+                <span class="cov3" title="2">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
+                if err != nil </span><span class="cov1" title="1">{
                         return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
                 }</span>
 
-                <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
+                <span class="cov1" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
                 return handler(ctx, req)</span>
         }
 }
 
-func checkInternalSecret(ctx context.Context, internalSecret string) error <span class="cov8" title="1">{
+func checkInternalSecret(ctx context.Context, internalSecret string) error <span class="cov4" title="3">{
         md, ok := metadata.FromIncomingContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return status.Error(codes.Unauthenticated, "missing metadata")
         }</span>
 
-        <span class="cov8" title="1">values := md.Get("x-internal-secret")
+        <span class="cov3" title="2">values := md.Get("x-internal-secret")
         if len(values) == 0 || values[0] != internalSecret </span><span class="cov0" title="0">{
                 return status.Error(codes.Unauthenticated, "invalid internal secret")
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov3" title="2">return nil</span>
 }
 
-func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{
+func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov5" title="4">{
         md, ok := metadata.FromIncomingContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return "", status.Error(codes.Unauthenticated, "missing metadata")
         }</span>
 
-        <span class="cov8" title="1">values := md.Get("authorization")
+        <span class="cov4" title="3">values := md.Get("authorization")
         if len(values) == 0 </span><span class="cov0" title="0">{
                 return "", status.Error(codes.Unauthenticated, "missing authorization header")
         }</span>
 
-        <span class="cov8" title="1">const prefix = "Bearer "
-        if !strings.HasPrefix(values[0], prefix) </span><span class="cov8" title="1">{
+        <span class="cov4" title="3">const prefix = "Bearer "
+        if !strings.HasPrefix(values[0], prefix) </span><span class="cov1" title="1">{
                 return "", status.Error(codes.Unauthenticated, "authorization header must use Bearer scheme")
         }</span>
 
-        <span class="cov8" title="1">return strings.TrimPrefix(values[0], prefix), nil</span>
+        <span class="cov3" title="2">return strings.TrimPrefix(values[0], prefix), nil</span>
 }
 
-func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" title="1">{
+func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov10" title="18">{
         userID, ok := ctx.Value(userIDContextKey).(string)
         return userID, ok
 }</span>

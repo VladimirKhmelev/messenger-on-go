@@ -78,8 +78,17 @@
 			<div id="legend">
 				<span>not tracked</span>
 			
-				<span class="cov0">not covered</span>
-				<span class="cov8">covered</span>
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
 			
 			</div>
 		</div>
@@ -540,7 +549,7 @@ type MediaService struct {
         members ChatMembership
 }
 
-func NewMediaService(media MediaRepository, store ObjectStore, members ChatMembership) *MediaService <span class="cov8" title="1">{
+func NewMediaService(media MediaRepository, store ObjectStore, members ChatMembership) *MediaService <span class="cov10" title="12">{
         return &amp;MediaService{media: media, store: store, members: members}
 }</span>
 
@@ -550,20 +559,20 @@ type UploadTicket struct {
         ExpiresAtUnix int64
 }
 
-func (s *MediaService) RequestUpload(ctx context.Context, chatID, requesterID, contentType string, sizeBytes int64) (*UploadTicket, error) <span class="cov8" title="1">{
-        if err := validateUpload(contentType, sizeBytes); err != nil </span><span class="cov8" title="1">{
+func (s *MediaService) RequestUpload(ctx context.Context, chatID, requesterID, contentType string, sizeBytes int64) (*UploadTicket, error) <span class="cov9" title="10">{
+        if err := validateUpload(contentType, sizeBytes); err != nil </span><span class="cov3" title="2">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">isMember, err := s.members.IsMember(ctx, chatID, requesterID)
+        <span class="cov8" title="8">isMember, err := s.members.IsMember(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+        <span class="cov8" title="8">if !isMember </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotChatMember
         }</span>
 
-        <span class="cov8" title="1">id := uuid.NewString()
+        <span class="cov8" title="7">id := uuid.NewString()
         objectKey := "chats/" + chatID + "/" + id
 
         if err := s.media.CreatePending(ctx, &amp;domain.MediaObject{
@@ -578,40 +587,40 @@ func (s *MediaService) RequestUpload(ctx context.Context, chatID, requesterID, c
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">uploadURL, err := s.store.PresignedPutURL(ctx, objectKey, uploadURLTTL)
+        <span class="cov8" title="7">uploadURL, err := s.store.PresignedPutURL(ctx, objectKey, uploadURLTTL)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">return &amp;UploadTicket{
+        <span class="cov8" title="7">return &amp;UploadTicket{
                 UploadID:      id,
                 UploadURL:     uploadURL,
                 ExpiresAtUnix: time.Now().Add(uploadURLTTL).Unix(),
         }, nil</span>
 }
 
-func (s *MediaService) ConfirmUpload(ctx context.Context, uploadID, requesterID string) (string, error) <span class="cov8" title="1">{
+func (s *MediaService) ConfirmUpload(ctx context.Context, uploadID, requesterID string) (string, error) <span class="cov7" title="6">{
         obj, err := s.media.Get(ctx, uploadID)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
                 return "", err
         }</span>
-        <span class="cov8" title="1">if obj.UploaderID != requesterID </span><span class="cov8" title="1">{
+        <span class="cov6" title="5">if obj.UploaderID != requesterID </span><span class="cov1" title="1">{
                 return "", domain.ErrMediaNotFound
         }</span>
 
-        <span class="cov8" title="1">exists, err := s.store.StatObjectExists(ctx, obj.ObjectKey)
+        <span class="cov6" title="4">exists, err := s.store.StatObjectExists(ctx, obj.ObjectKey)
         if err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
-        <span class="cov8" title="1">if !exists </span><span class="cov8" title="1">{
+        <span class="cov6" title="4">if !exists </span><span class="cov1" title="1">{
                 return "", domain.ErrUploadNotConfirmed
         }</span>
 
-        <span class="cov8" title="1">if err := s.media.Confirm(ctx, uploadID); err != nil </span><span class="cov0" title="0">{
+        <span class="cov4" title="3">if err := s.media.Confirm(ctx, uploadID); err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
 
-        <span class="cov8" title="1">return obj.ID, nil</span>
+        <span class="cov4" title="3">return obj.ID, nil</span>
 }
 
 type DownloadTicket struct {
@@ -619,29 +628,29 @@ type DownloadTicket struct {
         ExpiresAtUnix int64
 }
 
-func (s *MediaService) GetDownloadURL(ctx context.Context, mediaID, requesterID string) (*DownloadTicket, error) <span class="cov8" title="1">{
+func (s *MediaService) GetDownloadURL(ctx context.Context, mediaID, requesterID string) (*DownloadTicket, error) <span class="cov6" title="4">{
         obj, err := s.media.Get(ctx, mediaID)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !obj.Confirmed </span><span class="cov8" title="1">{
+        <span class="cov4" title="3">if !obj.Confirmed </span><span class="cov1" title="1">{
                 return nil, domain.ErrUploadNotConfirmed
         }</span>
 
-        <span class="cov8" title="1">isMember, err := s.members.IsMember(ctx, obj.ChatID, requesterID)
+        <span class="cov3" title="2">isMember, err := s.members.IsMember(ctx, obj.ChatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !isMember </span><span class="cov8" title="1">{
+        <span class="cov3" title="2">if !isMember </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotChatMember
         }</span>
 
-        <span class="cov8" title="1">downloadURL, err := s.store.PresignedGetURL(ctx, obj.ObjectKey, downloadURLTTL)
+        <span class="cov1" title="1">downloadURL, err := s.store.PresignedGetURL(ctx, obj.ObjectKey, downloadURLTTL)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">return &amp;DownloadTicket{
+        <span class="cov1" title="1">return &amp;DownloadTicket{
                 DownloadURL:   downloadURL,
                 ExpiresAtUnix: time.Now().Add(downloadURLTTL).Unix(),
         }, nil</span>
@@ -667,20 +676,20 @@ var blockedContentTypes = map[string]bool{
         "application/x-itunes-ipa":                      true, // .ipa
 }
 
-func validateUpload(contentType string, sizeBytes int64) error <span class="cov8" title="1">{
-        if contentType == "" </span><span class="cov8" title="1">{
+func validateUpload(contentType string, sizeBytes int64) error <span class="cov10" title="29">{
+        if contentType == "" </span><span class="cov2" title="2">{
                 return domain.ErrEmptyContentType
         }</span>
-        <span class="cov8" title="1">if blockedContentTypes[contentType] </span><span class="cov8" title="1">{
+        <span class="cov9" title="27">if blockedContentTypes[contentType] </span><span class="cov8" title="14">{
                 return domain.ErrContentTypeBlocked
         }</span>
-        <span class="cov8" title="1">if sizeBytes &lt;= 0 </span><span class="cov8" title="1">{
+        <span class="cov7" title="13">if sizeBytes &lt;= 0 </span><span class="cov2" title="2">{
                 return domain.ErrInvalidSize
         }</span>
-        <span class="cov8" title="1">if sizeBytes &gt; MaxUploadSizeBytes </span><span class="cov8" title="1">{
+        <span class="cov7" title="11">if sizeBytes &gt; MaxUploadSizeBytes </span><span class="cov1" title="1">{
                 return domain.ErrSizeTooLarge
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov7" title="10">return nil</span>
 }
 </pre>
 		
@@ -708,47 +717,47 @@ var publicMethods = map[string]bool{
         "/grpc.health.v1.Health/Watch":  true,
 }
 
-func AuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
-        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
-                if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
+func AuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor <span class="cov10" title="7">{
+        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov10" title="7">{
+                if publicMethods[info.FullMethod] </span><span class="cov4" title="2">{
                         return handler(ctx, req)
                 }</span>
 
-                <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
-                if err != nil </span><span class="cov8" title="1">{
+                <span class="cov8" title="5">token, err := bearerTokenFromContext(ctx)
+                if err != nil </span><span class="cov6" title="3">{
                         return nil, err
                 }</span>
 
-                <span class="cov8" title="1">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
-                if err != nil </span><span class="cov8" title="1">{
+                <span class="cov4" title="2">userID, err := jwtutil.ValidateAccessToken(token, jwtSecret)
+                if err != nil </span><span class="cov1" title="1">{
                         return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
                 }</span>
 
-                <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
+                <span class="cov1" title="1">ctx = context.WithValue(ctx, userIDContextKey, userID)
                 return handler(ctx, req)</span>
         }
 }
 
-func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{
+func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="5">{
         md, ok := metadata.FromIncomingContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov4" title="2">{
                 return "", status.Error(codes.Unauthenticated, "missing metadata")
         }</span>
 
-        <span class="cov8" title="1">values := md.Get("authorization")
+        <span class="cov6" title="3">values := md.Get("authorization")
         if len(values) == 0 </span><span class="cov0" title="0">{
                 return "", status.Error(codes.Unauthenticated, "missing authorization header")
         }</span>
 
-        <span class="cov8" title="1">const prefix = "Bearer "
-        if !strings.HasPrefix(values[0], prefix) </span><span class="cov8" title="1">{
+        <span class="cov6" title="3">const prefix = "Bearer "
+        if !strings.HasPrefix(values[0], prefix) </span><span class="cov1" title="1">{
                 return "", status.Error(codes.Unauthenticated, "authorization header must use Bearer scheme")
         }</span>
 
-        <span class="cov8" title="1">return strings.TrimPrefix(values[0], prefix), nil</span>
+        <span class="cov4" title="2">return strings.TrimPrefix(values[0], prefix), nil</span>
 }
 
-func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" title="1">{
+func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov7" title="4">{
         userID, ok := ctx.Value(userIDContextKey).(string)
         return userID, ok
 }</span>
@@ -774,17 +783,17 @@ type MediaServer struct {
         media *service.MediaService
 }
 
-func NewMediaServer(media *service.MediaService) *MediaServer <span class="cov8" title="1">{
+func NewMediaServer(media *service.MediaService) *MediaServer <span class="cov3" title="2">{
         return &amp;MediaServer{media: media}
 }</span>
 
-func (s *MediaServer) Health(ctx context.Context, req *mediav1.HealthRequest) (*mediav1.HealthResponse, error) <span class="cov8" title="1">{
+func (s *MediaServer) Health(ctx context.Context, req *mediav1.HealthRequest) (*mediav1.HealthResponse, error) <span class="cov1" title="1">{
         return &amp;mediav1.HealthResponse{Ok: true}, nil
 }</span>
 
-func (s *MediaServer) RequestUpload(ctx context.Context, req *mediav1.RequestUploadRequest) (*mediav1.RequestUploadResponse, error) <span class="cov8" title="1">{
+func (s *MediaServer) RequestUpload(ctx context.Context, req *mediav1.RequestUploadRequest) (*mediav1.RequestUploadResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -800,9 +809,9 @@ func (s *MediaServer) RequestUpload(ctx context.Context, req *mediav1.RequestUpl
         }, nil</span>
 }
 
-func (s *MediaServer) ConfirmUpload(ctx context.Context, req *mediav1.ConfirmUploadRequest) (*mediav1.ConfirmUploadResponse, error) <span class="cov8" title="1">{
+func (s *MediaServer) ConfirmUpload(ctx context.Context, req *mediav1.ConfirmUploadRequest) (*mediav1.ConfirmUploadResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -814,9 +823,9 @@ func (s *MediaServer) ConfirmUpload(ctx context.Context, req *mediav1.ConfirmUpl
         <span class="cov0" title="0">return &amp;mediav1.ConfirmUploadResponse{MediaId: mediaID}, nil</span>
 }
 
-func (s *MediaServer) GetDownloadURL(ctx context.Context, req *mediav1.GetDownloadURLRequest) (*mediav1.GetDownloadURLResponse, error) <span class="cov8" title="1">{
+func (s *MediaServer) GetDownloadURL(ctx context.Context, req *mediav1.GetDownloadURLRequest) (*mediav1.GetDownloadURLResponse, error) <span class="cov1" title="1">{
         requesterID, ok := UserIDFromContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
         }</span>
 
@@ -831,20 +840,20 @@ func (s *MediaServer) GetDownloadURL(ctx context.Context, req *mediav1.GetDownlo
         }, nil</span>
 }
 
-func toGRPCError(err error) error <span class="cov8" title="1">{
+func toGRPCError(err error) error <span class="cov10" title="9">{
         switch </span>{
         case errors.Is(err, domain.ErrEmptyContentType),
                 errors.Is(err, domain.ErrInvalidSize),
                 errors.Is(err, domain.ErrSizeTooLarge),
-                errors.Is(err, domain.ErrContentTypeBlocked):<span class="cov8" title="1">
+                errors.Is(err, domain.ErrContentTypeBlocked):<span class="cov6" title="4">
                 return status.Error(codes.InvalidArgument, err.Error())</span>
-        case errors.Is(err, domain.ErrMediaNotFound):<span class="cov8" title="1">
+        case errors.Is(err, domain.ErrMediaNotFound):<span class="cov1" title="1">
                 return status.Error(codes.NotFound, err.Error())</span>
-        case errors.Is(err, domain.ErrNotChatMember):<span class="cov8" title="1">
+        case errors.Is(err, domain.ErrNotChatMember):<span class="cov1" title="1">
                 return status.Error(codes.PermissionDenied, err.Error())</span>
-        case errors.Is(err, domain.ErrUploadNotConfirmed):<span class="cov8" title="1">
+        case errors.Is(err, domain.ErrUploadNotConfirmed):<span class="cov1" title="1">
                 return status.Error(codes.FailedPrecondition, err.Error())</span>
-        default:<span class="cov8" title="1">
+        default:<span class="cov3" title="2">
                 return status.Error(codes.Internal, "internal error")</span>
         }
 }

@@ -126,8 +126,17 @@
 			<div id="legend">
 				<span>not tracked</span>
 			
-				<span class="cov0">not covered</span>
-				<span class="cov8">covered</span>
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
 			
 			</div>
 		</div>
@@ -800,19 +809,19 @@ type Issuer struct {
         secret []byte
 }
 
-func NewIssuer(secret string) *Issuer <span class="cov8" title="1">{
+func NewIssuer(secret string) *Issuer <span class="cov10" title="7">{
         return &amp;Issuer{secret: []byte(secret)}
 }</span>
 
-func (i *Issuer) IssueAccessToken(userID string) (string, error) <span class="cov8" title="1">{
+func (i *Issuer) IssueAccessToken(userID string) (string, error) <span class="cov6" title="3">{
         return i.issue(userID, TokenTypeAccess, domain.AccessTokenTTL)
 }</span>
 
-func (i *Issuer) IssueRefreshToken(userID string) (string, error) <span class="cov8" title="1">{
+func (i *Issuer) IssueRefreshToken(userID string) (string, error) <span class="cov1" title="1">{
         return i.issue(userID, TokenTypeRefresh, domain.RefreshTokenTTL)
 }</span>
 
-func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (string, error) <span class="cov8" title="1">{
+func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (string, error) <span class="cov7" title="4">{
         now := time.Now()
         claims := Claims{
                 RegisteredClaims: jwt.RegisteredClaims{
@@ -827,24 +836,24 @@ func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (s
         return token.SignedString(i.secret)
 }</span>
 
-func (i *Issuer) Parse(tokenString string, wantType TokenType) (*Claims, error) <span class="cov8" title="1">{
+func (i *Issuer) Parse(tokenString string, wantType TokenType) (*Claims, error) <span class="cov9" title="6">{
         claims := &amp;Claims{}
 
-        token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) </span><span class="cov8" title="1">{
+        token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) </span><span class="cov8" title="5">{
                 if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok </span><span class="cov0" title="0">{
                         return nil, domain.ErrInvalidToken
                 }</span>
-                <span class="cov8" title="1">return i.secret, nil</span>
+                <span class="cov8" title="5">return i.secret, nil</span>
         })
-        <span class="cov8" title="1">if err != nil || !token.Valid </span><span class="cov8" title="1">{
+        <span class="cov9" title="6">if err != nil || !token.Valid </span><span class="cov6" title="3">{
                 return nil, domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">if claims.Type != wantType </span><span class="cov8" title="1">{
+        <span class="cov6" title="3">if claims.Type != wantType </span><span class="cov1" title="1">{
                 return nil, domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">return claims, nil</span>
+        <span class="cov4" title="2">return claims, nil</span>
 }
 
 func (i *Issuer) ParseRefreshToken(tokenString string) (*domain.TokenClaims, error) <span class="cov0" title="0">{
@@ -1355,17 +1364,17 @@ var allowedAvatarContentTypes = map[string]bool{
         "image/webp": true,
 }
 
-func (s *AuthService) UploadAvatar(ctx context.Context, userID string, data []byte) error <span class="cov8" title="1">{
-        if len(data) &gt; MaxAvatarSizeBytes </span><span class="cov8" title="1">{
+func (s *AuthService) UploadAvatar(ctx context.Context, userID string, data []byte) error <span class="cov10" title="5">{
+        if len(data) &gt; MaxAvatarSizeBytes </span><span class="cov1" title="1">{
                 return domain.ErrAvatarTooLarge
         }</span>
 
-        <span class="cov8" title="1">contentType := http.DetectContentType(data)
-        if !allowedAvatarContentTypes[contentType] </span><span class="cov8" title="1">{
+        <span class="cov8" title="4">contentType := http.DetectContentType(data)
+        if !allowedAvatarContentTypes[contentType] </span><span class="cov1" title="1">{
                 return domain.ErrInvalidAvatarType
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpsertAvatar(ctx, &amp;domain.Avatar{
+        <span class="cov7" title="3">if err := s.users.UpsertAvatar(ctx, &amp;domain.Avatar{
                 UserID:      userID,
                 Data:        data,
                 ContentType: contentType,
@@ -1374,20 +1383,20 @@ func (s *AuthService) UploadAvatar(ctx context.Context, userID string, data []by
                 return err
         }</span>
 
-        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        <span class="cov7" title="3">s.publishProfileUpdated(ctx, userID)
         return nil</span>
 }
 
-func (s *AuthService) GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error) <span class="cov8" title="1">{
+func (s *AuthService) GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error) <span class="cov8" title="4">{
         return s.users.GetAvatar(ctx, userID)
 }</span>
 
-func (s *AuthService) DeleteAvatar(ctx context.Context, userID string) error <span class="cov8" title="1">{
+func (s *AuthService) DeleteAvatar(ctx context.Context, userID string) error <span class="cov1" title="1">{
         if err := s.users.DeleteAvatar(ctx, userID); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        <span class="cov1" title="1">s.publishProfileUpdated(ctx, userID)
         return nil</span>
 }
 </pre>
@@ -1405,65 +1414,65 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt string) error <span class="cov8" title="1">{
+func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword, wrappedPrivateKey, keyWrapSalt string) error <span class="cov10" title="6">{
         allowed, err := s.loginLimiter.Allow(ctx, "change-password:"+userID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+        <span class="cov10" title="6">if !allowed </span><span class="cov1" title="1">{
                 return domain.ErrTooManyAttempts
         }</span>
 
-        <span class="cov8" title="1">user, err := s.users.GetByID(ctx, userID)
+        <span class="cov9" title="5">user, err := s.users.GetByID(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil </span><span class="cov8" title="1">{
+        <span class="cov9" title="5">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil </span><span class="cov1" title="1">{
                 return domain.ErrInvalidCredentials
         }</span>
 
-        <span class="cov8" title="1">if err := ValidatePassword(newPassword); err != nil </span><span class="cov8" title="1">{
+        <span class="cov7" title="4">if err := ValidatePassword(newPassword); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if oldPassword == newPassword </span><span class="cov8" title="1">{
+        <span class="cov6" title="3">if oldPassword == newPassword </span><span class="cov1" title="1">{
                 return domain.ErrSamePassword
         }</span>
 
-        <span class="cov8" title="1">if strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
                 return domain.ErrInvalidPublicKey
         }</span>
 
-        <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+        <span class="cov4" title="2">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">s.markPasswordChanged(ctx, user.ID)
+        <span class="cov4" title="2">s.markPasswordChanged(ctx, user.ID)
 
         if err := s.mailer.SendPasswordChanged(user.Email); err != nil </span><span class="cov0" title="0">{
                 log.Printf("auth-service: failed to send password-changed notification for %s: %v", user.ID, err)
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov4" title="2">return nil</span>
 }
 
-func (s *AuthService) markPasswordChanged(ctx context.Context, userID string) <span class="cov8" title="1">{
+func (s *AuthService) markPasswordChanged(ctx context.Context, userID string) <span class="cov9" title="5">{
         if err := s.passwordChanges.MarkChanged(ctx, userID, domain.AccessTokenTTL); err != nil </span><span class="cov0" title="0">{
                 log.Printf("auth-service: failed to record password change for %s: %v", userID, err)
         }</span>
 }
 
-func (s *AuthService) IsAccessTokenStale(ctx context.Context, userID string, issuedAt time.Time) (bool, error) <span class="cov8" title="1">{
+func (s *AuthService) IsAccessTokenStale(ctx context.Context, userID string, issuedAt time.Time) (bool, error) <span class="cov4" title="2">{
         return s.passwordChanges.ChangedAfter(ctx, userID, issuedAt)
 }</span>
 </pre>
@@ -1479,33 +1488,33 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string) error <span class="cov8" title="1">{
+func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string) error <span class="cov10" title="2">{
         user, err := s.users.GetByID(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if user.PasswordHash != oauthPasswordPlaceholder </span><span class="cov8" title="1">{
+        <span class="cov10" title="2">if user.PasswordHash != oauthPasswordPlaceholder </span><span class="cov1" title="1">{
                 if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil </span><span class="cov0" title="0">{
                         return domain.ErrInvalidCredentials
                 }</span>
         }
 
-        <span class="cov8" title="1">if err := s.users.DeleteAvatar(ctx, userID); err != nil </span><span class="cov0" title="0">{
+        <span class="cov10" title="2">if err := s.users.DeleteAvatar(ctx, userID); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">anonymizedEmail := fmt.Sprintf("deleted-%s@deleted.local", userID)
+        <span class="cov10" title="2">anonymizedEmail := fmt.Sprintf("deleted-%s@deleted.local", userID)
         anonymizedTag := fmt.Sprintf("deleted_%s", userID)
         if err := s.users.Anonymize(ctx, userID, anonymizedEmail, anonymizedTag, "Удалённый пользователь"); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, domain.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
+        <span class="cov10" title="2">if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, domain.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        <span class="cov10" title="2">s.publishProfileUpdated(ctx, userID)
         return nil</span>
 }
 </pre>
@@ -1517,17 +1526,17 @@ import (
         "strings"
 )
 
-func (s *AuthService) UpdateDisplayName(ctx context.Context, userID, displayName string) error <span class="cov8" title="1">{
+func (s *AuthService) UpdateDisplayName(ctx context.Context, userID, displayName string) error <span class="cov10" title="4">{
         trimmed := strings.TrimSpace(displayName)
-        if err := ValidateDisplayName(trimmed); err != nil </span><span class="cov8" title="1">{
+        if err := ValidateDisplayName(trimmed); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpdateDisplayName(ctx, userID, trimmed); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="3">if err := s.users.UpdateDisplayName(ctx, userID, trimmed); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">s.publishProfileUpdated(ctx, userID)
+        <span class="cov8" title="3">s.publishProfileUpdated(ctx, userID)
         return nil</span>
 }
 </pre>
@@ -1550,102 +1559,102 @@ type TokenPair struct {
         RefreshToken string
 }
 
-func (s *AuthService) Login(ctx context.Context, email, password string) (*TokenPair, error) <span class="cov8" title="1">{
+func (s *AuthService) Login(ctx context.Context, email, password string) (*TokenPair, error) <span class="cov10" title="6">{
         allowed, err := s.loginLimiter.Allow(ctx, email)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+        <span class="cov10" title="6">if !allowed </span><span class="cov1" title="1">{
                 return nil, domain.ErrTooManyAttempts
         }</span>
 
-        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
-        if err != nil </span><span class="cov8" title="1">{
-                if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov8" title="1">{
+        <span class="cov9" title="5">user, err := s.users.GetByEmail(ctx, email)
+        if err != nil </span><span class="cov1" title="1">{
+                if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov1" title="1">{
                         metrics.FailedLoginsTotal.Inc()
                         return nil, domain.ErrInvalidCredentials
                 }</span>
                 <span class="cov0" title="0">return nil, err</span>
         }
 
-        <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil </span><span class="cov8" title="1">{
+        <span class="cov7" title="4">if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil </span><span class="cov1" title="1">{
                 metrics.FailedLoginsTotal.Inc()
                 return nil, domain.ErrInvalidCredentials
         }</span>
 
-        <span class="cov8" title="1">if !user.EmailVerified </span><span class="cov8" title="1">{
+        <span class="cov6" title="3">if !user.EmailVerified </span><span class="cov1" title="1">{
                 return nil, domain.ErrEmailNotVerified
         }</span>
 
-        <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(user.ID)
+        <span class="cov4" title="2">accessToken, err := s.tokens.IssueAccessToken(user.ID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">refreshToken, err := s.tokens.IssueRefreshToken(user.ID)
+        <span class="cov4" title="2">refreshToken, err := s.tokens.IssueRefreshToken(user.ID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil</span>
+        <span class="cov4" title="2">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil</span>
 }
 
-func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) <span class="cov8" title="1">{
+func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) <span class="cov7" title="4">{
         claims, err := s.tokens.ParseRefreshToken(refreshToken)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov4" title="2">{
                 return nil, domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">revoked, err := s.refreshBlocked.IsRevoked(ctx, refreshToken)
+        <span class="cov4" title="2">revoked, err := s.refreshBlocked.IsRevoked(ctx, refreshToken)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if revoked </span><span class="cov8" title="1">{
+        <span class="cov4" title="2">if revoked </span><span class="cov1" title="1">{
                 if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, domain.RefreshTokenTTL); err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
-                <span class="cov8" title="1">return nil, domain.ErrInvalidToken</span>
+                <span class="cov1" title="1">return nil, domain.ErrInvalidToken</span>
         }
 
-        <span class="cov8" title="1">revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt)
+        <span class="cov1" title="1">revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if revokedAll </span><span class="cov0" title="0">{
+        <span class="cov1" title="1">if revokedAll </span><span class="cov0" title="0">{
                 return nil, domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(claims.UserID)
+        <span class="cov1" title="1">accessToken, err := s.tokens.IssueAccessToken(claims.UserID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">newRefreshToken, err := s.tokens.IssueRefreshToken(claims.UserID)
+        <span class="cov1" title="1">newRefreshToken, err := s.tokens.IssueRefreshToken(claims.UserID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if ttl := time.Until(claims.ExpiresAt); ttl &gt; 0 </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if ttl := time.Until(claims.ExpiresAt); ttl &gt; 0 </span><span class="cov1" title="1">{
                 if err := s.refreshBlocked.Revoke(ctx, refreshToken, ttl); err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
         }
 
-        <span class="cov8" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: newRefreshToken}, nil</span>
+        <span class="cov1" title="1">return &amp;TokenPair{AccessToken: accessToken, RefreshToken: newRefreshToken}, nil</span>
 }
 
-func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <span class="cov8" title="1">{
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error <span class="cov7" title="4">{
         claims, err := s.tokens.ParseRefreshToken(refreshToken)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov4" title="2">{
                 return domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">ttl := time.Until(claims.ExpiresAt)
+        <span class="cov4" title="2">ttl := time.Until(claims.ExpiresAt)
         if ttl &lt;= 0 </span><span class="cov0" title="0">{
                 return nil
         }</span>
 
-        <span class="cov8" title="1">return s.refreshBlocked.Revoke(ctx, refreshToken, ttl)</span>
+        <span class="cov4" title="2">return s.refreshBlocked.Revoke(ctx, refreshToken, ttl)</span>
 }
 </pre>
 		
@@ -1673,53 +1682,53 @@ type GitHubLoginResult struct {
         IsNewUser bool
 }
 
-func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrappedPrivateKey, keyWrapSalt string) (*GitHubLoginResult, error) <span class="cov8" title="1">{
+func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrappedPrivateKey, keyWrapSalt string) (*GitHubLoginResult, error) <span class="cov10" title="7">{
         profile, err := s.github.FetchProfile(code)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov4" title="2">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">isNewUser := false
+        <span class="cov8" title="5">isNewUser := false
         user, err := s.users.GetByEmail(ctx, profile.Email)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov6" title="3">{
                 if !errors.Is(err, domain.ErrUserNotFound) </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
 
-                <span class="cov8" title="1">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+                <span class="cov6" title="3">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
                         return nil, domain.ErrInvalidPublicKey
                 }</span>
 
-                <span class="cov8" title="1">user, err = s.createUserFromGitHub(ctx, profile, publicKey, wrappedPrivateKey, keyWrapSalt)
+                <span class="cov6" title="3">user, err = s.createUserFromGitHub(ctx, profile, publicKey, wrappedPrivateKey, keyWrapSalt)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
-                <span class="cov8" title="1">isNewUser = true</span>
+                <span class="cov6" title="3">isNewUser = true</span>
         }
 
-        <span class="cov8" title="1">accessToken, err := s.tokens.IssueAccessToken(user.ID)
+        <span class="cov8" title="5">accessToken, err := s.tokens.IssueAccessToken(user.ID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">refreshToken, err := s.tokens.IssueRefreshToken(user.ID)
+        <span class="cov8" title="5">refreshToken, err := s.tokens.IssueRefreshToken(user.ID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">return &amp;GitHubLoginResult{
+        <span class="cov8" title="5">return &amp;GitHubLoginResult{
                 Tokens:    &amp;TokenPair{AccessToken: accessToken, RefreshToken: refreshToken},
                 IsNewUser: isNewUser,
         }, nil</span>
 }
 
-func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *domain.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *domain.GitHubProfile, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov6" title="3">{
         tag, err := s.generateUniqueTag(ctx, "id")
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">user := &amp;domain.User{
+        <span class="cov6" title="3">user := &amp;domain.User{
                 ID:                uuid.NewString(),
                 Email:             profile.Email,
                 Tag:               tag,
@@ -1736,7 +1745,7 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *domain.
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishUserOAuthLinked(ctx, domain.UserOAuthLinked{
+        <span class="cov6" title="3">if err := s.events.PublishUserOAuthLinked(ctx, domain.UserOAuthLinked{
                 UserID:   user.ID,
                 Email:    user.Email,
                 Provider: "github",
@@ -1745,21 +1754,21 @@ func (s *AuthService) createUserFromGitHub(ctx context.Context, profile *domain.
                 log.Printf("auth-service: failed to publish user.oauth_linked event for %s: %v", user.ID, err)
         }</span>
 
-        <span class="cov8" title="1">return user, nil</span>
+        <span class="cov6" title="3">return user, nil</span>
 }
 
-func (s *AuthService) generateUniqueTag(ctx context.Context, base string) (string, error) <span class="cov8" title="1">{
-        for i := 0; i &lt; maxTagGenerationAttempts; i++ </span><span class="cov8" title="1">{
+func (s *AuthService) generateUniqueTag(ctx context.Context, base string) (string, error) <span class="cov6" title="3">{
+        for i := 0; i &lt; maxTagGenerationAttempts; i++ </span><span class="cov6" title="3">{
                 tag, err := randomTag(base)
                 if err != nil </span><span class="cov0" title="0">{
                         return "", err
                 }</span>
 
-                <span class="cov8" title="1">taken, err := s.users.ExistsByTag(ctx, tag)
+                <span class="cov6" title="3">taken, err := s.users.ExistsByTag(ctx, tag)
                 if err != nil </span><span class="cov0" title="0">{
                         return "", err
                 }</span>
-                <span class="cov8" title="1">if !taken </span><span class="cov8" title="1">{
+                <span class="cov6" title="3">if !taken </span><span class="cov6" title="3">{
                         return tag, nil
                 }</span>
         }
@@ -1767,19 +1776,19 @@ func (s *AuthService) generateUniqueTag(ctx context.Context, base string) (strin
         <span class="cov0" title="0">return "", errors.New("failed to generate a unique tag")</span>
 }
 
-func randomTag(base string) (string, error) <span class="cov8" title="1">{
+func randomTag(base string) (string, error) <span class="cov6" title="3">{
         n, err := rand.Int(rand.Reader, big.NewInt(100000000))
         if err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
-        <span class="cov8" title="1">suffix := fmt.Sprintf("%08d", n.Int64())
+        <span class="cov6" title="3">suffix := fmt.Sprintf("%08d", n.Int64())
 
         const maxTagLength = 20
         if len(base)+len(suffix) &gt; maxTagLength </span><span class="cov0" title="0">{
                 base = base[:maxTagLength-len(suffix)]
         }</span>
 
-        <span class="cov8" title="1">return base + suffix, nil</span>
+        <span class="cov6" title="3">return base + suffix, nil</span>
 }
 </pre>
 		
@@ -1793,28 +1802,28 @@ import (
 
 const minPasswordLength = 8
 
-func ValidatePassword(password string) error <span class="cov8" title="1">{
-        if utf8.RuneCountInString(password) &lt; minPasswordLength </span><span class="cov8" title="1">{
+func ValidatePassword(password string) error <span class="cov6" title="46">{
+        if utf8.RuneCountInString(password) &lt; minPasswordLength </span><span class="cov3" title="5">{
                 return domain.ErrWeakPassword
         }</span>
 
-        <span class="cov8" title="1">var hasDigit, hasLetter bool
-        for _, r := range password </span><span class="cov8" title="1">{
+        <span class="cov6" title="41">var hasDigit, hasLetter bool
+        for _, r := range password </span><span class="cov10" title="322">{
                 switch </span>{
-                case r &lt; 0x20 || r &gt; 0x7e:<span class="cov8" title="1">
+                case r &lt; 0x20 || r &gt; 0x7e:<span class="cov1" title="1">
                         return domain.ErrWeakPassword</span>
-                case r &gt;= '0' &amp;&amp; r &lt;= '9':<span class="cov8" title="1">
+                case r &gt;= '0' &amp;&amp; r &lt;= '9':<span class="cov8" title="144">
                         hasDigit = true</span>
-                case r &gt;= 'a' &amp;&amp; r &lt;= 'z', r &gt;= 'A' &amp;&amp; r &lt;= 'Z':<span class="cov8" title="1">
+                case r &gt;= 'a' &amp;&amp; r &lt;= 'z', r &gt;= 'A' &amp;&amp; r &lt;= 'Z':<span class="cov9" title="175">
                         hasLetter = true</span>
                 }
         }
 
-        <span class="cov8" title="1">if !hasDigit || !hasLetter </span><span class="cov8" title="1">{
+        <span class="cov6" title="40">if !hasDigit || !hasLetter </span><span class="cov2" title="2">{
                 return domain.ErrWeakPassword
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov6" title="38">return nil</span>
 }
 </pre>
 		
@@ -1832,63 +1841,63 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error <span class="cov8" title="1">{
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error <span class="cov6" title="3">{
         user, err := s.users.GetByEmail(ctx, email)
-        if err != nil </span><span class="cov8" title="1">{
-                if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
+                if errors.Is(err, domain.ErrUserNotFound) </span><span class="cov1" title="1">{
                         return nil
                 }</span>
                 <span class="cov0" title="0">return err</span>
         }
 
-        <span class="cov8" title="1">token, err := s.passwordResets.GenerateAndStore(ctx, user.Email)
+        <span class="cov4" title="2">token, err := s.passwordResets.GenerateAndStore(ctx, user.Email)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">return s.mailer.SendPasswordResetToken(user.Email, token)</span>
+        <span class="cov4" title="2">return s.mailer.SendPasswordResetToken(user.Email, token)</span>
 }
 
-func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, publicKey, wrappedPrivateKey, keyWrapSalt string) error <span class="cov8" title="1">{
+func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, publicKey, wrappedPrivateKey, keyWrapSalt string) error <span class="cov10" title="6">{
         email, ok, err := s.passwordResets.Consume(ctx, token)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !ok </span><span class="cov8" title="1">{
+        <span class="cov10" title="6">if !ok </span><span class="cov4" title="2">{
                 return domain.ErrInvalidToken
         }</span>
 
-        <span class="cov8" title="1">if err := ValidatePassword(newPassword); err != nil </span><span class="cov8" title="1">{
+        <span class="cov7" title="4">if err := ValidatePassword(newPassword); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+        <span class="cov6" title="3">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
                 return domain.ErrInvalidPublicKey
         }</span>
 
-        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
+        <span class="cov6" title="3">user, err := s.users.GetByEmail(ctx, email)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+        <span class="cov6" title="3">passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
+        <span class="cov6" title="3">if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpdatePublicKey(ctx, user.ID, publicKey); err != nil </span><span class="cov0" title="0">{
+        <span class="cov6" title="3">if err := s.users.UpdatePublicKey(ctx, user.ID, publicKey); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil </span><span class="cov0" title="0">{
+        <span class="cov6" title="3">if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">s.markPasswordChanged(ctx, user.ID)
+        <span class="cov6" title="3">s.markPasswordChanged(ctx, user.ID)
 
         if err := s.events.PublishUserPasswordReset(ctx, domain.UserPasswordReset{
                 UserID: user.ID,
@@ -1898,7 +1907,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, pub
                 log.Printf("auth-service: failed to publish user.password_reset event for %s: %v", user.ID, err)
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov6" title="3">return nil</span>
 }
 </pre>
 		
@@ -1953,13 +1962,13 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
-func (s *AuthService) SavePushSubscription(ctx context.Context, userID, endpoint, p256dhKey, authKey string) error <span class="cov8" title="1">{
+func (s *AuthService) SavePushSubscription(ctx context.Context, userID, endpoint, p256dhKey, authKey string) error <span class="cov10" title="3">{
 
         if endpoint == "" || p256dhKey == "" || authKey == "" </span><span class="cov0" title="0">{
                 return domain.ErrInvalidPushSubscription
         }</span>
 
-        <span class="cov8" title="1">return s.users.UpsertPushSubscription(ctx, &amp;domain.PushSubscription{
+        <span class="cov10" title="3">return s.users.UpsertPushSubscription(ctx, &amp;domain.PushSubscription{
                 ID:        uuid.NewString(),
                 UserID:    userID,
                 Endpoint:  endpoint,
@@ -1973,7 +1982,7 @@ func (s *AuthService) DeletePushSubscription(ctx context.Context, userID, endpoi
         return s.users.DeletePushSubscription(ctx, userID, endpoint)
 }</span>
 
-func (s *AuthService) ListPushSubscriptions(ctx context.Context, userID string) ([]*domain.PushSubscription, error) <span class="cov8" title="1">{
+func (s *AuthService) ListPushSubscriptions(ctx context.Context, userID string) ([]*domain.PushSubscription, error) <span class="cov6" title="2">{
         return s.users.ListPushSubscriptions(ctx, userID)
 }</span>
 </pre>
@@ -2022,7 +2031,7 @@ func NewAuthService(
         eventPublisher EventPublisher,
         passwordChanges PasswordChangeTracker,
         refreshRevoked RefreshRevokedTracker,
-) *AuthService <span class="cov8" title="1">{
+) *AuthService <span class="cov10" title="63">{
         return &amp;AuthService{
                 users:              users,
                 tokens:             tokens,
@@ -2039,45 +2048,45 @@ func NewAuthService(
         }
 }</span>
 
-func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="1">{
-        if err := ValidateEmail(email); err != nil </span><span class="cov8" title="1">{
+func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) <span class="cov8" title="32">{
+        if err := ValidateEmail(email); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if err := ValidateTag(tag); err != nil </span><span class="cov8" title="1">{
+        <span class="cov8" title="31">if err := ValidateTag(tag); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if err := ValidateDisplayName(displayName); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="30">if err := ValidateDisplayName(displayName); err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if err := ValidatePassword(password); err != nil </span><span class="cov8" title="1">{
+        <span class="cov8" title="30">if err := ValidatePassword(password); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="29">if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" </span><span class="cov0" title="0">{
                 return nil, domain.ErrInvalidPublicKey
         }</span>
 
-        <span class="cov8" title="1">emailTaken, err := s.users.ExistsByEmail(ctx, email)
+        <span class="cov8" title="29">emailTaken, err := s.users.ExistsByEmail(ctx, email)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if emailTaken </span><span class="cov8" title="1">{
+        <span class="cov8" title="29">if emailTaken </span><span class="cov1" title="1">{
                 return nil, domain.ErrEmailTaken
         }</span>
 
-        <span class="cov8" title="1">tagTaken, err := s.users.ExistsByTag(ctx, tag)
+        <span class="cov8" title="28">tagTaken, err := s.users.ExistsByTag(ctx, tag)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov8" title="1">if tagTaken </span><span class="cov8" title="1">{
+        <span class="cov8" title="28">if tagTaken </span><span class="cov1" title="1">{
                 return nil, domain.ErrTagTaken
         }</span>
 
-        <span class="cov8" title="1">passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+        <span class="cov8" title="27">passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">user := &amp;domain.User{
+        <span class="cov8" title="27">user := &amp;domain.User{
                 ID:                uuid.NewString(),
                 Email:             email,
                 Tag:               tag,
@@ -2094,58 +2103,58 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">code, err := s.emailCodes.GenerateAndStore(ctx, email)
+        <span class="cov8" title="27">code, err := s.emailCodes.GenerateAndStore(ctx, email)
         if err != nil </span><span class="cov0" title="0">{
                 s.rollbackRegistration(ctx, user.ID)
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.mailer.SendVerificationCode(email, code); err != nil </span><span class="cov8" title="1">{
+        <span class="cov8" title="27">if err := s.mailer.SendVerificationCode(email, code); err != nil </span><span class="cov1" title="1">{
                 s.rollbackRegistration(ctx, user.ID)
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishUserRegistered(ctx, domain.UserRegistered{
+        <span class="cov8" title="26">if err := s.events.PublishUserRegistered(ctx, domain.UserRegistered{
                 UserID:    user.ID,
                 Email:     user.Email,
                 Tag:       user.Tag,
                 CreatedAt: user.CreatedAt,
-        }); err != nil </span><span class="cov8" title="1">{
+        }); err != nil </span><span class="cov1" title="1">{
                 log.Printf("auth-service: failed to publish user.registered event for %s: %v", user.ID, err)
         }</span>
 
-        <span class="cov8" title="1">return user, nil</span>
+        <span class="cov8" title="26">return user, nil</span>
 }
 
-func (s *AuthService) rollbackRegistration(ctx context.Context, userID string) <span class="cov8" title="1">{
+func (s *AuthService) rollbackRegistration(ctx context.Context, userID string) <span class="cov1" title="1">{
         if err := s.users.Delete(ctx, userID); err != nil </span><span class="cov0" title="0">{
                 log.Printf("auth-service: failed to roll back registration for %s after verification email failure: %v", userID, err)
         }</span>
 }
 
-func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error <span class="cov8" title="1">{
+func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error <span class="cov3" title="3">{
         allowed, err := s.emailVerifyLimiter.Allow(ctx, email)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+        <span class="cov3" title="3">if !allowed </span><span class="cov1" title="1">{
                 return domain.ErrTooManyAttempts
         }</span>
 
-        <span class="cov8" title="1">ok, err := s.emailCodes.Verify(ctx, email, code)
+        <span class="cov2" title="2">ok, err := s.emailCodes.Verify(ctx, email, code)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov8" title="1">if !ok </span><span class="cov8" title="1">{
+        <span class="cov2" title="2">if !ok </span><span class="cov1" title="1">{
                 return domain.ErrInvalidVerificationCode
         }</span>
 
-        <span class="cov8" title="1">user, err := s.users.GetByEmail(ctx, email)
+        <span class="cov1" title="1">user, err := s.users.GetByEmail(ctx, email)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov8" title="1">return s.users.MarkEmailVerified(ctx, user.ID)</span>
+        <span class="cov1" title="1">return s.users.MarkEmailVerified(ctx, user.ID)</span>
 }
 </pre>
 		
@@ -2163,20 +2172,20 @@ const (
         SearchUsersLimit       = 15
 )
 
-func (s *AuthService) GetUserByTag(ctx context.Context, tag string) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) GetUserByTag(ctx context.Context, tag string) (*domain.User, error) <span class="cov5" title="2">{
         return s.users.GetByTag(ctx, tag)
 }</span>
 
-func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) <span class="cov8" title="1">{
+func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) <span class="cov10" title="4">{
         return s.users.GetByID(ctx, id)
 }</span>
 
-func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.User, error) <span class="cov8" title="1">{
-        if utf8.RuneCountInString(query) &lt; SearchUsersMinQueryLen </span><span class="cov8" title="1">{
+func (s *AuthService) SearchUsers(ctx context.Context, query string) ([]*domain.User, error) <span class="cov8" title="3">{
+        if utf8.RuneCountInString(query) &lt; SearchUsersMinQueryLen </span><span class="cov1" title="1">{
                 return nil, domain.ErrSearchQueryTooShort
         }</span>
 
-        <span class="cov8" title="1">return s.users.SearchByTagPrefix(ctx, query, SearchUsersLimit)</span>
+        <span class="cov5" title="2">return s.users.SearchByTagPrefix(ctx, query, SearchUsersLimit)</span>
 }
 </pre>
 		
@@ -2211,14 +2220,14 @@ func (s *AuthService) UpdateTag(ctx context.Context, userID, tag string) error <
         return nil</span>
 }
 
-func (s *AuthService) publishProfileUpdated(ctx context.Context, userID string) <span class="cov8" title="1">{
+func (s *AuthService) publishProfileUpdated(ctx context.Context, userID string) <span class="cov10" title="9">{
         user, err := s.users.GetByID(ctx, userID)
         if err != nil </span><span class="cov0" title="0">{
                 log.Printf("auth-service: failed to load user %s for profile_updated event: %v", userID, err)
                 return
         }</span>
 
-        <span class="cov8" title="1">if err := s.events.PublishUserProfileUpdated(ctx, domain.UserProfileUpdated{
+        <span class="cov10" title="9">if err := s.events.PublishUserProfileUpdated(ctx, domain.UserProfileUpdated{
                 UserID:      user.ID,
                 Tag:         user.Tag,
                 DisplayName: user.DisplayName,
@@ -2266,27 +2275,27 @@ const (
         maxDisplayNameLength = 40
 )
 
-func ValidateEmail(email string) error <span class="cov8" title="1">{
-        if _, err := mail.ParseAddress(email); err != nil </span><span class="cov8" title="1">{
+func ValidateEmail(email string) error <span class="cov9" title="36">{
+        if _, err := mail.ParseAddress(email); err != nil </span><span class="cov4" title="4">{
                 return domain.ErrInvalidEmail
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov9" title="32">return nil</span>
 }
 
-func ValidateTag(tag string) error <span class="cov8" title="1">{
-        if !tagPattern.MatchString(tag) </span><span class="cov8" title="1">{
+func ValidateTag(tag string) error <span class="cov9" title="39">{
+        if !tagPattern.MatchString(tag) </span><span class="cov6" title="8">{
                 return domain.ErrInvalidTag
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov9" title="31">return nil</span>
 }
 
-func ValidateDisplayName(name string) error <span class="cov8" title="1">{
+func ValidateDisplayName(name string) error <span class="cov10" title="41">{
         trimmed := strings.TrimSpace(name)
         length := utf8.RuneCountInString(trimmed)
-        if length &lt; minDisplayNameLength || length &gt; maxDisplayNameLength </span><span class="cov8" title="1">{
+        if length &lt; minDisplayNameLength || length &gt; maxDisplayNameLength </span><span class="cov4" title="4">{
                 return domain.ErrInvalidDisplayName
         }</span>
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov9" title="37">return nil</span>
 }
 </pre>
 		
@@ -2757,7 +2766,7 @@ var errNoCookie = errors.New("refresh_token cookie not present")
 
 const refreshCookieName = "refresh_token"
 
-func setRefreshCookie(ctx context.Context, token string, secure bool) error <span class="cov8" title="1">{
+func setRefreshCookie(ctx context.Context, token string, secure bool) error <span class="cov6" title="2">{
         cookie := fmt.Sprintf(
                 "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s",
                 refreshCookieName, token, int(domain.RefreshTokenTTL.Seconds()), secureAttr(secure),
@@ -2765,39 +2774,39 @@ func setRefreshCookie(ctx context.Context, token string, secure bool) error <spa
         return grpc.SetHeader(ctx, metadata.Pairs("set-cookie", cookie))
 }</span>
 
-func clearRefreshCookie(ctx context.Context, secure bool) error <span class="cov8" title="1">{
+func clearRefreshCookie(ctx context.Context, secure bool) error <span class="cov1" title="1">{
         cookie := fmt.Sprintf("%s=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax%s", refreshCookieName, secureAttr(secure))
         return grpc.SetHeader(ctx, metadata.Pairs("set-cookie", cookie))
 }</span>
 
-func secureAttr(secure bool) string <span class="cov8" title="1">{
-        if secure </span><span class="cov8" title="1">{
+func secureAttr(secure bool) string <span class="cov10" title="3">{
+        if secure </span><span class="cov1" title="1">{
                 return "; Secure"
         }</span>
-        <span class="cov8" title="1">return ""</span>
+        <span class="cov6" title="2">return ""</span>
 }
 
-func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="cov8" title="1">{
+func refreshTokenFromCookie(ctx context.Context) (string, error) <span class="cov10" title="3">{
         md, ok := metadata.FromIncomingContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return "", errNoCookie
         }</span>
 
-        <span class="cov8" title="1">values := md.Get("grpcgateway-cookie")
+        <span class="cov6" title="2">values := md.Get("grpcgateway-cookie")
         if len(values) == 0 </span><span class="cov0" title="0">{
                 return "", errNoCookie
         }</span>
 
-        <span class="cov8" title="1">header := http.Header{}
+        <span class="cov6" title="2">header := http.Header{}
         header.Add("Cookie", values[0])
         request := http.Request{Header: header}
 
         cookie, err := request.Cookie(refreshCookieName)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
                 return "", errNoCookie
         }</span>
 
-        <span class="cov8" title="1">return cookie.Value, nil</span>
+        <span class="cov1" title="1">return cookie.Value, nil</span>
 }
 </pre>
 		
@@ -2844,78 +2853,78 @@ var internalMethods = map[string]bool{
         "/auth.v1.AuthService/ListPushSubscriptions": true,
 }
 
-func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker, internalSecret string) grpc.UnaryServerInterceptor <span class="cov8" title="1">{
-        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov8" title="1">{
-                if publicMethods[info.FullMethod] </span><span class="cov8" title="1">{
+func AuthInterceptor(issuer *jwtutil.Issuer, staleTokens StaleTokenChecker, internalSecret string) grpc.UnaryServerInterceptor <span class="cov10" title="7">{
+        return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) </span><span class="cov10" title="7">{
+                if publicMethods[info.FullMethod] </span><span class="cov1" title="1">{
                         return handler(ctx, req)
                 }</span>
 
-                <span class="cov8" title="1">if internalMethods[info.FullMethod] </span><span class="cov8" title="1">{
+                <span class="cov9" title="6">if internalMethods[info.FullMethod] </span><span class="cov1" title="1">{
                         if err := checkInternalSecret(ctx, internalSecret); err != nil </span><span class="cov0" title="0">{
                                 return nil, err
                         }</span>
-                        <span class="cov8" title="1">return handler(ctx, req)</span>
+                        <span class="cov1" title="1">return handler(ctx, req)</span>
                 }
 
-                <span class="cov8" title="1">token, err := bearerTokenFromContext(ctx)
-                if err != nil </span><span class="cov8" title="1">{
+                <span class="cov8" title="5">token, err := bearerTokenFromContext(ctx)
+                if err != nil </span><span class="cov4" title="2">{
                         return nil, err
                 }</span>
 
-                <span class="cov8" title="1">claims, err := issuer.Parse(token, jwtutil.TokenTypeAccess)
-                if err != nil </span><span class="cov8" title="1">{
+                <span class="cov6" title="3">claims, err := issuer.Parse(token, jwtutil.TokenTypeAccess)
+                if err != nil </span><span class="cov4" title="2">{
                         return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
                 }</span>
 
-                <span class="cov8" title="1">if claims.IssuedAt != nil </span><span class="cov8" title="1">{
+                <span class="cov1" title="1">if claims.IssuedAt != nil </span><span class="cov1" title="1">{
                         stale, err := staleTokens.IsAccessTokenStale(ctx, claims.UserID, claims.IssuedAt.Time)
                         if err != nil </span><span class="cov0" title="0">{
                                 return nil, status.Error(codes.Internal, "failed to validate token")
                         }</span>
-                        <span class="cov8" title="1">if stale </span><span class="cov0" title="0">{
+                        <span class="cov1" title="1">if stale </span><span class="cov0" title="0">{
                                 return nil, status.Error(codes.Unauthenticated, "token invalidated by a password change")
                         }</span>
                 }
 
-                <span class="cov8" title="1">ctx = context.WithValue(ctx, userIDContextKey, claims.UserID)
+                <span class="cov1" title="1">ctx = context.WithValue(ctx, userIDContextKey, claims.UserID)
                 return handler(ctx, req)</span>
         }
 }
 
-func checkInternalSecret(ctx context.Context, internalSecret string) error <span class="cov8" title="1">{
+func checkInternalSecret(ctx context.Context, internalSecret string) error <span class="cov1" title="1">{
         md, ok := metadata.FromIncomingContext(ctx)
         if !ok </span><span class="cov0" title="0">{
                 return status.Error(codes.Unauthenticated, "missing metadata")
         }</span>
 
-        <span class="cov8" title="1">values := md.Get("x-internal-secret")
+        <span class="cov1" title="1">values := md.Get("x-internal-secret")
         if len(values) == 0 || values[0] != internalSecret </span><span class="cov0" title="0">{
                 return status.Error(codes.Unauthenticated, "invalid internal secret")
         }</span>
 
-        <span class="cov8" title="1">return nil</span>
+        <span class="cov1" title="1">return nil</span>
 }
 
-func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="1">{
+func bearerTokenFromContext(ctx context.Context) (string, error) <span class="cov8" title="5">{
         md, ok := metadata.FromIncomingContext(ctx)
-        if !ok </span><span class="cov8" title="1">{
+        if !ok </span><span class="cov1" title="1">{
                 return "", status.Error(codes.Unauthenticated, "missing metadata")
         }</span>
 
-        <span class="cov8" title="1">values := md.Get("authorization")
+        <span class="cov7" title="4">values := md.Get("authorization")
         if len(values) == 0 </span><span class="cov0" title="0">{
                 return "", status.Error(codes.Unauthenticated, "missing authorization header")
         }</span>
 
-        <span class="cov8" title="1">const prefix = "Bearer "
-        if !strings.HasPrefix(values[0], prefix) </span><span class="cov8" title="1">{
+        <span class="cov7" title="4">const prefix = "Bearer "
+        if !strings.HasPrefix(values[0], prefix) </span><span class="cov1" title="1">{
                 return "", status.Error(codes.Unauthenticated, "authorization header must use Bearer scheme")
         }</span>
 
-        <span class="cov8" title="1">return strings.TrimPrefix(values[0], prefix), nil</span>
+        <span class="cov6" title="3">return strings.TrimPrefix(values[0], prefix), nil</span>
 }
 
-func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov8" title="1">{
+func UserIDFromContext(ctx context.Context) (string, bool) <span class="cov1" title="1">{
         userID, ok := ctx.Value(userIDContextKey).(string)
         return userID, ok
 }</span>
