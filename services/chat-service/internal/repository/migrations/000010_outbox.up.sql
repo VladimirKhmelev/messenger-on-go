@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS outbox (
+    id BIGSERIAL PRIMARY KEY,
+    subject TEXT NOT NULL,
+    payload BYTEA NOT NULL,
+    headers JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
