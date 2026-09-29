@@ -9,7 +9,7 @@ import (
 type txKey struct{}
 
 type txState struct {
-	tx *sqlx.Tx
+	tx             *sqlx.Tx
 	enqueuedOutbox bool
 }
 
