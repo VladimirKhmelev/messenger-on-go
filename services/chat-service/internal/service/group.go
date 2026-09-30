@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
@@ -207,28 +206,25 @@ func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID s
 		return domain.ErrOnlyCreatorCanDeleteChat
 	}
 
-	members, err := s.chats.ListMembers(ctx, chatID)
-	if err != nil {
-		return err
-	}
-	memberUserIDs := make([]string, 0, len(members))
-	for _, m := range members {
-		memberUserIDs = append(memberUserIDs, m.UserID)
-	}
+	return s.chats.WithTx(ctx, func(ctx context.Context) error {
+		members, err := s.chats.ListMembers(ctx, chatID)
+		if err != nil {
+			return err
+		}
+		memberUserIDs := make([]string, 0, len(members))
+		for _, m := range members {
+			memberUserIDs = append(memberUserIDs, m.UserID)
+		}
 
-	if err := s.chats.DeleteChat(ctx, chatID); err != nil {
-		return err
-	}
-
-	if err := s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
-		ChatID:        chatID,
-		MemberUserIDs: memberUserIDs,
-		DeletedAt:     time.Now(),
-	}); err != nil {
-		log.Printf("chat-service: failed to publish chat.deleted event for %s: %v", chatID, err)
-	}
-
-	return nil
+		if err := s.chats.DeleteChat(ctx, chatID); err != nil {
+			return err
+		}
+		return s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
+			ChatID:        chatID,
+			MemberUserIDs: memberUserIDs,
+			DeletedAt:     time.Now(),
+		})
+	})
 }
 
 func isCreator(chat *domain.Chat, userID string) bool {

@@ -19,6 +19,12 @@ type fakeChatRepository struct {
 	reports  map[string]map[string]*domain.MessageReport
 }
 
+type fakeTxKey struct{}
+
+func (r *fakeChatRepository) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(context.WithValue(ctx, fakeTxKey{}, true))
+}
+
 func newFakeChatRepository() *fakeChatRepository {
 	return &fakeChatRepository{
 		chats:    make(map[string]*domain.Chat),

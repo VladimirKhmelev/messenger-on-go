@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	relayBatchSize = 100
+	relayBatchSize    = 100
 	relayPollInterval = time.Second
 )
 

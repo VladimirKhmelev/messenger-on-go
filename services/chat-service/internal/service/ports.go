@@ -8,6 +8,8 @@ import (
 )
 
 type ChatRepository interface {
+	WithTx(ctx context.Context, fn func(ctx context.Context) error) error
+
 	CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]domain.MemberChatKey) error
 	GetChat(ctx context.Context, chatID string) (*domain.Chat, error)
 	DeleteChat(ctx context.Context, chatID string) error
