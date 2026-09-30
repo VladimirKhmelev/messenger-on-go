@@ -21,21 +21,17 @@ const (
 	SubjectChatDeleted    = "chat.deleted"
 )
 
-type Publisher struct {
-	js jetstream.JetStream
-}
-
-func Connect(ctx context.Context, url string) (*Publisher, error) {
+// Connect opens JetStream and makes sure the stream the relay publishes to
+// exists.
+func Connect(ctx context.Context, url string) (jetstream.JetStream, error) {
 	nc, err := nats.Connect(url)
 	if err != nil {
 		return nil, err
 	}
-
 	js, err := jetstream.New(nc)
 	if err != nil {
 		return nil, err
 	}
-
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:     StreamName,
 		Subjects: []string{"msg.*", "chat.*"},
@@ -43,51 +39,50 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &Publisher{js: js}, nil
+	return js, nil
 }
 
-func (p *Publisher) PublishMessageCreated(ctx context.Context, event domain.MessageCreated) error {
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-	return p.publish(ctx, SubjectMessageCreated, payload)
+type OutboxStore interface {
+	EnqueueOutbox(ctx context.Context, subject string, payload []byte, headers map[string][]string) error
 }
 
-func (p *Publisher) PublishMessageUpdated(ctx context.Context, event domain.MessageUpdated) error {
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
+type OutboxPublisher struct {
+	store OutboxStore
+}
 
+func NewOutboxPublisher(store OutboxStore) *OutboxPublisher {
+	return &OutboxPublisher{store: store}
+}
+
+func (p *OutboxPublisher) PublishMessageCreated(ctx context.Context, event domain.MessageCreated) error {
+	return p.enqueue(ctx, SubjectMessageCreated, event)
+}
+
+func (p *OutboxPublisher) PublishMessageUpdated(ctx context.Context, event domain.MessageUpdated) error {
 	subject := SubjectMessageUpdated
 	if event.Deleted {
 		subject = SubjectMessageDeleted
 	}
-	return p.publish(ctx, subject, payload)
+	return p.enqueue(ctx, subject, event)
 }
 
-func (p *Publisher) PublishMessageRead(ctx context.Context, event domain.MessageRead) error {
+func (p *OutboxPublisher) PublishMessageRead(ctx context.Context, event domain.MessageRead) error {
+	return p.enqueue(ctx, SubjectMessageRead, event)
+}
+
+func (p *OutboxPublisher) PublishChatDeleted(ctx context.Context, event domain.ChatDeleted) error {
+	return p.enqueue(ctx, SubjectChatDeleted, event)
+}
+
+// enqueue stores the trace context of the request that produced the event,
+// so consumers stay linked to it even though NATS delivery happens later
+// from the relay.
+func (p *OutboxPublisher) enqueue(ctx context.Context, subject string, event any) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	return p.publish(ctx, SubjectMessageRead, payload)
-}
-
-func (p *Publisher) PublishChatDeleted(ctx context.Context, event domain.ChatDeleted) error {
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-	return p.publish(ctx, SubjectChatDeleted, payload)
-}
-
-func (p *Publisher) publish(ctx context.Context, subject string, payload []byte) error {
 	ctx, header, span := tracing.StartPublishSpan(ctx, subject)
 	defer span.End()
-
-	_, err := p.js.PublishMsg(ctx, &nats.Msg{Subject: subject, Data: payload, Header: header})
-	return err
+	return p.store.EnqueueOutbox(ctx, subject, payload, header)
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
@@ -43,19 +42,20 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.chats.CreateMessage(ctx, message); err != nil {
+	if err := s.chats.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.chats.CreateMessage(ctx, message); err != nil {
+			return err
+		}
+		return s.events.PublishMessageCreated(ctx, domain.MessageCreated{
+			MessageID: message.ID,
+			ChatID:    message.ChatID,
+			SenderID:  message.SenderID,
+			CreatedAt: message.CreatedAt,
+		})
+	}); err != nil {
 		return nil, err
 	}
 	metrics.MessagesSentTotal.Inc()
-
-	if err := s.events.PublishMessageCreated(ctx, domain.MessageCreated{
-		MessageID: message.ID,
-		ChatID:    message.ChatID,
-		SenderID:  message.SenderID,
-		CreatedAt: message.CreatedAt,
-	}); err != nil {
-		log.Printf("chat-service: failed to publish msg.created event for %s: %v", message.ID, err)
-	}
 
 	return message, nil
 }
@@ -131,25 +131,26 @@ func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, n
 	}
 
 	now := time.Now()
-	if err := s.chats.AppendMessageEvent(ctx, &domain.MessageEvent{
-		ID:        uuid.NewString(),
-		MessageID: messageID,
-		ChatID:    message.ChatID,
-		ActorID:   requesterID,
-		Type:      domain.MessageEventEdited,
-		NewBody:   &newBody,
-		CreatedAt: now,
+	if err := s.chats.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.chats.AppendMessageEvent(ctx, &domain.MessageEvent{
+			ID:        uuid.NewString(),
+			MessageID: messageID,
+			ChatID:    message.ChatID,
+			ActorID:   requesterID,
+			Type:      domain.MessageEventEdited,
+			NewBody:   &newBody,
+			CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+		return s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
+			MessageID: messageID,
+			ChatID:    message.ChatID,
+			NewBody:   &newBody,
+			UpdatedAt: now,
+		})
 	}); err != nil {
 		return nil, err
-	}
-
-	if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
-		MessageID: messageID,
-		ChatID:    message.ChatID,
-		NewBody:   &newBody,
-		UpdatedAt: now,
-	}); err != nil {
-		log.Printf("chat-service: failed to publish msg.updated event for %s: %v", messageID, err)
 	}
 
 	message.Body = newBody
@@ -176,27 +177,24 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
 	}
 
 	now := time.Now()
-	if err := s.chats.AppendMessageEvent(ctx, &domain.MessageEvent{
-		ID:        uuid.NewString(),
-		MessageID: messageID,
-		ChatID:    message.ChatID,
-		ActorID:   requesterID,
-		Type:      domain.MessageEventDeletedForAll,
-		CreatedAt: now,
-	}); err != nil {
-		return err
-	}
-
-	if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
-		MessageID: messageID,
-		ChatID:    message.ChatID,
-		Deleted:   true,
-		UpdatedAt: now,
-	}); err != nil {
-		log.Printf("chat-service: failed to publish msg.deleted event for %s: %v", messageID, err)
-	}
-
-	return nil
+	return s.chats.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.chats.AppendMessageEvent(ctx, &domain.MessageEvent{
+			ID:        uuid.NewString(),
+			MessageID: messageID,
+			ChatID:    message.ChatID,
+			ActorID:   requesterID,
+			Type:      domain.MessageEventDeletedForAll,
+			CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+		return s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
+			MessageID: messageID,
+			ChatID:    message.ChatID,
+			Deleted:   true,
+			UpdatedAt: now,
+		})
+	})
 }
 
 func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error {
@@ -217,20 +215,17 @@ func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, message
 	}
 
 	now := time.Now()
-	if err := s.chats.MarkRead(ctx, chatID, requesterID, messageID, now); err != nil {
-		return err
-	}
-
-	if err := s.events.PublishMessageRead(ctx, domain.MessageRead{
-		ChatID:    chatID,
-		UserID:    requesterID,
-		MessageID: messageID,
-		ReadAt:    now,
-	}); err != nil {
-		log.Printf("chat-service: failed to publish msg.read event for chat %s: %v", chatID, err)
-	}
-
-	return nil
+	return s.chats.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.chats.MarkRead(ctx, chatID, requesterID, messageID, now); err != nil {
+			return err
+		}
+		return s.events.PublishMessageRead(ctx, domain.MessageRead{
+			ChatID:    chatID,
+			UserID:    requesterID,
+			MessageID: messageID,
+			ReadAt:    now,
+		})
+	})
 }
 
 func (s *ChatService) GetReadStatus(ctx context.Context, chatID, userID string) (string, error) {

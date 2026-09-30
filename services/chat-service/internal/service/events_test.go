@@ -35,7 +35,7 @@ func TestChatService_SendMessage_PublishesMessageCreated(t *testing.T) {
 	}
 }
 
-func TestChatService_SendMessage_EventPublishFailureDoesNotFailSend(t *testing.T) {
+func TestChatService_SendMessage_EventFailureFailsSend(t *testing.T) {
 	repo := newFakeChatRepository()
 	chat := &domain.Chat{ID: uuid.NewString(), CreatedAt: time.Now()}
 	_ = repo.CreateChat(context.Background(), chat, chatKeys("user-a", "user-b"))
@@ -43,8 +43,8 @@ func TestChatService_SendMessage_EventPublishFailureDoesNotFailSend(t *testing.T
 	svc := NewChatService(repo, newFakeAuthClient(), &failingEventPublisher{}, newFakePresenceChecker(), newFakeRateLimiter())
 
 	_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hello")
-	if err != nil {
-		t.Fatalf("SendMessage() unexpected error: %v, want nil (event publish failures must not fail sending)", err)
+	if !errors.Is(err, errPublishFailed) {
+		t.Fatalf("SendMessage() error = %v, want %v", err, errPublishFailed)
 	}
 }
 
@@ -64,4 +64,91 @@ func (failingEventPublisher) PublishMessageRead(context.Context, domain.MessageR
 
 func (failingEventPublisher) PublishChatDeleted(context.Context, domain.ChatDeleted) error {
 	return errPublishFailed
+}
+
+var errOutsideTx = errors.New("event published outside WithTx")
+
+type txOnlyPublisher struct{ fakeEventPublisher }
+
+func requireTx(ctx context.Context) error {
+	if ctx.Value(fakeTxKey{}) == nil {
+		return errOutsideTx
+	}
+	return nil
+}
+
+func (p *txOnlyPublisher) PublishMessageCreated(ctx context.Context, e domain.MessageCreated) error {
+	if err := requireTx(ctx); err != nil {
+		return err
+	}
+	return p.fakeEventPublisher.PublishMessageCreated(ctx, e)
+}
+
+func (p *txOnlyPublisher) PublishMessageUpdated(ctx context.Context, e domain.MessageUpdated) error {
+	if err := requireTx(ctx); err != nil {
+		return err
+	}
+	return p.fakeEventPublisher.PublishMessageUpdated(ctx, e)
+}
+
+func (p *txOnlyPublisher) PublishMessageRead(ctx context.Context, e domain.MessageRead) error {
+	if err := requireTx(ctx); err != nil {
+		return err
+	}
+	return p.fakeEventPublisher.PublishMessageRead(ctx, e)
+}
+
+func (p *txOnlyPublisher) PublishChatDeleted(ctx context.Context, e domain.ChatDeleted) error {
+	if err := requireTx(ctx); err != nil {
+		return err
+	}
+	return p.fakeEventPublisher.PublishChatDeleted(ctx, e)
+}
+
+func TestChatService_EventsArePublishedInsideTransaction(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(svc *ChatService, repo *fakeChatRepository) error
+	}{
+		{"SendMessage", func(svc *ChatService, repo *fakeChatRepository) error {
+			chat := newFakeGroupChat(repo, "user-a", "user-b")
+			_, err := svc.SendMessage(context.Background(), chat.ID, "user-a", "hi")
+			return err
+		}},
+		{"EditMessage", func(svc *ChatService, repo *fakeChatRepository) error {
+			chat := newFakeGroupChat(repo, "user-a", "user-b")
+			msg := seedMessage(repo, chat.ID, "user-a")
+			_, err := svc.EditMessage(context.Background(), msg.ID, "user-a", "edited")
+			return err
+		}},
+		{"DeleteMessageForAll", func(svc *ChatService, repo *fakeChatRepository) error {
+			chat := newFakeGroupChat(repo, "user-a", "user-b")
+			msg := seedMessage(repo, chat.ID, "user-a")
+			return svc.DeleteMessageForAll(context.Background(), msg.ID, "user-a")
+		}},
+		{"MarkRead", func(svc *ChatService, repo *fakeChatRepository) error {
+			chat := newFakeGroupChat(repo, "user-a", "user-b")
+			msg := seedMessage(repo, chat.ID, "user-a")
+			return svc.MarkRead(context.Background(), chat.ID, "user-b", msg.ID)
+		}},
+		{"DeleteGroupChat", func(svc *ChatService, repo *fakeChatRepository) error {
+			chat := newFakeGroupChat(repo, "user-a", "user-b")
+			return svc.DeleteGroupChat(context.Background(), chat.ID, "user-a")
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newFakeChatRepository()
+			svc := NewChatService(repo, newFakeAuthClient(), &txOnlyPublisher{}, newFakePresenceChecker(), newFakeRateLimiter())
+			if err := tt.run(svc, repo); err != nil {
+				t.Fatalf("%s() error = %v", tt.name, err)
+			}
+		})
+	}
+}
+
+func seedMessage(repo *fakeChatRepository, chatID, senderID string) *domain.Message {
+	msg := &domain.Message{ID: uuid.NewString(), ChatID: chatID, SenderID: senderID, Body: "hello", CreatedAt: time.Now()}
+	_ = repo.CreateMessage(context.Background(), msg)
+	return msg
 }

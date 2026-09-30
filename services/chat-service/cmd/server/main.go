@@ -97,10 +97,22 @@ func main() {
 	}
 	defer func() { _ = authClient.Close() }()
 
-	eventPublisher, err := events.Connect(context.Background(), natsURL)
+	js, err := events.Connect(context.Background(), natsURL)
 	if err != nil {
 		log.Fatalf("chat-service: failed to connect to NATS: %v", err)
 	}
+
+	// events are written to the outbox in the same transaction as the change
+	// they describe; the relay delivers them to NATS after commit
+	eventPublisher := events.NewOutboxPublisher(chatRepo)
+	relay := events.NewRelay(js, chatRepo)
+	chatRepo.OnCommit(relay.Wake)
+	relayCtx, stopRelay := context.WithCancel(context.Background())
+	relayDone := make(chan struct{})
+	go func() {
+		defer close(relayDone)
+		relay.Run(relayCtx)
+	}()
 
 	redisClient := cache.NewClient(redisAddr)
 	presenceStore := cache.NewPresenceStore(redisClient)
@@ -177,4 +189,6 @@ func main() {
 	fmt.Println("chat-service: shutting down")
 	grpcServer.GracefulStop()
 	_ = httpServer.Close()
+	stopRelay()
+	<-relayDone
 }
