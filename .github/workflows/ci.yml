@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       services: ${{ steps.services.outputs.list }}
-      auth-service: ${{ steps.filter.outputs.auth-service }}
-      chat-service: ${{ steps.filter.outputs.chat-service }}
-      proto: ${{ steps.filter.outputs.proto }}
-      pkg-jwtutil: ${{ steps.filter.outputs.pkg-jwtutil }}
-      pkg-metrics: ${{ steps.filter.outputs.pkg-metrics }}
-      pkg-tracing: ${{ steps.filter.outputs.pkg-tracing }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      auth-service: ${{ steps.services.outputs.full || steps.filter.outputs.auth-service }}
+      chat-service: ${{ steps.services.outputs.full || steps.filter.outputs.chat-service }}
+      proto: ${{ steps.services.outputs.full || steps.filter.outputs.proto }}
+      pkg-jwtutil: ${{ steps.services.outputs.full || steps.filter.outputs.pkg-jwtutil }}
+      pkg-metrics: ${{ steps.services.outputs.full || steps.filter.outputs.pkg-metrics }}
+      pkg-tracing: ${{ steps.services.outputs.full || steps.filter.outputs.pkg-tracing }}
+      frontend: ${{ steps.services.outputs.full || steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -68,9 +68,16 @@ jobs:
         id: services
         env:
           CHANGED: ${{ steps.filter.outputs.changes }}
+          FULL: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
-          list=$(jq -c '[.[] | select(IN("auth-service", "chat-service", "ws-gateway", "notification-worker", "media-service"))]' <<< "$CHANGED")
-          echo "changed services: $list"
+          all='["auth-service","chat-service","ws-gateway","notification-worker","media-service"]'
+          if [ "$FULL" = "true" ]; then
+            list=$all
+            echo "full=true" >> "$GITHUB_OUTPUT"
+          else
+            list=$(jq -c --argjson all "$all" '[.[] | select(IN($all[]))]' <<< "$CHANGED")
+          fi
+          echo "services to test: $list"
           echo "list=$list" >> "$GITHUB_OUTPUT"
 
   proto-lint:
