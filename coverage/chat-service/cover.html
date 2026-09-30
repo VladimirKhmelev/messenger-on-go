@@ -67,27 +67,33 @@
 				
 				<option value="file5">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events/events.go (0.0%)</option>
 				
-				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/migrations.go (0.0%)</option>
+				<option value="file6">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/events/relay.go (100.0%)</option>
 				
-				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
+				<option value="file7">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/migrations.go (0.0%)</option>
 				
-				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (25.3%)</option>
+				<option value="file8">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/outbox.go (0.0%)</option>
 				
-				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/group.go (20.9%)</option>
+				<option value="file9">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/postgres.go (0.0%)</option>
 				
-				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/message.go (62.8%)</option>
+				<option value="file10">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/repository/tx.go (0.0%)</option>
 				
-				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/moderation.go (57.1%)</option>
+				<option value="file11">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/chat.go (25.3%)</option>
 				
-				<option value="file12">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/presence.go (54.5%)</option>
+				<option value="file12">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/group.go (21.1%)</option>
 				
-				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/validate.go (100.0%)</option>
+				<option value="file13">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/message.go (67.8%)</option>
 				
-				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
+				<option value="file14">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/moderation.go (57.1%)</option>
 				
-				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (28.8%)</option>
+				<option value="file15">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/presence.go (54.5%)</option>
 				
-				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
+				<option value="file16">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/service/validate.go (100.0%)</option>
+				
+				<option value="file17">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/groupavatar/handler.go (0.0%)</option>
+				
+				<option value="file18">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/chat_server.go (28.8%)</option>
+				
+				<option value="file19">github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/transport/grpc/interceptor.go (91.4%)</option>
 				
 				</select>
 			</div>
@@ -209,10 +215,22 @@ func main() <span class="cov0" title="0">{
         }</span>
         <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = authClient.Close() }</span>()
 
-        <span class="cov0" title="0">eventPublisher, err := events.Connect(context.Background(), natsURL)
+        <span class="cov0" title="0">js, err := events.Connect(context.Background(), natsURL)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("chat-service: failed to connect to NATS: %v", err)
         }</span>
+
+        // events are written to the outbox in the same transaction as the change
+        // they describe; the relay delivers them to NATS after commit
+        <span class="cov0" title="0">eventPublisher := events.NewOutboxPublisher(chatRepo)
+        relay := events.NewRelay(js, chatRepo)
+        chatRepo.OnCommit(relay.Wake)
+        relayCtx, stopRelay := context.WithCancel(context.Background())
+        relayDone := make(chan struct{})
+        go func() </span><span class="cov0" title="0">{
+                defer close(relayDone)
+                relay.Run(relayCtx)
+        }</span>()
 
         <span class="cov0" title="0">redisClient := cache.NewClient(redisAddr)
         presenceStore := cache.NewPresenceStore(redisClient)
@@ -288,7 +306,9 @@ func main() <span class="cov0" title="0">{
 
         fmt.Println("chat-service: shutting down")
         grpcServer.GracefulStop()
-        _ = httpServer.Close()</span>
+        _ = httpServer.Close()
+        stopRelay()
+        &lt;-relayDone</span>
 }
 </pre>
 		
@@ -488,21 +508,17 @@ const (
         SubjectChatDeleted    = "chat.deleted"
 )
 
-type Publisher struct {
-        js jetstream.JetStream
-}
-
-func Connect(ctx context.Context, url string) (*Publisher, error) <span class="cov0" title="0">{
+// Connect opens JetStream and makes sure the stream the relay publishes to
+// exists.
+func Connect(ctx context.Context, url string) (jetstream.JetStream, error) <span class="cov0" title="0">{
         nc, err := nats.Connect(url)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-
         <span class="cov0" title="0">js, err := jetstream.New(nc)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-
         <span class="cov0" title="0">_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
                 Name:     StreamName,
                 Subjects: []string{"msg.*", "chat.*"},
@@ -510,57 +526,146 @@ func Connect(ctx context.Context, url string) (*Publisher, error) <span class="c
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-
-        <span class="cov0" title="0">return &amp;Publisher{js: js}, nil</span>
+        <span class="cov0" title="0">return js, nil</span>
 }
 
-func (p *Publisher) PublishMessageCreated(ctx context.Context, event domain.MessageCreated) error <span class="cov0" title="0">{
-        payload, err := json.Marshal(event)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-        <span class="cov0" title="0">return p.publish(ctx, SubjectMessageCreated, payload)</span>
+type OutboxStore interface {
+        EnqueueOutbox(ctx context.Context, subject string, payload []byte, headers map[string][]string) error
 }
 
-func (p *Publisher) PublishMessageUpdated(ctx context.Context, event domain.MessageUpdated) error <span class="cov0" title="0">{
-        payload, err := json.Marshal(event)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
+type OutboxPublisher struct {
+        store OutboxStore
+}
 
-        <span class="cov0" title="0">subject := SubjectMessageUpdated
+func NewOutboxPublisher(store OutboxStore) *OutboxPublisher <span class="cov0" title="0">{
+        return &amp;OutboxPublisher{store: store}
+}</span>
+
+func (p *OutboxPublisher) PublishMessageCreated(ctx context.Context, event domain.MessageCreated) error <span class="cov0" title="0">{
+        return p.enqueue(ctx, SubjectMessageCreated, event)
+}</span>
+
+func (p *OutboxPublisher) PublishMessageUpdated(ctx context.Context, event domain.MessageUpdated) error <span class="cov0" title="0">{
+        subject := SubjectMessageUpdated
         if event.Deleted </span><span class="cov0" title="0">{
                 subject = SubjectMessageDeleted
         }</span>
-        <span class="cov0" title="0">return p.publish(ctx, subject, payload)</span>
+        <span class="cov0" title="0">return p.enqueue(ctx, subject, event)</span>
 }
 
-func (p *Publisher) PublishMessageRead(ctx context.Context, event domain.MessageRead) error <span class="cov0" title="0">{
-        payload, err := json.Marshal(event)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-        <span class="cov0" title="0">return p.publish(ctx, SubjectMessageRead, payload)</span>
-}
-
-func (p *Publisher) PublishChatDeleted(ctx context.Context, event domain.ChatDeleted) error <span class="cov0" title="0">{
-        payload, err := json.Marshal(event)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-        <span class="cov0" title="0">return p.publish(ctx, SubjectChatDeleted, payload)</span>
-}
-
-func (p *Publisher) publish(ctx context.Context, subject string, payload []byte) error <span class="cov0" title="0">{
-        ctx, header, span := tracing.StartPublishSpan(ctx, subject)
-        defer span.End()
-
-        _, err := p.js.PublishMsg(ctx, &amp;nats.Msg{Subject: subject, Data: payload, Header: header})
-        return err
+func (p *OutboxPublisher) PublishMessageRead(ctx context.Context, event domain.MessageRead) error <span class="cov0" title="0">{
+        return p.enqueue(ctx, SubjectMessageRead, event)
 }</span>
+
+func (p *OutboxPublisher) PublishChatDeleted(ctx context.Context, event domain.ChatDeleted) error <span class="cov0" title="0">{
+        return p.enqueue(ctx, SubjectChatDeleted, event)
+}</span>
+
+// enqueue stores the trace context of the request that produced the event,
+// so consumers stay linked to it even though NATS delivery happens later
+// from the relay.
+func (p *OutboxPublisher) enqueue(ctx context.Context, subject string, event any) error <span class="cov0" title="0">{
+        payload, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">ctx, header, span := tracing.StartPublishSpan(ctx, subject)
+        defer span.End()
+        return p.store.EnqueueOutbox(ctx, subject, payload, header)</span>
+}
 </pre>
 		
-		<pre class="file" id="file6" style="display: none">package repository
+		<pre class="file" id="file6" style="display: none">package events
+
+import (
+        "context"
+        "log"
+        "strconv"
+        "time"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/jetstream"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+)
+
+const (
+        relayBatchSize    = 100
+        relayPollInterval = time.Second
+)
+
+type RelayStore interface {
+        RelayOutbox(ctx context.Context, limit int, publish func(ctx context.Context, msg domain.OutboxMessage) error) (int, error)
+}
+
+type msgPublisher interface {
+        PublishMsg(ctx context.Context, msg *nats.Msg, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
+}
+
+// Relay moves committed outbox events to JetStream. Delivery is
+// at-least-once on our side (an event is deleted only after the broker
+// acknowledged it); the outbox ID goes out as Nats-Msg-Id, so JetStream
+// drops a resend of the same event within its dedup window.
+type Relay struct {
+        js    msgPublisher
+        store RelayStore
+        wake  chan struct{}
+}
+
+func NewRelay(js msgPublisher, store RelayStore) *Relay <span class="cov3" title="5">{
+        return &amp;Relay{js: js, store: store, wake: make(chan struct{}, 1)}
+}</span>
+
+// Wake asks the relay to publish now. It never blocks: if a wake-up is
+// already pending, that one will pick up the new events too.
+func (r *Relay) Wake() <span class="cov5" title="11">{
+        select </span>{
+        case r.wake &lt;- struct{}{}:<span class="cov2" title="2"></span>
+        default:<span class="cov4" title="9"></span>
+        }
+}
+
+// Run publishes until ctx is canceled.
+func (r *Relay) Run(ctx context.Context) <span class="cov1" title="1">{
+        ticker := time.NewTicker(relayPollInterval)
+        defer ticker.Stop()
+
+        for </span><span class="cov2" title="2">{
+                r.drain(ctx)
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov1" title="1">
+                        return</span>
+                case &lt;-r.wake:<span class="cov1" title="1"></span>
+                case &lt;-ticker.C:<span class="cov0" title="0"></span>
+                }
+        }
+}
+
+func (r *Relay) drain(ctx context.Context) <span class="cov3" title="5">{
+        for ctx.Err() == nil </span><span class="cov4" title="7">{
+                n, err := r.store.RelayOutbox(ctx, relayBatchSize, r.publish)
+                if err != nil </span><span class="cov1" title="1">{
+                        log.Printf("chat-service: outbox relay: %v", err)
+                        return
+                }</span>
+                <span class="cov4" title="6">if n &lt; relayBatchSize </span><span class="cov3" title="4">{
+                        return
+                }</span>
+        }
+}
+
+func (r *Relay) publish(ctx context.Context, msg domain.OutboxMessage) error <span class="cov10" title="212">{
+        header := nats.Header{}
+        for k, v := range msg.Headers </span><span class="cov10" title="212">{
+                header[k] = v
+        }</span>
+        <span class="cov10" title="212">header.Set(jetstream.MsgIDHeader, "chat-outbox-"+strconv.FormatInt(msg.ID, 10))
+        _, err := r.js.PublishMsg(ctx, &amp;nats.Msg{Subject: msg.Subject, Data: msg.Payload, Header: header})
+        return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package repository
 
 import (
         "embed"
@@ -598,7 +703,88 @@ func (r *PostgresChatRepository) Migrate() error <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file7" style="display: none">package repository
+		<pre class="file" id="file8" style="display: none">package repository
+
+import (
+        "context"
+        "encoding/json"
+        "errors"
+
+        "github.com/jmoiron/sqlx"
+
+        "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
+)
+
+var errOutboxOutsideTx = errors.New("outbox: enqueue must run inside WithTx")
+
+func (r *PostgresChatRepository) EnqueueOutbox(ctx context.Context, subject string, payload []byte, headers map[string][]string) error <span class="cov0" title="0">{
+        st := txFrom(ctx)
+        if st == nil </span><span class="cov0" title="0">{
+                return errOutboxOutsideTx
+        }</span>
+        <span class="cov0" title="0">st.enqueuedOutbox = true
+        if headers == nil </span><span class="cov0" title="0">{
+                headers = map[string][]string{}
+        }</span>
+        <span class="cov0" title="0">encodedHeaders, err := json.Marshal(headers)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">_, err = r.db(ctx).ExecContext(ctx, `
+                INSERT INTO outbox (subject, payload, headers) VALUES ($1, $2, $3)`,
+                subject, payload, encodedHeaders,
+        )
+        return err</span>
+}
+
+type outboxRow struct {
+        ID      int64  `db:"id"`
+        Subject string `db:"subject"`
+        Payload []byte `db:"payload"`
+        Headers []byte `db:"headers"`
+}
+
+func (r *PostgresChatRepository) RelayOutbox(ctx context.Context, limit int, publish func(ctx context.Context, msg domain.OutboxMessage) error) (int, error) <span class="cov0" title="0">{
+        published := 0
+        var publishErr error
+        err := r.WithTx(ctx, func(ctx context.Context) error </span><span class="cov0" title="0">{
+                published = 0
+                var rows []outboxRow
+                if err := sqlx.SelectContext(ctx, r.db(ctx), &amp;rows, `
+                        SELECT id, subject, payload, headers FROM outbox
+                        ORDER BY id
+                        LIMIT $1
+                        FOR UPDATE SKIP LOCKED`,
+                        limit,
+                ); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+
+                <span class="cov0" title="0">for _, row := range rows </span><span class="cov0" title="0">{
+                        msg := domain.OutboxMessage{ID: row.ID, Subject: row.Subject, Payload: row.Payload}
+                        if err := json.Unmarshal(row.Headers, &amp;msg.Headers); err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov0" title="0">if publishErr = publish(ctx, msg); publishErr != nil </span><span class="cov0" title="0">{
+                                // commit what was already published; keep this event and the
+                                // rest (in order) for the next attempt
+                                return nil
+                        }</span>
+                        <span class="cov0" title="0">if _, err := r.db(ctx).ExecContext(ctx, `DELETE FROM outbox WHERE id = $1`, row.ID); err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                        <span class="cov0" title="0">published++</span>
+                }
+                <span class="cov0" title="0">return nil</span>
+        })
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+        <span class="cov0" title="0">return published, publishErr</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package repository
 
 import (
         "context"
@@ -619,7 +805,8 @@ const (
 )
 
 type PostgresChatRepository struct {
-        conn *sqlx.DB
+        conn     *sqlx.DB
+        onCommit func()
 }
 
 func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) <span class="cov0" title="0">{
@@ -634,39 +821,34 @@ func NewPostgresChatRepository(dsn string) (*PostgresChatRepository, error) <spa
 }
 
 func (r *PostgresChatRepository) CreateChat(ctx context.Context, chat *domain.Chat, chatKeyByUserID map[string]domain.MemberChatKey) error <span class="cov0" title="0">{
-        tx, err := r.conn.BeginTxx(ctx, nil)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = tx.Rollback() }</span>()
-
-        <span class="cov0" title="0">if _, err := tx.ExecContext(ctx, `
-                INSERT INTO chats (id, created_at, chat_type, name, created_by) VALUES ($1, $2, $3, $4, $5)`,
-                chat.ID, chat.CreatedAt, chat.ChatType, chat.Name, chat.CreatedBy,
-        ); err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        <span class="cov0" title="0">for memberID, key := range chatKeyByUserID </span><span class="cov0" title="0">{
-                role := domain.MemberRoleMember
-                if chat.CreatedBy != nil &amp;&amp; memberID == *chat.CreatedBy </span><span class="cov0" title="0">{
-                        role = domain.MemberRoleAdmin
-                }</span>
-                <span class="cov0" title="0">if _, err := tx.ExecContext(ctx, `
-                        INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
-                        VALUES ($1, $2, $3, $4, $5, $6)`,
-                        chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey, role,
+        return r.WithTx(ctx, func(ctx context.Context) error </span><span class="cov0" title="0">{
+                if _, err := r.db(ctx).ExecContext(ctx, `
+                        INSERT INTO chats (id, created_at, chat_type, name, created_by) VALUES ($1, $2, $3, $4, $5)`,
+                        chat.ID, chat.CreatedAt, chat.ChatType, chat.Name, chat.CreatedBy,
                 ); err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
-        }
 
-        <span class="cov0" title="0">return tx.Commit()</span>
+                <span class="cov0" title="0">for memberID, key := range chatKeyByUserID </span><span class="cov0" title="0">{
+                        role := domain.MemberRoleMember
+                        if chat.CreatedBy != nil &amp;&amp; memberID == *chat.CreatedBy </span><span class="cov0" title="0">{
+                                role = domain.MemberRoleAdmin
+                        }</span>
+                        <span class="cov0" title="0">if _, err := r.db(ctx).ExecContext(ctx, `
+                                INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
+                                VALUES ($1, $2, $3, $4, $5, $6)`,
+                                chat.ID, memberID, chat.CreatedAt, key.EncryptedChatKey, key.WrappedForPublicKey, role,
+                        ); err != nil </span><span class="cov0" title="0">{
+                                return err
+                        }</span>
+                }
+                <span class="cov0" title="0">return nil</span>
+        })
 }
 
 func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*domain.Chat, error) <span class="cov0" title="0">{
         var chat domain.Chat
-        err := r.conn.GetContext(ctx, &amp;chat, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;chat, `
                 SELECT id, created_at, chat_type, name, created_by FROM chats WHERE id = $1`, chatID)
         if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
                 return nil, domain.ErrChatNotFound
@@ -678,7 +860,7 @@ func (r *PostgresChatRepository) GetChat(ctx context.Context, chatID string) (*d
 }
 
 func (r *PostgresChatRepository) DeleteChat(ctx context.Context, chatID string) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `DELETE FROM chats WHERE id = $1`, chatID)
+        _, err := r.db(ctx).ExecContext(ctx, `DELETE FROM chats WHERE id = $1`, chatID)
         return err
 }</span>
 
@@ -689,7 +871,7 @@ func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, use
         }</span>
 
         <span class="cov0" title="0">var chat domain.Chat
-        err := r.conn.GetContext(ctx, &amp;chat, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;chat, `
                 SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
                 WHERE c.chat_type = 'private'
                   AND EXISTS (SELECT 1 FROM chat_members WHERE chat_id = c.id AND user_id = $1)
@@ -708,7 +890,7 @@ func (r *PostgresChatRepository) FindPrivateChat(ctx context.Context, userA, use
 
 func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
         var exists bool
-        err := r.conn.GetContext(ctx, &amp;exists, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;exists, `
                 SELECT EXISTS(SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2)`,
                 chatID, userID,
         )
@@ -717,7 +899,7 @@ func (r *PostgresChatRepository) IsMember(ctx context.Context, chatID, userID st
 
 func (r *PostgresChatRepository) IsAdmin(ctx context.Context, chatID, userID string) (bool, error) <span class="cov0" title="0">{
         var exists bool
-        err := r.conn.GetContext(ctx, &amp;exists, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;exists, `
                 SELECT EXISTS(SELECT 1 FROM chat_members WHERE chat_id = $1 AND user_id = $2 AND role = 'admin')`,
                 chatID, userID,
         )
@@ -726,7 +908,7 @@ func (r *PostgresChatRepository) IsAdmin(ctx context.Context, chatID, userID str
 
 func (r *PostgresChatRepository) GetMember(ctx context.Context, chatID, userID string) (*domain.ChatMember, error) <span class="cov0" title="0">{
         var member domain.ChatMember
-        err := r.conn.GetContext(ctx, &amp;member, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;member, `
                 SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at,
                        encrypted_chat_key, wrapped_for_public_key, role
                 FROM chat_members WHERE chat_id = $1 AND user_id = $2`,
@@ -743,12 +925,12 @@ func (r *PostgresChatRepository) GetMember(ctx context.Context, chatID, userID s
 
 func (r *PostgresChatRepository) MemberCount(ctx context.Context, chatID string) (int, error) <span class="cov0" title="0">{
         var count int
-        err := r.conn.GetContext(ctx, &amp;count, `SELECT COUNT(*) FROM chat_members WHERE chat_id = $1`, chatID)
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;count, `SELECT COUNT(*) FROM chat_members WHERE chat_id = $1`, chatID)
         return count, err
 }</span>
 
 func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID string, key domain.MemberChatKey) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO chat_members (chat_id, user_id, joined_at, encrypted_chat_key, wrapped_for_public_key, role)
                 VALUES ($1, $2, now(), $3, $4, 'member')`,
                 chatID, userID, key.EncryptedChatKey, key.WrappedForPublicKey,
@@ -757,7 +939,7 @@ func (r *PostgresChatRepository) AddMember(ctx context.Context, chatID, userID s
 }</span>
 
 func (r *PostgresChatRepository) RemoveMember(ctx context.Context, chatID, userID string) error <span class="cov0" title="0">{
-        result, err := r.conn.ExecContext(ctx, `DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, chatID, userID)
+        result, err := r.db(ctx).ExecContext(ctx, `DELETE FROM chat_members WHERE chat_id = $1 AND user_id = $2`, chatID, userID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
@@ -772,7 +954,7 @@ func (r *PostgresChatRepository) RemoveMember(ctx context.Context, chatID, userI
 }
 
 func (r *PostgresChatRepository) SetRole(ctx context.Context, chatID, userID string, role domain.MemberRole) error <span class="cov0" title="0">{
-        result, err := r.conn.ExecContext(ctx, `
+        result, err := r.db(ctx).ExecContext(ctx, `
                 UPDATE chat_members SET role = $1 WHERE chat_id = $2 AND user_id = $3`,
                 role, chatID, userID,
         )
@@ -791,7 +973,7 @@ func (r *PostgresChatRepository) SetRole(ctx context.Context, chatID, userID str
 
 func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string) ([]*domain.ChatMember, error) <span class="cov0" title="0">{
         var members []*domain.ChatMember
-        err := r.conn.SelectContext(ctx, &amp;members, `
+        err := sqlx.SelectContext(ctx, r.db(ctx), &amp;members, `
                 SELECT chat_id, user_id, joined_at, last_read_message_id, last_read_at,
                        encrypted_chat_key, wrapped_for_public_key, role
                 FROM chat_members WHERE chat_id = $1 ORDER BY joined_at`,
@@ -804,7 +986,7 @@ func (r *PostgresChatRepository) ListMembers(ctx context.Context, chatID string)
 }
 
 func (r *PostgresChatRepository) UpdateChatKey(ctx context.Context, chatID, userID, encryptedChatKey, wrappedForPublicKey string) error <span class="cov0" title="0">{
-        result, err := r.conn.ExecContext(ctx, `
+        result, err := r.db(ctx).ExecContext(ctx, `
                 UPDATE chat_members SET encrypted_chat_key = $1, wrapped_for_public_key = $2
                 WHERE chat_id = $3 AND user_id = $4`,
                 encryptedChatKey, wrappedForPublicKey, chatID, userID,
@@ -824,7 +1006,7 @@ func (r *PostgresChatRepository) UpdateChatKey(ctx context.Context, chatID, user
 
 func (r *PostgresChatRepository) GetChatKeyForUser(ctx context.Context, chatID, userID string) (string, error) <span class="cov0" title="0">{
         var encryptedChatKey string
-        err := r.conn.GetContext(ctx, &amp;encryptedChatKey, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;encryptedChatKey, `
                 SELECT encrypted_chat_key FROM chat_members WHERE chat_id = $1 AND user_id = $2`,
                 chatID, userID,
         )
@@ -838,7 +1020,7 @@ func (r *PostgresChatRepository) GetChatKeyForUser(ctx context.Context, chatID, 
 }
 
 func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, messageID string, readAt time.Time) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 UPDATE chat_members SET last_read_message_id = $1, last_read_at = $2
                 WHERE chat_id = $3 AND user_id = $4`,
                 messageID, readAt, chatID, userID,
@@ -848,7 +1030,7 @@ func (r *PostgresChatRepository) MarkRead(ctx context.Context, chatID, userID, m
 
 func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID string) ([]*domain.Chat, error) <span class="cov0" title="0">{
         var chats []*domain.Chat
-        err := r.conn.SelectContext(ctx, &amp;chats, `
+        err := sqlx.SelectContext(ctx, r.db(ctx), &amp;chats, `
                 SELECT c.id, c.created_at, c.chat_type, c.name, c.created_by FROM chats c
                 JOIN chat_members m ON m.chat_id = c.id
                 LEFT JOIN LATERAL (
@@ -865,7 +1047,7 @@ func (r *PostgresChatRepository) ListChatsForUser(ctx context.Context, userID st
 }
 
 func (r *PostgresChatRepository) CreateMessage(ctx context.Context, message *domain.Message) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO messages (id, chat_id, sender_id, body, created_at)
                 VALUES ($1, $2, $3, $4, $5)`,
                 message.ID, message.ChatID, message.SenderID, message.Body, message.CreatedAt,
@@ -896,7 +1078,7 @@ const messageProjectionJoins = `FROM messages m` + messageProjectionLateralJoins
 
 func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, requesterID string, limit, offset int) ([]*domain.Message, error) <span class="cov0" title="0">{
         var messages []*domain.Message
-        err := r.conn.SelectContext(ctx, &amp;messages, `
+        err := sqlx.SelectContext(ctx, r.db(ctx), &amp;messages, `
                 SELECT `+messageProjectionColumns+` FROM (
                         SELECT m.id `+messageProjectionJoins+`
                         WHERE m.chat_id = $1
@@ -918,7 +1100,7 @@ func (r *PostgresChatRepository) ListMessages(ctx context.Context, chatID, reque
 
 func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID, requesterID string) (*domain.Message, error) <span class="cov0" title="0">{
         var message domain.Message
-        err := r.conn.GetContext(ctx, &amp;message, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;message, `
                 SELECT `+messageProjectionColumns+`
                 `+messageProjectionJoins+`
                 WHERE m.chat_id = $1
@@ -939,7 +1121,7 @@ func (r *PostgresChatRepository) GetLastMessage(ctx context.Context, chatID, req
 
 func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID string) (*domain.Message, error) <span class="cov0" title="0">{
         var message domain.Message
-        err := r.conn.GetContext(ctx, &amp;message, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;message, `
                 SELECT `+messageProjectionColumns+`
                 `+messageProjectionJoins+`
                 WHERE m.id = $1`,
@@ -955,7 +1137,7 @@ func (r *PostgresChatRepository) GetMessage(ctx context.Context, messageID strin
 }
 
 func (r *PostgresChatRepository) AppendMessageEvent(ctx context.Context, event *domain.MessageEvent) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO message_events (id, message_id, chat_id, actor_id, event_type, new_body, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 event.ID, event.MessageID, event.ChatID, event.ActorID, event.Type, event.NewBody, event.CreatedAt,
@@ -964,7 +1146,7 @@ func (r *PostgresChatRepository) AppendMessageEvent(ctx context.Context, event *
 }</span>
 
 func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, messageID, userID string) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO message_hidden_for_user (message_id, user_id, hidden_at)
                 VALUES ($1, $2, now())
                 ON CONFLICT (message_id, user_id) DO NOTHING`,
@@ -974,7 +1156,7 @@ func (r *PostgresChatRepository) HideMessageForUser(ctx context.Context, message
 }</span>
 
 func (r *PostgresChatRepository) UpsertChatAvatar(ctx context.Context, avatar *domain.ChatAvatar) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO chat_avatars (chat_id, data, content_type, updated_at)
                 VALUES ($1, $2, $3, $4)
                 ON CONFLICT (chat_id) DO UPDATE SET data = $2, content_type = $3, updated_at = $4`,
@@ -985,7 +1167,7 @@ func (r *PostgresChatRepository) UpsertChatAvatar(ctx context.Context, avatar *d
 
 func (r *PostgresChatRepository) GetChatAvatar(ctx context.Context, chatID string) (*domain.ChatAvatar, error) <span class="cov0" title="0">{
         var avatar domain.ChatAvatar
-        err := r.conn.GetContext(ctx, &amp;avatar, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;avatar, `
                 SELECT chat_id, data, content_type, updated_at FROM chat_avatars WHERE chat_id = $1`,
                 chatID,
         )
@@ -999,7 +1181,7 @@ func (r *PostgresChatRepository) GetChatAvatar(ctx context.Context, chatID strin
 }
 
 func (r *PostgresChatRepository) BlockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO blocked_users (blocker_id, blocked_id, created_at)
                 VALUES ($1, $2, now())
                 ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
@@ -1009,7 +1191,7 @@ func (r *PostgresChatRepository) BlockUser(ctx context.Context, blockerID, block
 }</span>
 
 func (r *PostgresChatRepository) UnblockUser(ctx context.Context, blockerID, blockedID string) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 DELETE FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`,
                 blockerID, blockedID,
         )
@@ -1018,7 +1200,7 @@ func (r *PostgresChatRepository) UnblockUser(ctx context.Context, blockerID, blo
 
 func (r *PostgresChatRepository) IsBlocked(ctx context.Context, userA, userB string) (bool, error) <span class="cov0" title="0">{
         var exists bool
-        err := r.conn.GetContext(ctx, &amp;exists, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;exists, `
                 SELECT EXISTS(
                         SELECT 1 FROM blocked_users
                         WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
@@ -1033,7 +1215,7 @@ func (r *PostgresChatRepository) IsBlocked(ctx context.Context, userA, userB str
 
 func (r *PostgresChatRepository) ListBlockedUsers(ctx context.Context, blockerID string) ([]*domain.BlockedUser, error) <span class="cov0" title="0">{
         var blocked []*domain.BlockedUser
-        err := r.conn.SelectContext(ctx, &amp;blocked, `
+        err := sqlx.SelectContext(ctx, r.db(ctx), &amp;blocked, `
                 SELECT blocker_id, blocked_id, created_at FROM blocked_users WHERE blocker_id = $1`,
                 blockerID,
         )
@@ -1044,7 +1226,7 @@ func (r *PostgresChatRepository) ListBlockedUsers(ctx context.Context, blockerID
 }
 
 func (r *PostgresChatRepository) CreateMessageReport(ctx context.Context, report *domain.MessageReport) error <span class="cov0" title="0">{
-        _, err := r.conn.ExecContext(ctx, `
+        _, err := r.db(ctx).ExecContext(ctx, `
                 INSERT INTO message_reports (id, message_id, chat_id, reporter_id, category, comment, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (message_id, reporter_id) DO NOTHING`,
@@ -1055,7 +1237,7 @@ func (r *PostgresChatRepository) CreateMessageReport(ctx context.Context, report
 
 func (r *PostgresChatRepository) HasReported(ctx context.Context, messageID, reporterID string) (bool, error) <span class="cov0" title="0">{
         var exists bool
-        err := r.conn.GetContext(ctx, &amp;exists, `
+        err := sqlx.GetContext(ctx, r.db(ctx), &amp;exists, `
                 SELECT EXISTS(SELECT 1 FROM message_reports WHERE message_id = $1 AND reporter_id = $2)`,
                 messageID, reporterID,
         )
@@ -1066,7 +1248,68 @@ func (r *PostgresChatRepository) HasReported(ctx context.Context, messageID, rep
 }
 </pre>
 		
-		<pre class="file" id="file8" style="display: none">package service
+		<pre class="file" id="file10" style="display: none">package repository
+
+import (
+        "context"
+
+        "github.com/jmoiron/sqlx"
+)
+
+type txKey struct{}
+
+type txState struct {
+        tx             *sqlx.Tx
+        enqueuedOutbox bool
+}
+
+func txFrom(ctx context.Context) *txState <span class="cov0" title="0">{
+        st, _ := ctx.Value(txKey{}).(*txState)
+        return st
+}</span>
+
+func inTx(ctx context.Context) bool <span class="cov0" title="0">{
+        return txFrom(ctx) != nil
+}</span>
+
+func (r *PostgresChatRepository) db(ctx context.Context) sqlx.ExtContext <span class="cov0" title="0">{
+        if st := txFrom(ctx); st != nil </span><span class="cov0" title="0">{
+                return st.tx
+        }</span>
+        <span class="cov0" title="0">return r.conn</span>
+}
+
+func (r *PostgresChatRepository) WithTx(ctx context.Context, fn func(ctx context.Context) error) error <span class="cov0" title="0">{
+        if inTx(ctx) </span><span class="cov0" title="0">{
+                return fn(ctx)
+        }</span>
+
+        <span class="cov0" title="0">tx, err := r.conn.BeginTxx(ctx, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = tx.Rollback() }</span>()
+
+        <span class="cov0" title="0">st := &amp;txState{tx: tx}
+        if err := fn(context.WithValue(ctx, txKey{}, st)); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if st.enqueuedOutbox &amp;&amp; r.onCommit != nil </span><span class="cov0" title="0">{
+                r.onCommit()
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (r *PostgresChatRepository) OnCommit(fn func()) <span class="cov0" title="0">{
+        r.onCommit = fn
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package service
 
 import (
         "context"
@@ -1091,7 +1334,7 @@ type ChatService struct {
         sendLimiter RateLimiter
 }
 
-func NewChatService(chats ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov10" title="31">{
+func NewChatService(chats ChatRepository, auth AuthClient, eventPublisher EventPublisher, presence PresenceChecker, sendLimiter RateLimiter) *ChatService <span class="cov10" title="36">{
         return &amp;ChatService{chats: chats, auth: auth, events: eventPublisher, presence: presence, sendLimiter: sendLimiter}
 }</span>
 
@@ -1299,11 +1542,10 @@ func (s *ChatService) ListMembers(ctx context.Context, chatID string) ([]string,
 }
 </pre>
 		
-		<pre class="file" id="file9" style="display: none">package service
+		<pre class="file" id="file12" style="display: none">package service
 
 import (
         "context"
-        "log"
         "time"
 
         "github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/domain"
@@ -1496,64 +1738,61 @@ func (s *ChatService) LeaveChat(ctx context.Context, chatID, requesterID string)
         <span class="cov0" title="0">return s.chats.RemoveMember(ctx, chatID, requesterID)</span>
 }
 
-func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID string) error <span class="cov1" title="1">{
+func (s *ChatService) DeleteGroupChat(ctx context.Context, chatID, requesterID string) error <span class="cov4" title="2">{
         chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov1" title="1">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
                 return domain.ErrNotGroupChat
         }</span>
-        <span class="cov1" title="1">if !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if !isCreator(chat, requesterID) </span><span class="cov0" title="0">{
                 return domain.ErrOnlyCreatorCanDeleteChat
         }</span>
 
-        <span class="cov1" title="1">members, err := s.chats.ListMembers(ctx, chatID)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-        <span class="cov1" title="1">memberUserIDs := make([]string, 0, len(members))
-        for _, m := range members </span><span class="cov10" title="3">{
-                memberUserIDs = append(memberUserIDs, m.UserID)
-        }</span>
+        <span class="cov4" title="2">return s.chats.WithTx(ctx, func(ctx context.Context) error </span><span class="cov4" title="2">{
+                members, err := s.chats.ListMembers(ctx, chatID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov4" title="2">memberUserIDs := make([]string, 0, len(members))
+                for _, m := range members </span><span class="cov10" title="5">{
+                        memberUserIDs = append(memberUserIDs, m.UserID)
+                }</span>
 
-        <span class="cov1" title="1">if err := s.chats.DeleteChat(ctx, chatID); err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        <span class="cov1" title="1">if err := s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
-                ChatID:        chatID,
-                MemberUserIDs: memberUserIDs,
-                DeletedAt:     time.Now(),
-        }); err != nil </span><span class="cov0" title="0">{
-                log.Printf("chat-service: failed to publish chat.deleted event for %s: %v", chatID, err)
-        }</span>
-
-        <span class="cov1" title="1">return nil</span>
+                <span class="cov4" title="2">if err := s.chats.DeleteChat(ctx, chatID); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov4" title="2">return s.events.PublishChatDeleted(ctx, domain.ChatDeleted{
+                        ChatID:        chatID,
+                        MemberUserIDs: memberUserIDs,
+                        DeletedAt:     time.Now(),
+                })</span>
+        })
 }
 
-func isCreator(chat *domain.Chat, userID string) bool <span class="cov1" title="1">{
+func isCreator(chat *domain.Chat, userID string) bool <span class="cov4" title="2">{
         return chat.CreatedBy != nil &amp;&amp; *chat.CreatedBy == userID
 }</span>
 
-func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov6" title="2">{
+func (s *ChatService) UploadGroupAvatar(ctx context.Context, chatID, requesterID string, data []byte) error <span class="cov4" title="2">{
         chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov6" title="2">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if chat.ChatType != domain.ChatTypeGroup </span><span class="cov0" title="0">{
                 return domain.ErrNotGroupChat
         }</span>
 
-        <span class="cov6" title="2">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
+        <span class="cov4" title="2">isAdmin, err := s.chats.IsAdmin(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov6" title="2">if !isAdmin </span><span class="cov0" title="0">{
+        <span class="cov4" title="2">if !isAdmin </span><span class="cov0" title="0">{
                 return domain.ErrNotChatAdmin
         }</span>
 
-        <span class="cov6" title="2">contentType, err := validateGroupAvatar(data)
+        <span class="cov4" title="2">contentType, err := validateGroupAvatar(data)
         if err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
@@ -1571,11 +1810,10 @@ func (s *ChatService) GetGroupAvatar(ctx context.Context, chatID string) (*domai
 }</span>
 </pre>
 		
-		<pre class="file" id="file10" style="display: none">package service
+		<pre class="file" id="file13" style="display: none">package service
 
 import (
         "context"
-        "log"
         "time"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
@@ -1583,32 +1821,32 @@ import (
         "github.com/google/uuid"
 )
 
-func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) <span class="cov10" title="17">{
+func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body string) (*domain.Message, error) <span class="cov10" title="18">{
         if err := validateMessageBody(body); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov9" title="16">allowed, err := s.sendLimiter.Allow(ctx, senderID)
+        <span class="cov9" title="17">allowed, err := s.sendLimiter.Allow(ctx, senderID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov9" title="16">if !allowed </span><span class="cov0" title="0">{
+        <span class="cov9" title="17">if !allowed </span><span class="cov0" title="0">{
                 return nil, domain.ErrTooManyMessages
         }</span>
 
-        <span class="cov9" title="16">isMember, err := s.chats.IsMember(ctx, chatID, senderID)
+        <span class="cov9" title="17">isMember, err := s.chats.IsMember(ctx, chatID, senderID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov9" title="16">if !isMember </span><span class="cov1" title="1">{
+        <span class="cov9" title="17">if !isMember </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotChatMember
         }</span>
 
-        <span class="cov9" title="15">if err := s.checkNotBlockedInPrivateChat(ctx, chatID, senderID); err != nil </span><span class="cov1" title="1">{
+        <span class="cov9" title="16">if err := s.checkNotBlockedInPrivateChat(ctx, chatID, senderID); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov9" title="14">message := &amp;domain.Message{
+        <span class="cov9" title="15">message := &amp;domain.Message{
                 ID:        uuid.NewString(),
                 ChatID:    chatID,
                 SenderID:  senderID,
@@ -1616,29 +1854,30 @@ func (s *ChatService) SendMessage(ctx context.Context, chatID, senderID, body st
                 CreatedAt: time.Now(),
         }
 
-        if err := s.chats.CreateMessage(ctx, message); err != nil </span><span class="cov0" title="0">{
+        if err := s.chats.WithTx(ctx, func(ctx context.Context) error </span><span class="cov9" title="15">{
+                if err := s.chats.CreateMessage(ctx, message); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov9" title="15">return s.events.PublishMessageCreated(ctx, domain.MessageCreated{
+                        MessageID: message.ID,
+                        ChatID:    message.ChatID,
+                        SenderID:  message.SenderID,
+                        CreatedAt: message.CreatedAt,
+                })</span>
+        }); err != nil <span class="cov1" title="1">{
                 return nil, err
         }</span>
         <span class="cov9" title="14">metrics.MessagesSentTotal.Inc()
 
-        if err := s.events.PublishMessageCreated(ctx, domain.MessageCreated{
-                MessageID: message.ID,
-                ChatID:    message.ChatID,
-                SenderID:  message.SenderID,
-                CreatedAt: message.CreatedAt,
-        }); err != nil </span><span class="cov1" title="1">{
-                log.Printf("chat-service: failed to publish msg.created event for %s: %v", message.ID, err)
-        }</span>
-
-        <span class="cov9" title="14">return message, nil</span>
+        return message, nil</span>
 }
 
-func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, senderID string) error <span class="cov9" title="15">{
+func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, senderID string) error <span class="cov9" title="16">{
         chat, err := s.chats.GetChat(ctx, chatID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov9" title="15">if chat.ChatType != domain.ChatTypePrivate </span><span class="cov9" title="14">{
+        <span class="cov9" title="16">if chat.ChatType != domain.ChatTypePrivate </span><span class="cov9" title="15">{
                 return nil
         }</span>
 
@@ -1648,7 +1887,7 @@ func (s *ChatService) checkNotBlockedInPrivateChat(ctx context.Context, chatID, 
         }</span>
 
         <span class="cov1" title="1">var otherID string
-        for _, m := range members </span><span class="cov1" title="1">{
+        for _, m := range members </span><span class="cov3" title="2">{
                 if m.UserID != senderID </span><span class="cov1" title="1">{
                         otherID = m.UserID
                         break</span>
@@ -1687,58 +1926,59 @@ func (s *ChatService) GetHistory(ctx context.Context, chatID, requesterID string
         <span class="cov1" title="1">return s.chats.ListMessages(ctx, chatID, requesterID, limit, offset)</span>
 }
 
-func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov4" title="3">{
+func (s *ChatService) EditMessage(ctx context.Context, messageID, requesterID, newBody string) (*domain.Message, error) <span class="cov5" title="4">{
         if err := validateMessageBody(newBody); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov3" title="2">message, err := s.chats.GetMessage(ctx, messageID)
+        <span class="cov4" title="3">message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov3" title="2">if message.DeletedAt != nil </span><span class="cov0" title="0">{
+        <span class="cov4" title="3">if message.DeletedAt != nil </span><span class="cov0" title="0">{
                 return nil, domain.ErrMessageDeleted
         }</span>
-        <span class="cov3" title="2">if message.SenderID != requesterID </span><span class="cov1" title="1">{
+        <span class="cov4" title="3">if message.SenderID != requesterID </span><span class="cov1" title="1">{
                 return nil, domain.ErrNotMessageSender
         }</span>
 
-        <span class="cov1" title="1">now := time.Now()
-        if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
-                ID:        uuid.NewString(),
-                MessageID: messageID,
-                ChatID:    message.ChatID,
-                ActorID:   requesterID,
-                Type:      domain.MessageEventEdited,
-                NewBody:   &amp;newBody,
-                CreatedAt: now,
-        }); err != nil </span><span class="cov0" title="0">{
+        <span class="cov3" title="2">now := time.Now()
+        if err := s.chats.WithTx(ctx, func(ctx context.Context) error </span><span class="cov3" title="2">{
+                if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
+                        ID:        uuid.NewString(),
+                        MessageID: messageID,
+                        ChatID:    message.ChatID,
+                        ActorID:   requesterID,
+                        Type:      domain.MessageEventEdited,
+                        NewBody:   &amp;newBody,
+                        CreatedAt: now,
+                }); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov3" title="2">return s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
+                        MessageID: messageID,
+                        ChatID:    message.ChatID,
+                        NewBody:   &amp;newBody,
+                        UpdatedAt: now,
+                })</span>
+        }); err != nil <span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov1" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
-                MessageID: messageID,
-                ChatID:    message.ChatID,
-                NewBody:   &amp;newBody,
-                UpdatedAt: now,
-        }); err != nil </span><span class="cov0" title="0">{
-                log.Printf("chat-service: failed to publish msg.updated event for %s: %v", messageID, err)
-        }</span>
-
-        <span class="cov1" title="1">message.Body = newBody
+        <span class="cov3" title="2">message.Body = newBody
         message.EditedAt = &amp;now
         return message, nil</span>
 }
 
-func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, requesterID string) error <span class="cov1" title="1">{
+func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, requesterID string) error <span class="cov3" title="2">{
         message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov1" title="1">if message.DeletedAt != nil </span><span class="cov0" title="0">{
+        <span class="cov3" title="2">if message.DeletedAt != nil </span><span class="cov0" title="0">{
                 return nil
         }</span>
-        <span class="cov1" title="1">if message.SenderID != requesterID </span><span class="cov0" title="0">{
+        <span class="cov3" title="2">if message.SenderID != requesterID </span><span class="cov0" title="0">{
                 isAdmin, err := s.chats.IsAdmin(ctx, message.ChatID, requesterID)
                 if err != nil </span><span class="cov0" title="0">{
                         return err
@@ -1748,62 +1988,56 @@ func (s *ChatService) DeleteMessageForAll(ctx context.Context, messageID, reques
                 }</span>
         }
 
-        <span class="cov1" title="1">now := time.Now()
-        if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
-                ID:        uuid.NewString(),
-                MessageID: messageID,
-                ChatID:    message.ChatID,
-                ActorID:   requesterID,
-                Type:      domain.MessageEventDeletedForAll,
-                CreatedAt: now,
-        }); err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        <span class="cov1" title="1">if err := s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
-                MessageID: messageID,
-                ChatID:    message.ChatID,
-                Deleted:   true,
-                UpdatedAt: now,
-        }); err != nil </span><span class="cov0" title="0">{
-                log.Printf("chat-service: failed to publish msg.deleted event for %s: %v", messageID, err)
-        }</span>
-
-        <span class="cov1" title="1">return nil</span>
+        <span class="cov3" title="2">now := time.Now()
+        return s.chats.WithTx(ctx, func(ctx context.Context) error </span><span class="cov3" title="2">{
+                if err := s.chats.AppendMessageEvent(ctx, &amp;domain.MessageEvent{
+                        ID:        uuid.NewString(),
+                        MessageID: messageID,
+                        ChatID:    message.ChatID,
+                        ActorID:   requesterID,
+                        Type:      domain.MessageEventDeletedForAll,
+                        CreatedAt: now,
+                }); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov3" title="2">return s.events.PublishMessageUpdated(ctx, domain.MessageUpdated{
+                        MessageID: messageID,
+                        ChatID:    message.ChatID,
+                        Deleted:   true,
+                        UpdatedAt: now,
+                })</span>
+        })
 }
 
-func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error <span class="cov1" title="1">{
+func (s *ChatService) MarkRead(ctx context.Context, chatID, requesterID, messageID string) error <span class="cov3" title="2">{
         isMember, err := s.chats.IsMember(ctx, chatID, requesterID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov1" title="1">if !isMember </span><span class="cov0" title="0">{
+        <span class="cov3" title="2">if !isMember </span><span class="cov0" title="0">{
                 return domain.ErrNotChatMember
         }</span>
 
-        <span class="cov1" title="1">message, err := s.chats.GetMessage(ctx, messageID)
+        <span class="cov3" title="2">message, err := s.chats.GetMessage(ctx, messageID)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
-        <span class="cov1" title="1">if message.ChatID != chatID </span><span class="cov1" title="1">{
+        <span class="cov3" title="2">if message.ChatID != chatID </span><span class="cov1" title="1">{
                 return domain.ErrMessageNotInChat
         }</span>
 
-        <span class="cov0" title="0">now := time.Now()
-        if err := s.chats.MarkRead(ctx, chatID, requesterID, messageID, now); err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        <span class="cov0" title="0">if err := s.events.PublishMessageRead(ctx, domain.MessageRead{
-                ChatID:    chatID,
-                UserID:    requesterID,
-                MessageID: messageID,
-                ReadAt:    now,
-        }); err != nil </span><span class="cov0" title="0">{
-                log.Printf("chat-service: failed to publish msg.read event for chat %s: %v", chatID, err)
-        }</span>
-
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov1" title="1">now := time.Now()
+        return s.chats.WithTx(ctx, func(ctx context.Context) error </span><span class="cov1" title="1">{
+                if err := s.chats.MarkRead(ctx, chatID, requesterID, messageID, now); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov1" title="1">return s.events.PublishMessageRead(ctx, domain.MessageRead{
+                        ChatID:    chatID,
+                        UserID:    requesterID,
+                        MessageID: messageID,
+                        ReadAt:    now,
+                })</span>
+        })
 }
 
 func (s *ChatService) GetReadStatus(ctx context.Context, chatID, userID string) (string, error) <span class="cov0" title="0">{
@@ -1846,7 +2080,7 @@ func (s *ChatService) GetMessage(ctx context.Context, messageID string) (*domain
 }</span>
 </pre>
 		
-		<pre class="file" id="file11" style="display: none">package service
+		<pre class="file" id="file14" style="display: none">package service
 
 import (
         "context"
@@ -1909,7 +2143,7 @@ func (s *ChatService) ListBlockedUsers(ctx context.Context, blockerID string) ([
 }</span>
 </pre>
 		
-		<pre class="file" id="file12" style="display: none">package service
+		<pre class="file" id="file15" style="display: none">package service
 
 import "context"
 
@@ -1944,7 +2178,7 @@ func (s *ChatService) GetTyping(ctx context.Context, chatID, userID string) (boo
 }</span>
 </pre>
 		
-		<pre class="file" id="file13" style="display: none">package service
+		<pre class="file" id="file16" style="display: none">package service
 
 import (
         "net/http"
@@ -1967,14 +2201,14 @@ var allowedGroupAvatarContentTypes = map[string]bool{
         "image/webp": true,
 }
 
-func validateMessageBody(body string) error <span class="cov10" title="25">{
+func validateMessageBody(body string) error <span class="cov10" title="27">{
         if body == "" </span><span class="cov4" title="3">{
                 return domain.ErrEmptyMessage
         }</span>
-        <span class="cov9" title="22">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov2" title="2">{
+        <span class="cov9" title="24">if len(body) &gt; MaxMessageBodyBytes </span><span class="cov2" title="2">{
                 return domain.ErrMessageTooLarge
         }</span>
-        <span class="cov9" title="20">return nil</span>
+        <span class="cov9" title="22">return nil</span>
 }
 
 func validateGroupName(name string) error <span class="cov4" title="3">{
@@ -2010,7 +2244,7 @@ func validateGroupAvatar(data []byte) (string, error) <span class="cov5" title="
 }
 </pre>
 		
-		<pre class="file" id="file14" style="display: none">package groupavatar
+		<pre class="file" id="file17" style="display: none">package groupavatar
 
 import (
         "context"
@@ -2122,7 +2356,7 @@ func writeDomainError(w http.ResponseWriter, err error) <span class="cov0" title
 }
 </pre>
 		
-		<pre class="file" id="file15" style="display: none">package grpc
+		<pre class="file" id="file18" style="display: none">package grpc
 
 import (
         "context"
@@ -2647,7 +2881,7 @@ func toGRPCError(err error) error <span class="cov10" title="23">{
 }
 </pre>
 		
-		<pre class="file" id="file16" style="display: none">package grpc
+		<pre class="file" id="file19" style="display: none">package grpc
 
 import (
         "context"
