@@ -41,7 +41,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:     StreamName,
 		Subjects: []string{"user.*"},
-		MaxAge: userEventsMaxAge,
+		MaxAge:   userEventsMaxAge,
 	})
 	if err != nil {
 		return nil, err
