@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: auth
-      POSTGRES_PASSWORD: auth
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
       POSTGRES_DB: auth
     ports:
       - "5432:5432"
@@ -31,7 +31,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: chat
-      POSTGRES_PASSWORD: chat
+      POSTGRES_PASSWORD: ${CHAT_DB_PASSWORD:-chat}
       POSTGRES_DB: chat
     ports:
       - "5433:5432"
@@ -48,7 +48,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: media
-      POSTGRES_PASSWORD: media
+      POSTGRES_PASSWORD: ${MEDIA_DB_PASSWORD:-media}
       POSTGRES_DB: media
     ports:
       - "5434:5432"
@@ -154,7 +154,7 @@ services:
     environment:
       GRPC_PORT: "50051"
       HTTP_PORT: "8080"
-      POSTGRES_DSN: postgres://auth:auth@auth-db:5432/auth?sslmode=disable
+      POSTGRES_DSN: postgres://auth:${AUTH_DB_PASSWORD:-auth}@auth-db:5432/auth?sslmode=disable
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
@@ -196,7 +196,7 @@ services:
     environment:
       GRPC_PORT: "50051"
       HTTP_PORT: "8080"
-      POSTGRES_DSN: postgres://chat:chat@chat-db:5432/chat?sslmode=disable
+      POSTGRES_DSN: postgres://chat:${CHAT_DB_PASSWORD:-chat}@chat-db:5432/chat?sslmode=disable
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
       AUTH_SERVICE_ADDR: auth-service:50051
@@ -317,7 +317,7 @@ services:
     environment:
       GRPC_PORT: "50051"
       HTTP_PORT: "8080"
-      POSTGRES_DSN: postgres://media:media@media-db:5432/media?sslmode=disable
+      POSTGRES_DSN: postgres://media:${MEDIA_DB_PASSWORD:-media}@media-db:5432/media?sslmode=disable
       CHAT_SERVICE_ADDR: chat-service:50051
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
