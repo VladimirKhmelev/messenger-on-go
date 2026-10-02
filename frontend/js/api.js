@@ -257,17 +257,27 @@ export const pushApi = {
     }),
 };
 
+// Refresh tokens are single-use. Two tabs refreshing at once send the same
+// cookie and the server turns the second away; by then the first one's
+// response has set the new cookie, so a single retry picks it up.
 export async function refreshAccessToken() {
-  try {
-    const data = await authApi.refresh();
-    if (data?.accessToken) {
-      setAccessToken(data.accessToken);
-      return true;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const data = await authApi.refresh();
+      if (data?.accessToken) {
+        setAccessToken(data.accessToken);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      if (attempt === 0 && err instanceof ApiError && err.status === 401) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        continue;
+      }
+      return false;
     }
-    return false;
-  } catch {
-    return false;
   }
+  return false;
 }
 
 export function currentUserIdFromToken() {

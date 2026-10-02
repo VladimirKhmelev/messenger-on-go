@@ -19,6 +19,8 @@ export default {
     'invalid email or password': 'Wrong email or password',
     'search query must be at least 3 characters': 'Enter at least 3 characters to search',
     'too many login attempts, try again later': 'Too many login attempts, try again later',
+    'too many emails sent to this address, try again later': 'Too many emails sent to this address, try again later',
+    'github login code is invalid or expired': 'The GitHub sign-in link has expired, please try again',
     'invalid or expired verification code': 'The code is wrong or has expired',
     'email not verified': 'Email not verified',
     'oauth provider account has no verified email': 'Your OAuth provider account has no verified email',
