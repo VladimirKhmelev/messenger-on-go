@@ -1,19 +1,27 @@
+# In production only nginx is reachable from outside: it proxies every
+# service and MinIO over the compose network. Docker publishes ports through
+# its own iptables rules, bypassing ufw, so the dev port mappings from
+# docker-compose.yml must be dropped here, not just firewalled.
 services:
   auth-service:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/auth-service:${IMAGE_TAG:-latest}
     build: !reset null
+    ports: !reset []
 
   chat-service:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/chat-service:${IMAGE_TAG:-latest}
     build: !reset null
+    ports: !reset []
 
   ws-gateway-1:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/ws-gateway:${IMAGE_TAG:-latest}
     build: !reset null
+    ports: !reset []
 
   ws-gateway-2:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/ws-gateway:${IMAGE_TAG:-latest}
     build: !reset null
+    ports: !reset []
 
   notification-worker:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/notification-worker:${IMAGE_TAG:-latest}
@@ -22,3 +30,26 @@ services:
   media-service:
     image: ghcr.io/vladimirkhmelev/messenger-on-go/media-service:${IMAGE_TAG:-latest}
     build: !reset null
+    ports: !reset []
+
+  auth-db:
+    ports: !reset []
+
+  chat-db:
+    ports: !reset []
+
+  media-db:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  nats:
+    ports: !reset []
+
+  mailhog:
+    ports: !reset []
+
+  minio:
+    ports: !override
+      - "127.0.0.1:9091:9091"
