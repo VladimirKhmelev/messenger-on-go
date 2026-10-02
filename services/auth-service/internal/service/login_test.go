@@ -103,7 +103,7 @@ func TestAuthService_Login_RateLimited(t *testing.T) {
 
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), limiter, newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	_, err := svc.Login(context.Background(), "user@example.com", "abcd1234")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
@@ -172,7 +172,7 @@ func TestAuthService_RefreshToken_MalformedToken(t *testing.T) {
 func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
 	repo := newFakeUserRepository()
 	blacklist := newFakeTokenBlacklist()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	issuer := jwtutil.NewIssuer("test-secret")
 	refreshToken, err := issuer.IssueRefreshToken("user-1")
@@ -193,7 +193,7 @@ func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
 func TestAuthService_Logout_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	blacklist := newFakeTokenBlacklist()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), blacklist, newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	issuer := jwtutil.NewIssuer("test-secret")
 	refreshToken, err := issuer.IssueRefreshToken("user-1")
@@ -205,7 +205,7 @@ func TestAuthService_Logout_Success(t *testing.T) {
 		t.Fatalf("Logout() unexpected error: %v", err)
 	}
 
-	if !blacklist.revoked[refreshToken] {
+	if _, revoked := blacklist.revoked[refreshToken]; !revoked {
 		t.Error("Logout() did not revoke the refresh token")
 	}
 }

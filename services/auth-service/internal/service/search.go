@@ -17,6 +17,9 @@ func (s *AuthService) GetUserByTag(ctx context.Context, tag string) (*domain.Use
 }
 
 func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User, error) {
+	if !isUserID(id) {
+		return nil, domain.ErrUserNotFound
+	}
 	return s.users.GetByID(ctx, id)
 }
 

@@ -21,6 +21,10 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string
 		}
 	}
 
+	if err := s.endSessions(ctx, userID); err != nil {
+		return err
+	}
+
 	if err := s.users.DeleteAvatar(ctx, userID); err != nil {
 		return err
 	}
@@ -28,10 +32,6 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string
 	anonymizedEmail := fmt.Sprintf("deleted-%s@deleted.local", userID)
 	anonymizedTag := fmt.Sprintf("deleted_%s", userID)
 	if err := s.users.Anonymize(ctx, userID, anonymizedEmail, anonymizedTag, "Удалённый пользователь"); err != nil {
-		return err
-	}
-
-	if err := s.refreshRevoked.MarkAllRevoked(ctx, userID, domain.RefreshTokenTTL); err != nil {
 		return err
 	}
 

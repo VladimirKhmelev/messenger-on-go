@@ -17,11 +17,10 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.User, error)
 	SearchByTagPrefix(ctx context.Context, prefix string, limit int) ([]*domain.User, error)
 	MarkEmailVerified(ctx context.Context, userID string) error
-	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 	UpdateTag(ctx context.Context, userID, tag string) error
 	UpdateDisplayName(ctx context.Context, userID, displayName string) error
-	UpdatePublicKey(ctx context.Context, userID, publicKey string) error
-	UpdateWrappedPrivateKey(ctx context.Context, userID, wrappedPrivateKey, keyWrapSalt string) error
+	UpdatePasswordAndWrappedKey(ctx context.Context, userID, passwordHash, wrappedPrivateKey, keyWrapSalt string) error
+	UpdatePasswordAndKeyPair(ctx context.Context, userID, passwordHash, publicKey, wrappedPrivateKey, keyWrapSalt string) error
 	UpsertAvatar(ctx context.Context, avatar *domain.Avatar) error
 	GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error)
 	DeleteAvatar(ctx context.Context, userID string) error
@@ -43,7 +42,7 @@ type RateLimiter interface {
 
 type TokenBlacklist interface {
 	Revoke(ctx context.Context, token string, ttl time.Duration) error
-	IsRevoked(ctx context.Context, token string) (bool, error)
+	Claim(ctx context.Context, token string, ttl time.Duration) (ok bool, usedAt time.Time, err error)
 }
 
 type PasswordChangeTracker interface {
@@ -73,7 +72,7 @@ type PasswordResetStore interface {
 }
 
 type GitHubOAuthClient interface {
-	FetchProfile(code string) (*domain.GitHubProfile, error)
+	FetchProfile(ctx context.Context, code string) (*domain.GitHubProfile, error)
 }
 
 type EventPublisher interface {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ type AuthService struct {
 	events             EventPublisher
 	passwordChanges    PasswordChangeTracker
 	refreshRevoked     RefreshRevokedTracker
+	emailSendLimiter   RateLimiter
 }
 
 func NewAuthService(
@@ -42,6 +44,7 @@ func NewAuthService(
 	eventPublisher EventPublisher,
 	passwordChanges PasswordChangeTracker,
 	refreshRevoked RefreshRevokedTracker,
+	emailSendLimiter RateLimiter,
 ) *AuthService {
 	return &AuthService{
 		users:              users,
@@ -56,11 +59,13 @@ func NewAuthService(
 		passwordResets:     passwordResets,
 		github:             github,
 		events:             eventPublisher,
+		emailSendLimiter:   emailSendLimiter,
 	}
 }
 
 func (s *AuthService) Register(ctx context.Context, email, tag, displayName, password, publicKey, wrappedPrivateKey, keyWrapSalt string) (*domain.User, error) {
-	if err := ValidateEmail(email); err != nil {
+	email, err := NormalizeEmail(email)
+	if err != nil {
 		return nil, err
 	}
 	if err := ValidateTag(tag); err != nil {
@@ -76,12 +81,16 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
 		return nil, domain.ErrInvalidPublicKey
 	}
 
-	emailTaken, err := s.users.ExistsByEmail(ctx, email)
+	allowed, err := s.emailSendLimiter.Allow(ctx, "register:"+email)
 	if err != nil {
 		return nil, err
 	}
-	if emailTaken {
-		return nil, domain.ErrEmailTaken
+	if !allowed {
+		return nil, domain.ErrTooManyEmails
+	}
+
+	if err := s.releasePendingRegistration(ctx, email); err != nil {
+		return nil, err
 	}
 
 	tagTaken, err := s.users.ExistsByTag(ctx, tag)
@@ -137,6 +146,20 @@ func (s *AuthService) Register(ctx context.Context, email, tag, displayName, pas
 	return user, nil
 }
 
+func (s *AuthService) releasePendingRegistration(ctx context.Context, email string) error {
+	existing, err := s.users.GetByEmail(ctx, email)
+	if errors.Is(err, domain.ErrUserNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if existing.EmailVerified {
+		return domain.ErrEmailTaken
+	}
+	return s.users.Delete(ctx, existing.ID)
+}
+
 func (s *AuthService) rollbackRegistration(ctx context.Context, userID string) {
 	if err := s.users.Delete(ctx, userID); err != nil {
 		log.Printf("auth-service: failed to roll back registration for %s after verification email failure: %v", userID, err)
@@ -144,6 +167,8 @@ func (s *AuthService) rollbackRegistration(ctx context.Context, userID string) {
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, email, code string) error {
+	email = canonicalEmail(email)
+
 	allowed, err := s.emailVerifyLimiter.Allow(ctx, email)
 	if err != nil {
 		return err

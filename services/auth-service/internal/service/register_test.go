@@ -15,7 +15,7 @@ import (
 )
 
 func newTestAuthService(repo *fakeUserRepository) *AuthService {
-	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	return NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 }
 
 type fakeEventPublisher struct {
@@ -58,7 +58,7 @@ func newFakeGitHubClient() *fakeGitHubClient {
 	return &fakeGitHubClient{}
 }
 
-func (c *fakeGitHubClient) FetchProfile(_ string) (*domain.GitHubProfile, error) {
+func (c *fakeGitHubClient) FetchProfile(_ context.Context, _ string) (*domain.GitHubProfile, error) {
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -160,20 +160,24 @@ func (l *fakeRateLimiter) Allow(_ context.Context, _ string) (bool, error) {
 }
 
 type fakeTokenBlacklist struct {
-	revoked map[string]bool
+	revoked map[string]time.Time
 }
 
 func newFakeTokenBlacklist() *fakeTokenBlacklist {
-	return &fakeTokenBlacklist{revoked: map[string]bool{}}
+	return &fakeTokenBlacklist{revoked: map[string]time.Time{}}
 }
 
 func (b *fakeTokenBlacklist) Revoke(_ context.Context, token string, _ time.Duration) error {
-	b.revoked[token] = true
+	b.revoked[token] = time.Now()
 	return nil
 }
 
-func (b *fakeTokenBlacklist) IsRevoked(_ context.Context, token string) (bool, error) {
-	return b.revoked[token], nil
+func (b *fakeTokenBlacklist) Claim(_ context.Context, token string, _ time.Duration) (bool, time.Time, error) {
+	if at, ok := b.revoked[token]; ok {
+		return false, at, nil
+	}
+	b.revoked[token] = time.Now()
+	return true, time.Time{}, nil
 }
 
 type fakePasswordChangeTracker struct {
@@ -185,7 +189,7 @@ func newFakePasswordChangeTracker() *fakePasswordChangeTracker {
 }
 
 func (t *fakePasswordChangeTracker) MarkChanged(_ context.Context, userID string, _ time.Duration) error {
-	t.changedAt[userID] = time.Now()
+	t.changedAt[userID] = time.Now().Truncate(time.Second)
 	return nil
 }
 
@@ -206,7 +210,7 @@ func newFakeRefreshRevokedTracker() *fakeRefreshRevokedTracker {
 }
 
 func (t *fakeRefreshRevokedTracker) MarkAllRevoked(_ context.Context, userID string, _ time.Duration) error {
-	t.revokedAt[userID] = time.Now()
+	t.revokedAt[userID] = time.Now().Truncate(time.Second)
 	return nil
 }
 
@@ -318,15 +322,6 @@ func (r *fakeUserRepository) MarkEmailVerified(_ context.Context, userID string)
 	return nil
 }
 
-func (r *fakeUserRepository) UpdatePasswordHash(_ context.Context, userID, passwordHash string) error {
-	for _, user := range r.users {
-		if user.ID == userID {
-			user.PasswordHash = passwordHash
-		}
-	}
-	return nil
-}
-
 func (r *fakeUserRepository) UpdateTag(_ context.Context, userID, tag string) error {
 	for _, user := range r.users {
 		if user.ID == userID {
@@ -349,18 +344,22 @@ func (r *fakeUserRepository) UpdateDisplayName(_ context.Context, userID, displa
 	return nil
 }
 
-func (r *fakeUserRepository) UpdatePublicKey(_ context.Context, userID, publicKey string) error {
+func (r *fakeUserRepository) UpdatePasswordAndWrappedKey(_ context.Context, userID, passwordHash, wrappedPrivateKey, keyWrapSalt string) error {
 	for _, user := range r.users {
 		if user.ID == userID {
-			user.PublicKey = publicKey
+			user.PasswordHash = passwordHash
+			user.WrappedPrivateKey = wrappedPrivateKey
+			user.KeyWrapSalt = keyWrapSalt
 		}
 	}
 	return nil
 }
 
-func (r *fakeUserRepository) UpdateWrappedPrivateKey(_ context.Context, userID, wrappedPrivateKey, keyWrapSalt string) error {
+func (r *fakeUserRepository) UpdatePasswordAndKeyPair(_ context.Context, userID, passwordHash, publicKey, wrappedPrivateKey, keyWrapSalt string) error {
 	for _, user := range r.users {
 		if user.ID == userID {
+			user.PasswordHash = passwordHash
+			user.PublicKey = publicKey
 			user.WrappedPrivateKey = wrappedPrivateKey
 			user.KeyWrapSalt = keyWrapSalt
 		}
@@ -465,7 +464,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_SendsVerificationCode(t *testing.T) {
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -484,7 +483,7 @@ func TestAuthService_Register_RollsBackWhenVerificationEmailFails(t *testing.T) 
 	repo := newFakeUserRepository()
 	mailer := newFakeMailer()
 	mailer.sendVerificationCodeErr = errors.New("smtp: connection refused")
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), mailer, newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err == nil {
@@ -507,7 +506,7 @@ func TestAuthService_Register_RollsBackWhenVerificationEmailFails(t *testing.T) 
 func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	emailCodes := newFakeEmailVerificationStore()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), emailCodes, newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -543,7 +542,7 @@ func TestAuthService_VerifyEmail_RateLimited(t *testing.T) {
 	repo := newFakeUserRepository()
 	limiter := newFakeRateLimiter()
 	limiter.allow = false
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), limiter, newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	err := svc.VerifyEmail(context.Background(), "user@example.com", "123456")
 	if !errors.Is(err, domain.ErrTooManyAttempts) {
@@ -553,7 +552,9 @@ func TestAuthService_VerifyEmail_RateLimited(t *testing.T) {
 
 func TestAuthService_Register_EmailTaken(t *testing.T) {
 	repo := newFakeUserRepository()
-	repo.byEmail["user@example.com"] = true
+	existing := newTestUser("user@example.com", "oldpass1")
+	existing.EmailVerified = true
+	repo.users[existing.Email] = existing
 	svc := newTestAuthService(repo)
 
 	_, err := svc.Register(context.Background(), "user@example.com", "john", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")

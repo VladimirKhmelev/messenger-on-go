@@ -41,6 +41,9 @@ func (s *AuthService) UploadAvatar(ctx context.Context, userID string, data []by
 }
 
 func (s *AuthService) GetAvatar(ctx context.Context, userID string) (*domain.Avatar, error) {
+	if !isUserID(userID) {
+		return nil, domain.ErrAvatarNotFound
+	}
 	return s.users.GetAvatar(ctx, userID)
 }
 

@@ -39,15 +39,11 @@ func (s *PasswordResetStore) GenerateAndStore(ctx context.Context, email string)
 func (s *PasswordResetStore) Consume(ctx context.Context, token string) (string, bool, error) {
 	key := passwordResetKeyPrefix + hashToken(token)
 
-	email, err := s.client.Get(ctx, key).Result()
+	email, err := s.client.GetDel(ctx, key).Result()
 	if err == redis.Nil {
 		return "", false, nil
 	}
 	if err != nil {
-		return "", false, err
-	}
-
-	if err := s.client.Del(ctx, key).Err(); err != nil {
 		return "", false, err
 	}
 

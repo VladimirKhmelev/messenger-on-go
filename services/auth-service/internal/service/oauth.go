@@ -23,8 +23,13 @@ type GitHubLoginResult struct {
 }
 
 func (s *AuthService) LoginWithGitHub(ctx context.Context, code, publicKey, wrappedPrivateKey, keyWrapSalt string) (*GitHubLoginResult, error) {
-	profile, err := s.github.FetchProfile(code)
+	profile, err := s.github.FetchProfile(ctx, code)
 	if err != nil {
+		return nil, err
+	}
+	profile.Email = canonicalEmail(profile.Email)
+
+	if err := s.releasePendingRegistration(ctx, profile.Email); err != nil && !errors.Is(err, domain.ErrEmailTaken) {
 		return nil, err
 	}
 

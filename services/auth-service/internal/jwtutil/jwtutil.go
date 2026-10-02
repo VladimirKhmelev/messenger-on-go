@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
@@ -41,6 +42,9 @@ func (i *Issuer) issue(userID string, tokenType TokenType, ttl time.Duration) (s
 	now := time.Now()
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			// without a random ID two tokens for the same user issued in the
+			// same second are byte-identical, so revoking one revokes both
+			ID:        uuid.NewString(),
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},

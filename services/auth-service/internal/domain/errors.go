@@ -24,4 +24,6 @@ var (
 	ErrInvalidPublicKey        = errors.New("invalid public key")
 	ErrPublicKeyNotSet         = errors.New("user has not uploaded an encryption public key")
 	ErrInvalidPushSubscription = errors.New("invalid push subscription")
+	ErrInvalidOAuthCode        = errors.New("github login code is invalid or expired")
+	ErrTooManyEmails           = errors.New("too many emails sent to this address, try again later")
 )

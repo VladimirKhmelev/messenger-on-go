@@ -42,10 +42,7 @@ func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*auth
 		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
-	return &authv1.LoginResponse{
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
-	}, nil
+	return &authv1.LoginResponse{AccessToken: tokens.AccessToken}, nil
 }
 
 func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagRequest) (*authv1.GetUserByTagResponse, error) {
@@ -56,7 +53,7 @@ func (s *AuthServer) GetUserByTag(ctx context.Context, req *authv1.GetUserByTagR
 
 	return &authv1.GetUserByTagResponse{
 		UserId:      user.ID,
-		Email:       user.Email,
+		Email:       visibleEmail(ctx, user),
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,
 		PublicKey:   user.PublicKey,
@@ -72,7 +69,7 @@ func (s *AuthServer) GetUserByID(ctx context.Context, req *authv1.GetUserByIDReq
 
 	return &authv1.GetUserByIDResponse{
 		UserId:      user.ID,
-		Email:       user.Email,
+		Email:       visibleEmail(ctx, user),
 		Tag:         user.Tag,
 		DisplayName: user.DisplayName,
 		PublicKey:   user.PublicKey,
@@ -90,7 +87,7 @@ func (s *AuthServer) SearchUsers(ctx context.Context, req *authv1.SearchUsersReq
 	for _, user := range users {
 		summaries = append(summaries, &authv1.UserSummary{
 			UserId:      user.ID,
-			Email:       user.Email,
+			Email:       visibleEmail(ctx, user),
 			Tag:         user.Tag,
 			DisplayName: user.DisplayName,
 			Deleted:     user.Deleted,
@@ -115,10 +112,7 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenR
 		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
-	return &authv1.RefreshTokenResponse{
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
-	}, nil
+	return &authv1.RefreshTokenResponse{AccessToken: tokens.AccessToken}, nil
 }
 
 func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
@@ -173,9 +167,8 @@ func (s *AuthServer) LoginWithGitHub(ctx context.Context, req *authv1.LoginWithG
 	}
 
 	return &authv1.LoginWithGitHubResponse{
-		AccessToken:  result.Tokens.AccessToken,
-		RefreshToken: result.Tokens.RefreshToken,
-		IsNewUser:    result.IsNewUser,
+		AccessToken: result.Tokens.AccessToken,
+		IsNewUser:   result.IsNewUser,
 	}, nil
 }
 
@@ -220,8 +213,13 @@ func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePassw
 		return nil, status.Error(codes.Unauthenticated, "missing authenticated user")
 	}
 
-	if err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt()); err != nil {
+	refreshToken, err := s.auth.ChangePassword(ctx, userID, req.GetOldPassword(), req.GetNewPassword(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt())
+	if err != nil {
 		return nil, toGRPCError(err)
+	}
+
+	if err := setRefreshCookie(ctx, refreshToken, s.cookieSecure); err != nil {
+		return nil, status.Error(codes.Internal, "failed to set refresh cookie")
 	}
 
 	return &authv1.ChangePasswordResponse{}, nil
@@ -306,6 +304,13 @@ func (s *AuthServer) ListPushSubscriptions(ctx context.Context, req *authv1.List
 	return resp, nil
 }
 
+func visibleEmail(ctx context.Context, user *domain.User) string {
+	if callerID, ok := UserIDFromContext(ctx); ok && callerID == user.ID {
+		return user.Email
+	}
+	return ""
+}
+
 func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
@@ -324,12 +329,14 @@ func toGRPCError(err error) error {
 		errors.Is(err, domain.ErrInvalidToken),
 		errors.Is(err, domain.ErrEmailNotVerified),
 		errors.Is(err, domain.ErrInvalidVerificationCode),
-		errors.Is(err, domain.ErrOAuthNoVerifiedEmail):
+		errors.Is(err, domain.ErrOAuthNoVerifiedEmail),
+		errors.Is(err, domain.ErrInvalidOAuthCode):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, domain.ErrUserNotFound),
 		errors.Is(err, domain.ErrPublicKeyNotSet):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, domain.ErrTooManyAttempts):
+	case errors.Is(err, domain.ErrTooManyAttempts),
+		errors.Is(err, domain.ErrTooManyEmails):
 		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")

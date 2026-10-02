@@ -16,11 +16,18 @@ const (
 	maxDisplayNameLength = 40
 )
 
-func ValidateEmail(email string) error {
-	if _, err := mail.ParseAddress(email); err != nil {
-		return domain.ErrInvalidEmail
+func NormalizeEmail(email string) (string, error) {
+	trimmed := strings.TrimSpace(email)
+	addr, err := mail.ParseAddress(trimmed)
+	if err != nil || addr.Address != trimmed {
+		return "", domain.ErrInvalidEmail
 	}
-	return nil
+	return canonicalEmail(trimmed), nil
+}
+
+func ValidateEmail(email string) error {
+	_, err := NormalizeEmail(email)
+	return err
 }
 
 func ValidateTag(tag string) error {
