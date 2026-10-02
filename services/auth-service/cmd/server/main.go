@@ -130,7 +130,8 @@ func main() {
 	}
 
 	tokenIssuer := jwtutil.NewIssuer(jwtSecret)
-	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher, passwordChanges, refreshRevoked)
+	emailSendLimiter := cache.NewEmailSendRateLimiter(redisClient)
+	authService := service.NewAuthService(userRepo, tokenIssuer, loginLimiter, refreshBlocklist, emailCodes, emailVerifyLimiter, mailer, passwordResets, githubClient, eventPublisher, passwordChanges, refreshRevoked, emailSendLimiter)
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {

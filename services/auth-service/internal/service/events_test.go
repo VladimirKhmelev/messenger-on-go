@@ -14,7 +14,7 @@ var errPublishFailed = errors.New("publish failed")
 func TestAuthService_Register_PublishesUserRegistered(t *testing.T) {
 	repo := newFakeUserRepository()
 	publisher := newFakeEventPublisher()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -33,7 +33,7 @@ func TestAuthService_Register_PublishesUserRegistered(t *testing.T) {
 func TestAuthService_Register_EventPublishFailureDoesNotFailRegistration(t *testing.T) {
 	repo := newFakeUserRepository()
 	publisher := &failingEventPublisher{}
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	_, err := svc.Register(context.Background(), "user@example.com", "balbes", "Test User", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -48,7 +48,7 @@ func TestAuthService_ResetPassword_PublishesUserPasswordReset(t *testing.T) {
 
 	resets := newFakePasswordResetStore()
 	publisher := newFakeEventPublisher()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), resets, newFakeGitHubClient(), publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	token, err := resets.GenerateAndStore(context.Background(), "user@example.com")
 	if err != nil {
@@ -72,7 +72,7 @@ func TestAuthService_LoginWithGitHub_PublishesUserOAuthLinkedForNewUser(t *testi
 	github := newFakeGitHubClient()
 	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	publisher := newFakeEventPublisher()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	_, err := svc.LoginWithGitHub(context.Background(), "some-code", "pub-key", "wrapped-priv-key", "salt")
 	if err != nil {
@@ -95,7 +95,7 @@ func TestAuthService_LoginWithGitHub_NoEventForExistingUser(t *testing.T) {
 	github := newFakeGitHubClient()
 	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
 	publisher := newFakeEventPublisher()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, publisher, newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	_, err := svc.LoginWithGitHub(context.Background(), "some-code", "", "", "")
 	if err != nil {

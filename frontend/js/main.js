@@ -423,12 +423,35 @@ async function handleResetPassword({ token, newPassword }) {
   }
 }
 
+const GITHUB_OAUTH_STATE_KEY = 'wisply-github-oauth-state';
+
+// The state ties the callback to a login this tab started. Without it,
+// anyone could send a victim a callback link carrying the attacker's own
+// GitHub code and sign the victim into the attacker's account.
 function handleGitHubLogin() {
   const clientId = window.WISP_GITHUB_CLIENT_ID || '';
   const redirectUri = `${window.location.origin}/auth/github/callback`;
+  const oauthState = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+    b.toString(16).padStart(2, '0')
+  ).join('');
+  try {
+    sessionStorage.setItem(GITHUB_OAUTH_STATE_KEY, oauthState);
+  } catch {
+    // storage blocked: the callback will be rejected, same as a forged one
+  }
   window.location.href = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
     clientId
-  )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`;
+  )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email&state=${oauthState}`;
+}
+
+function takeExpectedGitHubState() {
+  try {
+    const expected = sessionStorage.getItem(GITHUB_OAUTH_STATE_KEY);
+    sessionStorage.removeItem(GITHUB_OAUTH_STATE_KEY);
+    return expected;
+  } catch {
+    return null;
+  }
 }
 
 const TAG_CHECK_DEBOUNCE_MS = 350;
@@ -1701,6 +1724,9 @@ async function handleChangePassword(oldPassword, newPassword, confirmPassword) {
     // sees it — the RSA keypair itself is untouched, only its packaging.
     const { wrappedPrivateKeyBase64, keyWrapSaltBase64 } = await rewrapPrivateKey(newPassword);
     await authApi.changePassword(oldPassword, newPassword, wrappedPrivateKeyBase64, keyWrapSaltBase64);
+    // The change ended every session, this one's access token included; the
+    // response carried a fresh refresh cookie to get a new one with.
+    await refreshAccessToken();
 
     state.settingsPasswordBusy = false;
     state.settingsPasswordSuccess = t('app.passwordChanged');
@@ -2202,10 +2228,15 @@ function playNotificationSound() {
 
 async function bootstrap() {
   if (window.location.pathname === '/auth/github/callback') {
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (code) {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const expectedState = takeExpectedGitHubState();
+    if (code && expectedState && params.get('state') === expectedState) {
       handleGitHubCallback(code);
       return;
+    }
+    if (code) {
+      console.warn('github callback ignored: state does not match a login started here');
     }
     // Missing code (denied consent, or a stray hit on this path) — fall through
     // to the normal boot flow instead of getting stuck on a dead-end URL.

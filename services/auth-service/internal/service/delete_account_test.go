@@ -11,7 +11,7 @@ import (
 func TestAuthService_DeleteAccount_Success(t *testing.T) {
 	repo := newFakeUserRepository()
 	refreshRevoked := newFakeRefreshRevokedTracker()
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), refreshRevoked)
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), newFakeGitHubClient(), newFakeEventPublisher(), newFakePasswordChangeTracker(), refreshRevoked, newFakeRateLimiter())
 
 	user, err := svc.Register(context.Background(), "user@example.com", "balbes", "Name", "abcd1234", "test-public-key", "test-wrapped-key", "test-salt")
 	if err != nil {
@@ -67,7 +67,7 @@ func TestAuthService_DeleteAccount_OAuthAccountNoPasswordRequired(t *testing.T) 
 	repo := newFakeUserRepository()
 	github := newFakeGitHubClient()
 	github.profile = &domain.GitHubProfile{ID: 42, Login: "octocat", Email: "octocat@example.com"}
-	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker())
+	svc := NewAuthService(repo, jwtutil.NewIssuer("test-secret"), newFakeRateLimiter(), newFakeTokenBlacklist(), newFakeEmailVerificationStore(), newFakeRateLimiter(), newFakeMailer(), newFakePasswordResetStore(), github, newFakeEventPublisher(), newFakePasswordChangeTracker(), newFakeRefreshRevokedTracker(), newFakeRateLimiter())
 
 	result, err := svc.LoginWithGitHub(context.Background(), "some-code", "pub-key", "wrapped-priv-key", "salt")
 	if err != nil {

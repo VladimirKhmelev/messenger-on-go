@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -20,12 +21,14 @@ const (
 	SubjectUserProfileUpdated = "user.profile_updated"
 )
 
+const userEventsMaxAge = 14 * 24 * time.Hour
+
 type Publisher struct {
 	js jetstream.JetStream
 }
 
 func Connect(ctx context.Context, url string) (*Publisher, error) {
-	nc, err := nats.Connect(url)
+	nc, err := nats.Connect(url, nats.MaxReconnects(-1))
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +41,7 @@ func Connect(ctx context.Context, url string) (*Publisher, error) {
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:     StreamName,
 		Subjects: []string{"user.*"},
+		MaxAge:   userEventsMaxAge,
 	})
 	if err != nil {
 		return nil, err

@@ -16,8 +16,12 @@ type TokenPair struct {
 	RefreshToken string
 }
 
+const refreshReuseGrace = 30 * time.Second
+
 func (s *AuthService) Login(ctx context.Context, email, password string) (*TokenPair, error) {
-	allowed, err := s.loginLimiter.Allow(ctx, email)
+	email = canonicalEmail(email)
+
+	allowed, err := s.loginLimiter.Allow(ctx, "login:"+email)
 	if err != nil {
 		return nil, err
 	}
@@ -62,22 +66,28 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, domain.ErrInvalidToken
 	}
 
-	revoked, err := s.refreshBlocked.IsRevoked(ctx, refreshToken)
-	if err != nil {
-		return nil, err
-	}
-	if revoked {
-		if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, domain.RefreshTokenTTL); err != nil {
-			return nil, err
-		}
-		return nil, domain.ErrInvalidToken
-	}
-
 	revokedAll, err := s.refreshRevoked.RevokedAfter(ctx, claims.UserID, claims.IssuedAt)
 	if err != nil {
 		return nil, err
 	}
 	if revokedAll {
+		return nil, domain.ErrInvalidToken
+	}
+
+	ttl := time.Until(claims.ExpiresAt)
+	if ttl <= 0 {
+		return nil, domain.ErrInvalidToken
+	}
+	first, usedAt, err := s.refreshBlocked.Claim(ctx, refreshToken, ttl)
+	if err != nil {
+		return nil, err
+	}
+	if !first {
+		if time.Since(usedAt) > refreshReuseGrace {
+			if err := s.refreshRevoked.MarkAllRevoked(ctx, claims.UserID, domain.RefreshTokenTTL); err != nil {
+				return nil, err
+			}
+		}
 		return nil, domain.ErrInvalidToken
 	}
 
@@ -89,12 +99,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 	newRefreshToken, err := s.tokens.IssueRefreshToken(claims.UserID)
 	if err != nil {
 		return nil, err
-	}
-
-	if ttl := time.Until(claims.ExpiresAt); ttl > 0 {
-		if err := s.refreshBlocked.Revoke(ctx, refreshToken, ttl); err != nil {
-			return nil, err
-		}
 	}
 
 	return &TokenPair{AccessToken: accessToken, RefreshToken: newRefreshToken}, nil

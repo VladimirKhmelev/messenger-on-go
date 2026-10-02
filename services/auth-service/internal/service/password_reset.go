@@ -13,6 +13,16 @@ import (
 )
 
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
+	email = canonicalEmail(email)
+
+	allowed, err := s.emailSendLimiter.Allow(ctx, "reset:"+email)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return domain.ErrTooManyEmails
+	}
+
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
@@ -30,20 +40,20 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 }
 
 func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, publicKey, wrappedPrivateKey, keyWrapSalt string) error {
-	email, ok, err := s.passwordResets.Consume(ctx, token)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return domain.ErrInvalidToken
-	}
-
 	if err := ValidatePassword(newPassword); err != nil {
 		return err
 	}
 
 	if strings.TrimSpace(publicKey) == "" || strings.TrimSpace(wrappedPrivateKey) == "" || strings.TrimSpace(keyWrapSalt) == "" {
 		return domain.ErrInvalidPublicKey
+	}
+
+	email, ok, err := s.passwordResets.Consume(ctx, token)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return domain.ErrInvalidToken
 	}
 
 	user, err := s.users.GetByEmail(ctx, email)
@@ -56,19 +66,19 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword, pub
 		return err
 	}
 
-	if err := s.users.UpdatePasswordHash(ctx, user.ID, string(passwordHash)); err != nil {
+	if err := s.endSessions(ctx, user.ID); err != nil {
 		return err
 	}
 
-	if err := s.users.UpdatePublicKey(ctx, user.ID, publicKey); err != nil {
+	if err := s.users.UpdatePasswordAndKeyPair(ctx, user.ID, string(passwordHash), publicKey, wrappedPrivateKey, keyWrapSalt); err != nil {
 		return err
 	}
 
-	if err := s.users.UpdateWrappedPrivateKey(ctx, user.ID, wrappedPrivateKey, keyWrapSalt); err != nil {
-		return err
+	if !user.EmailVerified {
+		if err := s.users.MarkEmailVerified(ctx, user.ID); err != nil {
+			return err
+		}
 	}
-
-	s.markPasswordChanged(ctx, user.ID)
 
 	if err := s.events.PublishUserPasswordReset(ctx, domain.UserPasswordReset{
 		UserID: user.ID,

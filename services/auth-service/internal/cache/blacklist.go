@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -20,15 +22,27 @@ func NewTokenBlacklist(client *redis.Client) *TokenBlacklist {
 }
 
 func (b *TokenBlacklist) Revoke(ctx context.Context, token string, ttl time.Duration) error {
-	return b.client.Set(ctx, refreshBlacklistKeyPrefix+hashToken(token), "1", ttl).Err()
+	return b.client.Set(ctx, refreshBlacklistKeyPrefix+hashToken(token), time.Now().Unix(), ttl).Err()
 }
 
-func (b *TokenBlacklist) IsRevoked(ctx context.Context, token string) (bool, error) {
-	n, err := b.client.Exists(ctx, refreshBlacklistKeyPrefix+hashToken(token)).Result()
-	if err != nil {
-		return false, err
+func (b *TokenBlacklist) Claim(ctx context.Context, token string, ttl time.Duration) (ok bool, usedAt time.Time, err error) {
+	prev, err := b.client.SetArgs(ctx, refreshBlacklistKeyPrefix+hashToken(token), time.Now().Unix(), redis.SetArgs{
+		Mode: "NX",
+		Get:  true,
+		TTL:  ttl,
+	}).Result()
+	if errors.Is(err, redis.Nil) {
+		return true, time.Time{}, nil
 	}
-	return n > 0, nil
+	if err != nil {
+		return false, time.Time{}, err
+	}
+
+	unix, err := strconv.ParseInt(prev, 10, 64)
+	if err != nil {
+		return false, time.Unix(0, 0), nil
+	}
+	return false, time.Unix(unix, 0), nil
 }
 
 func hashToken(token string) string {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 
@@ -41,7 +42,7 @@ func (r *PostgresUserRepository) Create(ctx context.Context, user *domain.User) 
 		user.ID, user.Email, user.Tag, user.DisplayName, user.PasswordHash, user.EmailVerified, user.CreatedAt,
 		user.PublicKey, user.WrappedPrivateKey, user.KeyWrapSalt,
 	)
-	return err
+	return uniqueViolation(err)
 }
 
 func (r *PostgresUserRepository) Delete(ctx context.Context, userID string) error {
@@ -51,7 +52,7 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, userID string) erro
 
 func (r *PostgresUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	var exists bool
-	err := r.conn.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`, email)
+	err := r.conn.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE lower(email) = lower($1))`, email)
 	return exists, err
 }
 
@@ -63,7 +64,7 @@ func (r *PostgresUserRepository) ExistsByTag(ctx context.Context, tag string) (b
 
 func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
-	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt, deleted FROM users WHERE email = $1`, email)
+	err := r.conn.GetContext(ctx, &user, `SELECT id, email, tag, display_name, password_hash, email_verified, created_at, public_key, wrapped_private_key, key_wrap_salt, deleted FROM users WHERE lower(email) = lower($1)`, email)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}
@@ -117,14 +118,9 @@ func (r *PostgresUserRepository) MarkEmailVerified(ctx context.Context, userID s
 	return err
 }
 
-func (r *PostgresUserRepository) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
-	_, err := r.conn.ExecContext(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, passwordHash, userID)
-	return err
-}
-
 func (r *PostgresUserRepository) UpdateTag(ctx context.Context, userID, tag string) error {
 	_, err := r.conn.ExecContext(ctx, `UPDATE users SET tag = $1 WHERE id = $2`, tag, userID)
-	return err
+	return uniqueViolation(err)
 }
 
 func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, displayName string) error {
@@ -132,15 +128,19 @@ func (r *PostgresUserRepository) UpdateDisplayName(ctx context.Context, userID, 
 	return err
 }
 
-func (r *PostgresUserRepository) UpdatePublicKey(ctx context.Context, userID, publicKey string) error {
-	_, err := r.conn.ExecContext(ctx, `UPDATE users SET public_key = $1 WHERE id = $2`, publicKey, userID)
+func (r *PostgresUserRepository) UpdatePasswordAndWrappedKey(ctx context.Context, userID, passwordHash, wrappedPrivateKey, keyWrapSalt string) error {
+	_, err := r.conn.ExecContext(ctx, `
+		UPDATE users SET password_hash = $1, wrapped_private_key = $2, key_wrap_salt = $3 WHERE id = $4`,
+		passwordHash, wrappedPrivateKey, keyWrapSalt, userID,
+	)
 	return err
 }
 
-func (r *PostgresUserRepository) UpdateWrappedPrivateKey(ctx context.Context, userID, wrappedPrivateKey, keyWrapSalt string) error {
+func (r *PostgresUserRepository) UpdatePasswordAndKeyPair(ctx context.Context, userID, passwordHash, publicKey, wrappedPrivateKey, keyWrapSalt string) error {
 	_, err := r.conn.ExecContext(ctx, `
-		UPDATE users SET wrapped_private_key = $1, key_wrap_salt = $2 WHERE id = $3`,
-		wrappedPrivateKey, keyWrapSalt, userID,
+		UPDATE users SET password_hash = $1, public_key = $2, wrapped_private_key = $3, key_wrap_salt = $4
+		WHERE id = $5`,
+		passwordHash, publicKey, wrappedPrivateKey, keyWrapSalt, userID,
 	)
 	return err
 }
@@ -220,4 +220,18 @@ func (r *PostgresUserRepository) ListPushSubscriptions(ctx context.Context, user
 func escapeLikePattern(s string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return replacer.Replace(s)
+}
+
+func uniqueViolation(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return err
+	}
+	switch pgErr.ConstraintName {
+	case "users_email_key":
+		return domain.ErrEmailTaken
+	case "users_tag_key":
+		return domain.ErrTagTaken
+	}
+	return err
 }

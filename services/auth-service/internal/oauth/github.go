@@ -1,17 +1,22 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/domain"
 )
 
 const (
+	// an unresponsive GitHub must not pin the login request forever
+	githubRequestTimeout = 10 * time.Second
+
 	githubTokenURL  = "https://github.com/login/oauth/access_token"
 	githubUserURL   = "https://api.github.com/user"
 	githubEmailsURL = "https://api.github.com/user/emails"
@@ -27,23 +32,23 @@ func NewGitHubClient(clientID, clientSecret string) *GitHubClient {
 	return &GitHubClient{
 		clientID:     clientID,
 		clientSecret: clientSecret,
-		httpClient:   &http.Client{},
+		httpClient:   &http.Client{Timeout: githubRequestTimeout},
 	}
 }
 
-func (c *GitHubClient) FetchProfile(code string) (*domain.GitHubProfile, error) {
-	token, err := c.exchangeCode(code)
+func (c *GitHubClient) FetchProfile(ctx context.Context, code string) (*domain.GitHubProfile, error) {
+	token, err := c.exchangeCode(ctx, code)
 	if err != nil {
 		return nil, err
 	}
 
-	profile, err := c.fetchUser(token)
+	profile, err := c.fetchUser(ctx, token)
 	if err != nil {
 		return nil, err
 	}
 
 	if profile.Email == "" {
-		email, err := c.fetchPrimaryVerifiedEmail(token)
+		email, err := c.fetchPrimaryVerifiedEmail(ctx, token)
 		if err != nil {
 			return nil, err
 		}
@@ -53,14 +58,14 @@ func (c *GitHubClient) FetchProfile(code string) (*domain.GitHubProfile, error) 
 	return profile, nil
 }
 
-func (c *GitHubClient) exchangeCode(code string) (string, error) {
+func (c *GitHubClient) exchangeCode(ctx context.Context, code string) (string, error) {
 	form := url.Values{
 		"client_id":     {c.clientID},
 		"client_secret": {c.clientSecret},
 		"code":          {code},
 	}
 
-	req, err := http.NewRequest(http.MethodPost, githubTokenURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, githubTokenURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -82,6 +87,11 @@ func (c *GitHubClient) exchangeCode(code string) (string, error) {
 		return "", err
 	}
 
+	if result.Error == "bad_verification_code" {
+		// expired, already used, or a code someone else pasted in: the
+		// client's fault, not ours
+		return "", domain.ErrInvalidOAuthCode
+	}
 	if result.Error != "" {
 		return "", fmt.Errorf("github oauth error: %s: %s", result.Error, result.ErrorDesc)
 	}
@@ -92,26 +102,26 @@ func (c *GitHubClient) exchangeCode(code string) (string, error) {
 	return result.AccessToken, nil
 }
 
-func (c *GitHubClient) fetchUser(token string) (*domain.GitHubProfile, error) {
+func (c *GitHubClient) fetchUser(ctx context.Context, token string) (*domain.GitHubProfile, error) {
 	var raw struct {
 		ID    int64  `json:"id"`
 		Login string `json:"login"`
 		Email string `json:"email"`
 	}
-	if err := c.getJSON(githubUserURL, token, &raw); err != nil {
+	if err := c.getJSON(ctx, githubUserURL, token, &raw); err != nil {
 		return nil, err
 	}
 
 	return &domain.GitHubProfile{ID: raw.ID, Login: raw.Login, Email: raw.Email}, nil
 }
 
-func (c *GitHubClient) fetchPrimaryVerifiedEmail(token string) (string, error) {
+func (c *GitHubClient) fetchPrimaryVerifiedEmail(ctx context.Context, token string) (string, error) {
 	var emails []struct {
 		Email    string `json:"email"`
 		Primary  bool   `json:"primary"`
 		Verified bool   `json:"verified"`
 	}
-	if err := c.getJSON(githubEmailsURL, token, &emails); err != nil {
+	if err := c.getJSON(ctx, githubEmailsURL, token, &emails); err != nil {
 		return "", err
 	}
 
@@ -129,8 +139,8 @@ func (c *GitHubClient) fetchPrimaryVerifiedEmail(token string) (string, error) {
 	return "", domain.ErrOAuthNoVerifiedEmail
 }
 
-func (c *GitHubClient) getJSON(url, token string, out any) error {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func (c *GitHubClient) getJSON(ctx context.Context, url, token string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
