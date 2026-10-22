@@ -111,6 +111,7 @@ import (
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
@@ -164,7 +165,7 @@ func main() <span class="cov0" title="0">{
                 }</span>
         }()
 
-        <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+        <span class="cov0" title="0">chatClient, err := dialChat(chatServiceAddr, internalSecret)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
         }</span>
@@ -243,6 +244,21 @@ func main() <span class="cov0" title="0">{
         grpcServer.GracefulStop()
         _ = httpServer.Close()</span>
 }
+
+// dialChat connects to chat-service over the transport that CHAT_TRANSPORT
+// names: grpc, the default, or quic, which needs QUIC_CA_FILE.
+func dialChat(addr, internalSecret string) (*chatclient.Client, error) <span class="cov0" title="0">{
+        switch transport := os.Getenv("CHAT_TRANSPORT"); transport </span>{
+        case "", "grpc":<span class="cov0" title="0">
+                fmt.Printf("ws-gateway: chat-service at %s over grpc\n", addr)
+                return chatclient.Dial(addr, internalSecret)</span>
+        case quictransport.Name:<span class="cov0" title="0">
+                fmt.Printf("ws-gateway: chat-service at %s over quic\n", addr)
+                return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
+        default:<span class="cov0" title="0">
+                return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)</span>
+        }
+}
 </pre>
 		
 		<pre class="file" id="file1" style="display: none">package chatclient
@@ -256,14 +272,21 @@ import (
         "google.golang.org/grpc/metadata"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
 
 type Client struct {
-        conn           *grpc.ClientConn
+        conn           conn
         chat           chatv1.ChatServiceClient
         internalSecret string
+}
+
+// conn is the connection to chat-service, over gRPC or over QUIC.
+type conn interface {
+        grpc.ClientConnInterface
+        Close() error
 }
 
 func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
@@ -272,6 +295,22 @@ func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
                 grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("ws-gateway")),
         )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+// DialQUIC is Dial over QUIC (pkg/quictransport); caFile holds the CA
+// certificate that chat-service's certificate is checked against.
+func DialQUIC(addr, internalSecret, caFile string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := quictransport.Dial(quictransport.ClientConfig{
+                Addr:   addr,
+                CAFile: caFile,
+                Interceptors: []grpc.UnaryClientInterceptor{
+                        metrics.UnaryClientInterceptor("ws-gateway", metrics.Transport(quictransport.Name)),
+                },
+        })
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
