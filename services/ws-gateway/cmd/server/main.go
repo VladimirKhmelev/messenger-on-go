@@ -17,6 +17,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
@@ -70,7 +71,7 @@ func main() {
 		}
 	}()
 
-	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+	chatClient, err := dialChat(chatServiceAddr, internalSecret)
 	if err != nil {
 		log.Fatalf("ws-gateway: failed to dial chat-service: %v", err)
 	}
@@ -148,4 +149,19 @@ func main() {
 	fmt.Println("ws-gateway: shutting down")
 	grpcServer.GracefulStop()
 	_ = httpServer.Close()
+}
+
+// dialChat connects to chat-service over the transport that CHAT_TRANSPORT
+// names: grpc, the default, or quic, which needs QUIC_CA_FILE.
+func dialChat(addr, internalSecret string) (*chatclient.Client, error) {
+	switch transport := os.Getenv("CHAT_TRANSPORT"); transport {
+	case "", "grpc":
+		fmt.Printf("ws-gateway: chat-service at %s over grpc\n", addr)
+		return chatclient.Dial(addr, internalSecret)
+	case quictransport.Name:
+		fmt.Printf("ws-gateway: chat-service at %s over quic\n", addr)
+		return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))
+	default:
+		return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)
+	}
 }

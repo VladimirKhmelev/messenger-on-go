@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/metrics v0.0.0-00010101000000-000000000000
+	github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/tracing v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -17,12 +18,15 @@ require (
 replace (
 	github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil => ../../pkg/jwtutil
 	github.com/VladimirKhmelev/messenger-on-go/pkg/metrics => ../../pkg/metrics
+	github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport => ../../pkg/quictransport
 	github.com/VladimirKhmelev/messenger-on-go/pkg/tracing => ../../pkg/tracing
 	github.com/VladimirKhmelev/messenger-on-go/proto/gen => ../../proto/gen
 )
 
 require (
 	github.com/VictoriaMetrics/metrics v1.35.2 // indirect
+	github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.1.0 // indirect
+	github.com/VladimirKhmelev/quic-rpc-go/rpc v0.1.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -32,6 +36,7 @@ require (
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/quic-go/quic-go v0.63.0 // indirect
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -47,6 +52,6 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260918162117-cecb64721679 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
