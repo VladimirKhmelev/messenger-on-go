@@ -9,6 +9,14 @@
 Real-time чат с E2E-шифрованием сообщений, реализованный как monorepo из 5
 независимых микросервисов
 
+> **Сейчас идёт эксперимент:** сервисы переводятся с gRPC на QUIC через
+> [quic-rpc-go](https://github.com/VladimirKhmelev/quic-rpc-go) — RPC поверх
+> нативных потоков QUIC, совместимый со сгенерированным gRPC-кодом. Цель —
+> сравнить транспорты на живом мессенджере. Первый шаг готов: ws-gateway
+> ходит в chat-service по QUIC при `CHAT_TRANSPORT=quic`, по умолчанию всё
+> по-прежнему идёт по gRPC. Подробности — в разделе
+> [«QUIC между сервисами»](#quic-между-сервисами-эксперимент).
+
 ## Архитектура
 
 ```
@@ -242,6 +250,7 @@ make ci            # полный набор проверок, как в GitHub 
    ```
    JWT_SECRET=<случайная строка, openssl rand -hex 32>
    INTERNAL_SECRET=<случайная строка, openssl rand -hex 32>
+   QUIC_RESET_SECRET=<случайная строка, openssl rand -hex 32>
    COOKIE_SECURE=true
    ALLOWED_ORIGINS=https://yourdomain.com
 
@@ -306,6 +315,30 @@ make ci            # полный набор проверок, как в GitHub 
 <p align="center">
   <img src="metrics/grafana_business-metrics.png" width="70%" alt="Grafana: business metrics" />
 </p>
+
+## QUIC между сервисами (эксперимент)
+
+Вызовы ws-gateway → chat-service могут идти не по gRPC, а по QUIC через
+[quic-rpc-go](https://github.com/VladimirKhmelev/quic-rpc-go): тот же
+сгенерированный gRPC-код поверх прослойки `grpcbridge`, с TLS 1.3. Это
+эксперимент для сравнения транспортов; по умолчанию всё идёт по gRPC.
+
+- chat-service слушает и gRPC (`50051/tcp`), и QUIC (`50051/udp`); код
+  подключения — `pkg/quictransport`.
+- ws-gateway выбирает транспорт переменной `CHAT_TRANSPORT`: `grpc` (по
+  умолчанию) или `quic`:
+  ```sh
+  CHAT_TRANSPORT=quic docker-compose up -d ws-gateway-1 ws-gateway-2
+  ```
+- Сертификаты выпускает одноразовый сервис `quic-certs`
+  (`scripts/quic-certs.sh`) при первом `docker-compose up`: CA и сертификат
+  chat-service; каждому сервису — свой volume, так что сервис видит только
+  свой ключ. Перевыпустить — удалить volumes `quic-*`.
+- В Jaeger QUIC-вызовы отмечены атрибутом `rpc.transport=quic`, а метрика
+  `grpc_request_duration_seconds` — меткой `transport` (`grpc` или `quic`).
+- Ключ stateless reset выводится из `QUIC_RESET_SECRET`: перезапущенный
+  chat-service сразу сбрасывает старые соединения клиентов, а не через 30 с
+  тишины.
 
 ## Тестовая инфраструктура
 

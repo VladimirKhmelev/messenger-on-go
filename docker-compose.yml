@@ -7,6 +7,11 @@ volumes:
   grafanadata:
   minio-data:
   media-db-data:
+  # The QUIC transport between the services: the CA, and one volume per
+  # service, so that a service sees only its own key.
+  quic-ca:
+  quic-chat-service:
+  quic-ws-gateway:
 
 services:
   auth-db:
@@ -182,6 +187,25 @@ services:
       jaeger:
         condition: service_started
 
+  # Issues the certificates of the QUIC transport between the services
+  # (scripts/quic-certs.sh, pkg/quictransport) and exits; it issues only what
+  # is missing, so they outlive restarts.
+  quic-certs:
+    build:
+      context: .
+      dockerfile: scripts/quic-certs.Dockerfile
+      network: host
+    restart: "no"
+    command: ["sh", "/quic-certs.sh"]
+    environment:
+      QUIC_SERVERS: chat-service
+      QUIC_CLIENTS: ws-gateway
+    volumes:
+      - ./scripts/quic-certs.sh:/quic-certs.sh:ro
+      - quic-ca:/certs/ca
+      - quic-chat-service:/certs/chat-service
+      - quic-ws-gateway:/certs/ws-gateway
+
   chat-service:
     build:
       context: .
@@ -203,7 +227,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
+      # Serves over QUIC too, on UDP port 50051.
+      QUIC_CERT_FILE: /etc/quic/cert.pem
+      QUIC_KEY_FILE: /etc/quic/key.pem
+      QUIC_RESET_SECRET: ${QUIC_RESET_SECRET:-dev-quic-reset-secret}
+    volumes:
+      - quic-chat-service:/etc/quic:ro
     depends_on:
+      quic-certs:
+        condition: service_completed_successfully
       chat-db:
         condition: service_healthy
       redis:
@@ -235,7 +267,14 @@ services:
       # Пустое значение позволяет любому Origin (локальная разработка). Установите для продакшена, например https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
+      # grpc or quic: how to reach chat-service.
+      CHAT_TRANSPORT: ${CHAT_TRANSPORT:-grpc}
+      QUIC_CA_FILE: /etc/quic/ca.pem
+    volumes:
+      - quic-ws-gateway:/etc/quic:ro
     depends_on:
+      quic-certs:
+        condition: service_completed_successfully
       nats:
         condition: service_started
       chat-service:
@@ -263,7 +302,14 @@ services:
       # Empty allows any Origin (local dev). Set for prod, e.g. https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
+      # grpc or quic: how to reach chat-service.
+      CHAT_TRANSPORT: ${CHAT_TRANSPORT:-grpc}
+      QUIC_CA_FILE: /etc/quic/ca.pem
+    volumes:
+      - quic-ws-gateway:/etc/quic:ro
     depends_on:
+      quic-certs:
+        condition: service_completed_successfully
       nats:
         condition: service_started
       chat-service:

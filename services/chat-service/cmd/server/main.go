@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -18,6 +19,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
@@ -134,7 +136,8 @@ func main() {
 		grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
 	)
 
-	chatv1.RegisterChatServiceServer(grpcServer, transportgrpc.NewChatServer(chatService))
+	chatServer := transportgrpc.NewChatServer(chatService)
+	chatv1.RegisterChatServiceServer(grpcServer, chatServer)
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -146,6 +149,34 @@ func main() {
 			log.Fatalf("chat-service: serve failed: %v", err)
 		}
 	}()
+
+	// The same service over QUIC on the UDP port of the same number, for
+	// the clients that choose it (pkg/quictransport), once the certificates
+	// of scripts/quic-certs.sh are there.
+	var quicServer *quictransport.Server
+	if certFile := os.Getenv("QUIC_CERT_FILE"); certFile != "" {
+		quicServer, err = quictransport.NewServer(quictransport.ServerConfig{
+			Service:     "chat-service",
+			Addr:        ":" + port,
+			CertFile:    certFile,
+			KeyFile:     os.Getenv("QUIC_KEY_FILE"),
+			ResetSecret: os.Getenv("QUIC_RESET_SECRET"),
+			Interceptors: []grpc.UnaryServerInterceptor{
+				metrics.UnaryServerInterceptor("chat-service", metrics.Transport(quictransport.Name)),
+				transportgrpc.AuthInterceptor(jwtSecret, internalSecret),
+			},
+		})
+		if err != nil {
+			log.Fatalf("chat-service: failed to listen over QUIC: %v", err)
+		}
+		chatv1.RegisterChatServiceServer(quicServer, chatServer)
+		go func() {
+			fmt.Printf("chat-service: quic listening on udp :%s\n", port)
+			if err := quicServer.Serve(); err != nil {
+				log.Fatalf("chat-service: quic serve failed: %v", err)
+			}
+		}()
+	}
 
 	gwMux := runtime.NewServeMux()
 	gwOpts := []grpc.DialOption{
@@ -187,7 +218,13 @@ func main() {
 	<-stop
 
 	fmt.Println("chat-service: shutting down")
-	grpcServer.GracefulStop()
+	// Both at once: docker waits 10 s after SIGTERM before it kills us.
+	var wg sync.WaitGroup
+	wg.Go(grpcServer.GracefulStop)
+	if quicServer != nil {
+		wg.Go(quicServer.GracefulStop)
+	}
+	wg.Wait()
 	_ = httpServer.Close()
 	stopRelay()
 	<-relayDone
