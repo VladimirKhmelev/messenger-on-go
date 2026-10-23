@@ -60,9 +60,11 @@ jobs:
             set -euo pipefail
             cd ~/messenger-on-go
             git fetch origin main
+            before=$(git rev-parse HEAD)
             git reset --hard origin/main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull \
               auth-service chat-service media-service notification-worker ws-gateway-1 ws-gateway-2
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-            docker compose restart nginx
+            git diff --quiet "$before" HEAD -- nginx ||
+              docker compose -f docker-compose.yml -f docker-compose.prod.yml restart nginx
             docker image prune -f
