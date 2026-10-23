@@ -572,6 +572,204 @@
       ],
       "title": "WS connections active (both instances)",
       "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 85 },
+      "id": 600,
+      "title": "gRPC vs QUIC: ws-gateway → chat-service",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1,
+            "pointSize": 5, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 86 },
+      "id": 601,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "1000 * histogram_quantile(0.5, sum(rate(grpc_request_duration_seconds_bucket{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (vmrange, transport))",
+          "legendFormat": "p50 {{transport}}",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "1000 * histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (vmrange, transport))",
+          "legendFormat": "p99 {{transport}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Latency p50 / p99 by transport (ws-gateway side)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1,
+            "pointSize": 5, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 86 },
+      "id": 602,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(rate(grpc_request_duration_seconds_count{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (transport)",
+          "legendFormat": "{{transport}}",
+          "refId": "A"
+        }
+      ],
+      "title": "RPS by transport",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1,
+            "pointSize": 5, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 94 },
+      "id": 603,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "1000 * avg by (transport) (sum(rate(grpc_request_duration_seconds_sum{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (transport, method) / sum(rate(grpc_request_duration_seconds_count{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (transport, method) - (sum(rate(grpc_request_duration_seconds_sum{service=\"chat-service\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (transport, method) / sum(rate(grpc_request_duration_seconds_count{service=\"chat-service\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (transport, method)))",
+          "legendFormat": "{{transport}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Transport overhead per call (client − server)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 500 }] },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 94 },
+      "id": 604,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "label_replace(1000 * histogram_quantile(0.5, sum(rate(grpc_request_duration_seconds_bucket{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (vmrange, transport, method)), \"method\", \"$1\", \"method\", \"/chat.v1.ChatService/(.*)\")",
+          "legendFormat": "{{method}} {{transport}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Latency p50 by method (ws-gateway side)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1,
+            "pointSize": 5, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 102 },
+      "id": 605,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "rate(process_cpu_seconds_total{job=~\"ws-gateway|chat-service\"}[$__rate_interval])",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU, share of a core (cpus: 0.5 each)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1,
+            "pointSize": 5, "showPoints": "never", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 102 },
+      "id": 606,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "1000 * sum(rate(process_cpu_seconds_total{job=\"ws-gateway\"}[$__rate_interval])) by (instance) / on(instance) group_right() (sum(rate(grpc_request_duration_seconds_count{service=\"ws-gateway\", method=~\"/chat.v1.ChatService/.*\"}[$__rate_interval])) by (instance, transport) > 0)",
+          "legendFormat": "{{instance}} ({{transport}})",
+          "refId": "A"
+        }
+      ],
+      "title": "ws-gateway CPU per call to chat-service",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 39,
