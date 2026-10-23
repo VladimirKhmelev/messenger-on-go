@@ -13,6 +13,7 @@
 /dist/
 services/*/server
 services/*/worker
+tools/wsload/wsload
 services/*/cover.html
 /cover-all.html
 

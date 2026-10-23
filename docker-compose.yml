@@ -267,8 +267,7 @@ services:
       # Пустое значение позволяет любому Origin (локальная разработка). Установите для продакшена, например https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
-      # grpc or quic: how to reach chat-service.
-      CHAT_TRANSPORT: ${CHAT_TRANSPORT:-grpc}
+      CHAT_TRANSPORT: ${WS_GATEWAY_1_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       QUIC_CA_FILE: /etc/quic/ca.pem
     volumes:
       - quic-ws-gateway:/etc/quic:ro
@@ -302,8 +301,7 @@ services:
       # Empty allows any Origin (local dev). Set for prod, e.g. https://wisply.site
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
-      # grpc or quic: how to reach chat-service.
-      CHAT_TRANSPORT: ${CHAT_TRANSPORT:-grpc}
+      CHAT_TRANSPORT: ${WS_GATEWAY_2_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       QUIC_CA_FILE: /etc/quic/ca.pem
     volumes:
       - quic-ws-gateway:/etc/quic:ro
