@@ -231,6 +231,7 @@ services:
       QUIC_CERT_FILE: /etc/quic/cert.pem
       QUIC_KEY_FILE: /etc/quic/key.pem
       QUIC_RESET_SECRET: ${QUIC_RESET_SECRET:-dev-quic-reset-secret}
+      QUIC_GO_DISABLE_GSO: ${QUIC_GO_DISABLE_GSO:-}
     volumes:
       - quic-chat-service:/etc/quic:ro
     depends_on:
@@ -269,6 +270,7 @@ services:
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
       CHAT_TRANSPORT: ${WS_GATEWAY_1_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       QUIC_CA_FILE: /etc/quic/ca.pem
+      QUIC_GO_DISABLE_GSO: ${QUIC_GO_DISABLE_GSO:-}
     volumes:
       - quic-ws-gateway:/etc/quic:ro
     depends_on:
@@ -303,6 +305,7 @@ services:
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
       CHAT_TRANSPORT: ${WS_GATEWAY_2_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       QUIC_CA_FILE: /etc/quic/ca.pem
+      QUIC_GO_DISABLE_GSO: ${QUIC_GO_DISABLE_GSO:-}
     volumes:
       - quic-ws-gateway:/etc/quic:ro
     depends_on:
