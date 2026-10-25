@@ -30,8 +30,17 @@ const (
 	subjectPresence = "user.presence"
 	subjectTyping   = "chat.typing"
 
+	pullBatch = 10
+
+	// inactiveThreshold is how long NATS keeps a consumer that fetches
+	// nothing, far above the time a batch takes to handle.
+	inactiveThreshold = time.Minute
+)
+
+var (
 	pullMaxWait = 5 * time.Second
-	pullBatch   = 10
+	// retryPause is the wait before a failed consumer is created anew.
+	retryPause = time.Second
 )
 
 type Handlers struct {
@@ -219,30 +228,35 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterS
 	return consumeMulti(ctx, js, streamName, []string{filterSubject}, handle)
 }
 
+// consumeMulti hands the messages on the subjects to handle until ctx is
+// done. The consumer delivers only the messages published after it is
+// created: the sessions it fans out to get the older ones from the history
+// of their chats. A consumer that fails, such as one NATS has deleted, is
+// created anew after a pause; the messages meanwhile are not delivered.
 func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, handle func(ctx context.Context, data []byte)) error {
-	stream, err := js.Stream(ctx, streamName)
+	consumer, err := newConsumer(ctx, js, streamName, filterSubjects)
 	if err != nil {
 		return err
 	}
 
-	consumer, err := stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
-		FilterSubjects: filterSubjects,
-		AckPolicy:      jetstream.AckNonePolicy,
-	})
-	if err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
+	for ctx.Err() == nil {
+		if consumer == nil {
+			if !sleep(ctx, retryPause) {
+				return nil
+			}
+			c, err := newConsumer(ctx, js, streamName, filterSubjects)
+			if err != nil {
+				log.Printf("ws-gateway: failed to create %v consumer: %v", filterSubjects, err)
+				continue
+			}
+			log.Printf("ws-gateway: created %v consumer anew", filterSubjects)
+			consumer = c
 		}
 
 		msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
 		if err != nil {
 			log.Printf("ws-gateway: failed to fetch %v batch: %v", filterSubjects, err)
+			consumer = nil
 			continue
 		}
 
@@ -251,5 +265,35 @@ func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string
 			handle(msgCtx, msg.Data())
 			span.End()
 		}
+		if err := msgs.Error(); err != nil {
+			log.Printf("ws-gateway: failed to fetch %v batch: %v", filterSubjects, err)
+			consumer = nil
+		}
+	}
+	return nil
+}
+
+func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string) (jetstream.Consumer, error) {
+	stream, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return nil, err
+	}
+	return stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
+		FilterSubjects:    filterSubjects,
+		AckPolicy:         jetstream.AckNonePolicy,
+		DeliverPolicy:     jetstream.DeliverNewPolicy,
+		InactiveThreshold: inactiveThreshold,
+	})
+}
+
+// sleep waits for d and reports whether ctx is still live.
+func sleep(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
 	}
 }
