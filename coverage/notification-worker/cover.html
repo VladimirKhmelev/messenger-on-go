@@ -61,7 +61,7 @@
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient/chatclient.go (0.0%)</option>
 				
-				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/consumer.go (0.0%)</option>
+				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/consumer.go (56.1%)</option>
 				
 				<option value="file4">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/publisher.go (0.0%)</option>
 				
@@ -390,9 +390,12 @@ import (
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
-const (
+const pullBatch = 10
+
+var (
         pullMaxWait = 5 * time.Second
-        pullBatch   = 10
+        // retryPause is the wait after a failed fetch.
+        retryPause = time.Second
 )
 
 type Subscription struct {
@@ -429,13 +432,17 @@ func Consume(ctx context.Context, url string, subs []Subscription) error <span c
         <span class="cov0" title="0">return nil</span>
 }
 
-func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) error <span class="cov0" title="0">{
+// consumeOne hands the messages of a durable consumer to sub.Handle until
+// ctx is done. A failed fetch returns at once, so the next one waits for
+// retryPause; the consumer is not created anew, since a new durable
+// consumer would deliver the whole stream again.
+func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) error <span class="cov4" title="3">{
         stream, err := js.Stream(ctx, sub.StreamName)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov0" title="0">consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+        <span class="cov4" title="3">consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
                 Durable:       sub.ConsumerName,
                 FilterSubject: sub.FilterSubject,
                 AckPolicy:     jetstream.AckExplicitPolicy,
@@ -444,20 +451,21 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
                 return err
         }</span>
 
-        <span class="cov0" title="0">for </span><span class="cov0" title="0">{
+        <span class="cov4" title="3">for </span><span class="cov10" title="27">{
                 select </span>{
-                case &lt;-ctx.Done():<span class="cov0" title="0">
+                case &lt;-ctx.Done():<span class="cov4" title="3">
                         return nil</span>
-                default:<span class="cov0" title="0"></span>
+                default:<span class="cov9" title="24"></span>
                 }
 
-                <span class="cov0" title="0">msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
-                if err != nil </span><span class="cov0" title="0">{
+                <span class="cov9" title="24">msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
+                if err != nil </span><span class="cov7" title="12">{
                         log.Printf("notification-worker: failed to fetch %s batch: %v", sub.FilterSubject, err)
+                        sleep(ctx, retryPause)
                         continue</span>
                 }
 
-                <span class="cov0" title="0">for msg := range msgs.Messages() </span><span class="cov0" title="0">{
+                <span class="cov7" title="12">for msg := range msgs.Messages() </span><span class="cov1" title="1">{
                         msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
                         sub.Handle(msgCtx, msg.Subject(), msg.Data())
                         span.End()
@@ -465,6 +473,20 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
                                 log.Printf("notification-worker: failed to ack %s message: %v", sub.FilterSubject, err)
                         }</span>
                 }
+                <span class="cov7" title="12">if err := msgs.Error(); err != nil </span><span class="cov7" title="10">{
+                        log.Printf("notification-worker: failed to fetch %s batch: %v", sub.FilterSubject, err)
+                        sleep(ctx, retryPause)
+                }</span>
+        }
+}
+
+// sleep waits for d or until ctx is done.
+func sleep(ctx context.Context, d time.Duration) <span class="cov9" title="22">{
+        t := time.NewTimer(d)
+        defer t.Stop()
+        select </span>{
+        case &lt;-ctx.Done():<span class="cov4" title="3"></span>
+        case &lt;-t.C:<span class="cov9" title="19"></span>
         }
 }
 </pre>
