@@ -11,9 +11,12 @@ import (
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 )
 
-const (
+const pullBatch = 10
+
+var (
 	pullMaxWait = 5 * time.Second
-	pullBatch   = 10
+	// retryPause is the wait after a failed fetch.
+	retryPause = time.Second
 )
 
 type Subscription struct {
@@ -50,6 +53,10 @@ func Consume(ctx context.Context, url string, subs []Subscription) error {
 	return nil
 }
 
+// consumeOne hands the messages of a durable consumer to sub.Handle until
+// ctx is done. A failed fetch returns at once, so the next one waits for
+// retryPause; the consumer is not created anew, since a new durable
+// consumer would deliver the whole stream again.
 func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) error {
 	stream, err := js.Stream(ctx, sub.StreamName)
 	if err != nil {
@@ -75,6 +82,7 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
 		msgs, err := consumer.Fetch(pullBatch, jetstream.FetchMaxWait(pullMaxWait))
 		if err != nil {
 			log.Printf("notification-worker: failed to fetch %s batch: %v", sub.FilterSubject, err)
+			sleep(ctx, retryPause)
 			continue
 		}
 
@@ -86,5 +94,19 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, sub Subscription) e
 				log.Printf("notification-worker: failed to ack %s message: %v", sub.FilterSubject, err)
 			}
 		}
+		if err := msgs.Error(); err != nil {
+			log.Printf("notification-worker: failed to fetch %s batch: %v", sub.FilterSubject, err)
+			sleep(ctx, retryPause)
+		}
+	}
+}
+
+// sleep waits for d or until ctx is done.
+func sleep(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
 	}
 }
