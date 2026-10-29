@@ -26,8 +26,8 @@ replace (
 
 require (
 	github.com/VictoriaMetrics/metrics v1.35.2 // indirect
-	github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.1.0 // indirect
-	github.com/VladimirKhmelev/quic-rpc-go/rpc v0.1.0 // indirect
+	github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0 // indirect
+	github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
