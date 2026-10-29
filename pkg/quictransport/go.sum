@@ -1,7 +1,7 @@
-github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.1.0 h1:9YOO8WptiQGTRJYP9bu6pWAJU94BPgdNKc6T6s3+nE8=
-github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.1.0/go.mod h1:f9H+Hza1uyow2O07zXjtGeO2zsSSMoWj11SwRDrfTK0=
-github.com/VladimirKhmelev/quic-rpc-go/rpc v0.1.0 h1:exmqxmXLUSp2yfP1kV71jw0Pi+YS7IaoXInWmOleRCo=
-github.com/VladimirKhmelev/quic-rpc-go/rpc v0.1.0/go.mod h1:WwlXyoblLlkvcGrGYCXV+6n9fgVENAodCKHBePcHzwU=
+github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0 h1:TbORlyIRYmMBqRjbWPfm1YjNpdzbvCxQCouBGfwcmaA=
+github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0/go.mod h1:U1iT02/U+PUtiWysSSAHbwBFmE5TSCSIZ0S7sXqgDjM=
+github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0 h1:3WpUZHmSP68pZorCLP6rhM8Dywj8dWmaO2WdzP9WBo4=
+github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0/go.mod h1:WwlXyoblLlkvcGrGYCXV+6n9fgVENAodCKHBePcHzwU=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=

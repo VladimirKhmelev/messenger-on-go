@@ -10,10 +10,10 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/VictoriaMetrics/metrics v1.35.2 h1:Bj6L6ExfnakZKYPpi7mGUnkJP4NGQz2v5wiChhXNyWQ=
 github.com/VictoriaMetrics/metrics v1.35.2/go.mod h1:r7hveu6xMdUACXvB8TYdAj8WEsKzWB0EkpJN+RDtOf8=
-github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.1.0 h1:9YOO8WptiQGTRJYP9bu6pWAJU94BPgdNKc6T6s3+nE8=
-github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.1.0/go.mod h1:f9H+Hza1uyow2O07zXjtGeO2zsSSMoWj11SwRDrfTK0=
-github.com/VladimirKhmelev/quic-rpc-go/rpc v0.1.0 h1:exmqxmXLUSp2yfP1kV71jw0Pi+YS7IaoXInWmOleRCo=
-github.com/VladimirKhmelev/quic-rpc-go/rpc v0.1.0/go.mod h1:WwlXyoblLlkvcGrGYCXV+6n9fgVENAodCKHBePcHzwU=
+github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0 h1:TbORlyIRYmMBqRjbWPfm1YjNpdzbvCxQCouBGfwcmaA=
+github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0/go.mod h1:U1iT02/U+PUtiWysSSAHbwBFmE5TSCSIZ0S7sXqgDjM=
+github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0 h1:3WpUZHmSP68pZorCLP6rhM8Dywj8dWmaO2WdzP9WBo4=
+github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0/go.mod h1:WwlXyoblLlkvcGrGYCXV+6n9fgVENAodCKHBePcHzwU=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
