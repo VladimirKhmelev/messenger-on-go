@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -138,15 +139,17 @@ func main() {
 		log.Fatalf("auth-service: failed to listen: %v", err)
 	}
 
+	authInterceptor := transportgrpc.AuthInterceptor(tokenIssuer, authService, internalSecret)
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			metrics.UnaryServerInterceptor("auth-service"),
-			transportgrpc.AuthInterceptor(tokenIssuer, authService, internalSecret),
+			authInterceptor,
 		),
 	)
 
-	authv1.RegisterAuthServiceServer(grpcServer, transportgrpc.NewAuthServer(authService, cookieSecure))
+	authServer := transportgrpc.NewAuthServer(authService, cookieSecure)
+	authv1.RegisterAuthServiceServer(grpcServer, authServer)
 
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
@@ -158,6 +161,19 @@ func main() {
 			log.Fatalf("auth-service: serve failed: %v", err)
 		}
 	}()
+
+	quicServer, err := newQUICServer(":"+port, authServer, healthServer, authInterceptor)
+	if err != nil {
+		log.Fatalf("auth-service: failed to listen over QUIC: %v", err)
+	}
+	if quicServer != nil {
+		go func() {
+			fmt.Printf("auth-service: quic listening on udp :%s\n", port)
+			if err := quicServer.Serve(); err != nil {
+				log.Fatalf("auth-service: quic serve failed: %v", err)
+			}
+		}()
+	}
 
 	gwMux := runtime.NewServeMux(
 		runtime.WithOutgoingHeaderMatcher(func(key string) (string, bool) {
@@ -206,6 +222,12 @@ func main() {
 	<-stop
 
 	fmt.Println("auth-service: shutting down")
-	grpcServer.GracefulStop()
+	// Drain both transports at once within Docker's stop timeout.
+	var wg sync.WaitGroup
+	wg.Go(grpcServer.GracefulStop)
+	if quicServer != nil {
+		wg.Go(quicServer.GracefulStop)
+	}
+	wg.Wait()
 	_ = httpServer.Close()
 }

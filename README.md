@@ -12,8 +12,9 @@ Real-time чат с E2E-шифрованием сообщений, реализ�
 > **Сейчас идёт эксперимент:** сервисы переводятся с gRPC на QUIC через
 > [quic-rpc-go](https://github.com/VladimirKhmelev/quic-rpc-go) — RPC поверх
 > нативных потоков QUIC, совместимый со сгенерированным gRPC-кодом. Цель —
-> сравнить транспорты на живом мессенджере. Первый шаг готов: ws-gateway
-> ходит в chat-service по QUIC при `CHAT_TRANSPORT=quic`, по умолчанию всё
+> сравнить транспорты на живом мессенджере. Сейчас ws-gateway
+> ходит в chat-service по QUIC при `CHAT_TRANSPORT=quic`; chat-service —
+> в auth-service при `AUTH_TRANSPORT=quic`. По умолчанию всё
 > по-прежнему идёт по gRPC. Сравнение под нагрузкой: в хорошей сети QUIC
 > медленнее на ~0.2 мс в медиане вызова, в сети с потерями — быстрее на 6–9% в
 > медиане и на 11–14% в p99. Подробности — в разделе
@@ -320,13 +321,13 @@ make ci            # полный набор проверок, как в GitHub 
 
 ## QUIC между сервисами (эксперимент)
 
-Вызовы ws-gateway → chat-service могут идти не по gRPC, а по QUIC через
+Вызовы ws-gateway → chat-service и chat-service → auth-service могут идти по QUIC через
 [quic-rpc-go](https://github.com/VladimirKhmelev/quic-rpc-go): тот же
 сгенерированный gRPC-код поверх прослойки `grpcbridge`, с TLS 1.3. Это
 эксперимент для сравнения транспортов; по умолчанию всё идёт по gRPC.
 
-- chat-service слушает и gRPC (`50051/tcp`), и QUIC (`50051/udp`); код
-  подключения — `pkg/quictransport`.
+- auth-service и chat-service слушают и gRPC (`50051/tcp`), и QUIC
+  (`50051/udp`); код подключения — `pkg/quictransport`.
 - ws-gateway выбирает транспорт переменной `CHAT_TRANSPORT`: `grpc` (по
   умолчанию) или `quic`:
   ```sh
@@ -338,21 +339,38 @@ make ci            # полный набор проверок, как в GitHub 
   ```sh
   WS_GATEWAY_1_CHAT_TRANSPORT=grpc WS_GATEWAY_2_CHAT_TRANSPORT=quic docker-compose up -d ws-gateway-1 ws-gateway-2
   ```
+- chat-service выбирает транспорт к auth-service через `AUTH_TRANSPORT`:
+  `grpc` (по умолчанию) или `quic`. Оба участка можно включить вместе:
+  ```sh
+  AUTH_TRANSPORT=quic CHAT_TRANSPORT=quic docker-compose up -d auth-service chat-service ws-gateway-1 ws-gateway-2
+  ```
+  `QUIC_CA_FILE` задаёт CA; ошибочная конфигурация QUIC завершает запуск с
+  ошибкой. Без переменных QUIC локальный запуск остаётся на gRPC.
 - Сертификаты выпускает одноразовый сервис `quic-certs`
   (`scripts/quic-certs.sh`) при первом `docker-compose up`: CA и сертификат
-  chat-service; каждому сервису — свой volume, так что сервис видит только
-  свой ключ. Перевыпустить — удалить volumes `quic-*`.
+  auth-service и chat-service; каждому сервису — свой volume, так что сервис
+  видит только свой ключ. Перевыпустить — удалить volumes `quic-*`.
 - В Jaeger QUIC-вызовы отмечены атрибутом `rpc.transport=quic`, а метрика
   `grpc_request_duration_seconds` — меткой `transport` (`grpc` или `quic`).
 - Ключ stateless reset выводится из `QUIC_RESET_SECRET`: перезапущенный
-  chat-service сразу сбрасывает старые соединения клиентов, а не через 30 с
+  сервис сразу сбрасывает старые соединения клиентов, а не через 30 с
   тишины.
-- Останавливаясь, chat-service шлёт гейтвеям GOAWAY: новые вызовы они
+- Останавливаясь, QUIC-сервер шлёт клиентам GOAWAY: новые вызовы они
   отправляют по новому соединению, а старое закрывают сами, когда на нём
   закончились вызовы. quic-rpc-go v0.2 не соединяется с v0.1, поэтому
-  chat-service и гейтвеи выкатываются вместе.
+  клиент и сервер обновляются совместно. Wisply закрепляет `rpc` и
+  `grpcbridge` на коммите `31cf889` через Go pseudo-version, включая
+  исправление закрытия клиента во время подключения.
+- Локальные HTTP-шлюзы и Docker health checks используют gRPC по TCP.
+  AuthService и стандартный health service доступны также на QUIC listener.
+  Авторизация одинакова на обоих транспортах: JWT для пользовательских
+  методов и `x-internal-secret` для внутренних. TLS проверяет сервер;
+  клиентские сертификаты (mTLS) здесь не включены.
 
 ### Сравнение с gRPC под нагрузкой
+
+Эти замеры относятся только к участку ws-gateway → chat-service. Новая связь
+chat-service → auth-service в них не измерялась.
 
 Генератор нагрузки `tools/wsload` подключает к каждому гейтвею по 200
 выдуманных пользователей (токены подписывает dev-секретом `JWT_SECRET`,

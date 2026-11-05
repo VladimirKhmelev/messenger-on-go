@@ -93,7 +93,7 @@ func main() {
 		log.Fatalf("chat-service: failed to run migrations: %v", err)
 	}
 
-	authClient, err := authclient.Dial(authServiceAddr)
+	authClient, err := dialAuth(authServiceAddr)
 	if err != nil {
 		log.Fatalf("chat-service: failed to dial auth-service: %v", err)
 	}
@@ -228,4 +228,19 @@ func main() {
 	_ = httpServer.Close()
 	stopRelay()
 	<-relayDone
+}
+
+// dialAuth connects to auth-service over AUTH_TRANSPORT: grpc, the default,
+// or quic, which needs QUIC_CA_FILE.
+func dialAuth(addr string) (*authclient.Client, error) {
+	switch transport := os.Getenv("AUTH_TRANSPORT"); transport {
+	case "", "grpc":
+		fmt.Printf("chat-service: auth-service at %s over grpc\n", addr)
+		return authclient.Dial(addr)
+	case quictransport.Name:
+		fmt.Printf("chat-service: auth-service at %s over quic\n", addr)
+		return authclient.DialQUIC(addr, os.Getenv("QUIC_CA_FILE"))
+	default:
+		return nil, fmt.Errorf("AUTH_TRANSPORT %q: want grpc or quic", transport)
+	}
 }
