@@ -7,6 +7,7 @@ WORKDIR /src
 COPY proto/gen proto/gen
 COPY pkg/metrics pkg/metrics
 COPY pkg/tracing pkg/tracing
+COPY pkg/quictransport pkg/quictransport
 COPY services/notification-worker services/notification-worker
 
 WORKDIR /src/services/notification-worker
