@@ -55,11 +55,11 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/cmd/worker/main.go (0.0%)</option>
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/cmd/worker/main.go (13.3%)</option>
 				
-				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient/authclient.go (0.0%)</option>
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient/authclient.go (88.2%)</option>
 				
-				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient/chatclient.go (0.0%)</option>
+				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient/chatclient.go (90.0%)</option>
 				
 				<option value="file3">github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/events/consumer.go (56.1%)</option>
 				
@@ -108,6 +108,7 @@ import (
         healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
@@ -172,13 +173,13 @@ func main() <span class="cov0" title="0">{
                 }</span>
         }()
 
-        <span class="cov0" title="0">chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+        <span class="cov0" title="0">chatClient, err := dialChat(chatServiceAddr, internalSecret)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("notification-worker: failed to dial chat-service: %v", err)
         }</span>
         <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{ _ = chatClient.Close() }</span>()
 
-        <span class="cov0" title="0">authClient, err := authclient.Dial(authServiceAddr, internalSecret)
+        <span class="cov0" title="0">authClient, err := dialAuth(authServiceAddr, internalSecret)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("notification-worker: failed to dial auth-service: %v", err)
         }</span>
@@ -257,6 +258,36 @@ func main() <span class="cov0" title="0">{
         grpcServer.GracefulStop()
         _ = metricsServer.Close()</span>
 }
+
+// dialChat connects to chat-service over CHAT_TRANSPORT: grpc by
+// default, or quic, which needs QUIC_CA_FILE.
+func dialChat(addr, internalSecret string) (*chatclient.Client, error) <span class="cov10" title="4">{
+        switch transport := os.Getenv("CHAT_TRANSPORT"); transport </span>{
+        case "", "grpc":<span class="cov5" title="2">
+                fmt.Printf("notification-worker: chat-service at %s over grpc\n", addr)
+                return chatclient.Dial(addr, internalSecret)</span>
+        case quictransport.Name:<span class="cov1" title="1">
+                fmt.Printf("notification-worker: chat-service at %s over quic\n", addr)
+                return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
+        default:<span class="cov1" title="1">
+                return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)</span>
+        }
+}
+
+// dialAuth connects to auth-service over AUTH_TRANSPORT: grpc by
+// default, or quic, which needs QUIC_CA_FILE.
+func dialAuth(addr, internalSecret string) (*authclient.Client, error) <span class="cov10" title="4">{
+        switch transport := os.Getenv("AUTH_TRANSPORT"); transport </span>{
+        case "", "grpc":<span class="cov5" title="2">
+                fmt.Printf("notification-worker: auth-service at %s over grpc\n", addr)
+                return authclient.Dial(addr, internalSecret)</span>
+        case quictransport.Name:<span class="cov1" title="1">
+                fmt.Printf("notification-worker: auth-service at %s over quic\n", addr)
+                return authclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
+        default:<span class="cov1" title="1">
+                return nil, fmt.Errorf("AUTH_TRANSPORT %q: want grpc or quic", transport)</span>
+        }
+}
 </pre>
 		
 		<pre class="file" id="file1" style="display: none">package authclient
@@ -270,17 +301,24 @@ import (
         "google.golang.org/grpc/metadata"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
         authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
 
 type Client struct {
-        conn           *grpc.ClientConn
+        conn           conn
         auth           authv1.AuthServiceClient
         internalSecret string
 }
 
-func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
+// conn is the connection to auth-service, over gRPC or QUIC.
+type conn interface {
+        grpc.ClientConnInterface
+        Close() error
+}
+
+func Dial(addr, internalSecret string) (*Client, error) <span class="cov4" title="3">{
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
@@ -289,30 +327,46 @@ func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov0" title="0">return &amp;Client{conn: conn, auth: authv1.NewAuthServiceClient(conn), internalSecret: internalSecret}, nil</span>
+        <span class="cov4" title="3">return &amp;Client{conn: conn, auth: authv1.NewAuthServiceClient(conn), internalSecret: internalSecret}, nil</span>
 }
 
-func (c *Client) Close() error <span class="cov0" title="0">{
-        return c.conn.Close()
-}</span>
-
-func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]domain.PushSubscription, error) <span class="cov0" title="0">{
-        ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
-
-        resp, err := c.auth.ListPushSubscriptions(ctx, &amp;authv1.ListPushSubscriptionsRequest{UserId: userID})
+// DialQUIC is Dial over QUIC; caFile holds the CA certificate used to
+// verify auth-service's certificate.
+func DialQUIC(addr, internalSecret, caFile string) (*Client, error) <span class="cov4" title="3">{
+        conn, err := quictransport.Dial(quictransport.ClientConfig{
+                Addr:   addr,
+                CAFile: caFile,
+                Interceptors: []grpc.UnaryClientInterceptor{
+                        metrics.UnaryClientInterceptor("notification-worker", metrics.Transport(quictransport.Name)),
+                },
+        })
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
+        <span class="cov4" title="3">return &amp;Client{conn: conn, auth: authv1.NewAuthServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
 
-        <span class="cov0" title="0">subs := make([]domain.PushSubscription, 0, len(resp.GetSubscriptions()))
-        for _, s := range resp.GetSubscriptions() </span><span class="cov0" title="0">{
+func (c *Client) Close() error <span class="cov7" title="8">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) ListPushSubscriptions(ctx context.Context, userID string) ([]domain.PushSubscription, error) <span class="cov10" title="16">{
+        ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
+
+        resp, err := c.auth.ListPushSubscriptions(ctx, &amp;authv1.ListPushSubscriptionsRequest{UserId: userID})
+        if err != nil </span><span class="cov9" title="12">{
+                return nil, err
+        }</span>
+
+        <span class="cov5" title="4">subs := make([]domain.PushSubscription, 0, len(resp.GetSubscriptions()))
+        for _, s := range resp.GetSubscriptions() </span><span class="cov5" title="4">{
                 subs = append(subs, domain.PushSubscription{
                         Endpoint:  s.GetEndpoint(),
                         P256dhKey: s.GetP256DhKey(),
                         AuthKey:   s.GetAuthKey(),
                 })
         }</span>
-        <span class="cov0" title="0">return subs, nil</span>
+        <span class="cov5" title="4">return subs, nil</span>
 }
 </pre>
 		
@@ -327,16 +381,23 @@ import (
         "google.golang.org/grpc/metadata"
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
 type Client struct {
-        conn           *grpc.ClientConn
+        conn           conn
         chat           chatv1.ChatServiceClient
         internalSecret string
 }
 
-func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
+// conn is the connection to chat-service, over gRPC or QUIC.
+type conn interface {
+        grpc.ClientConnInterface
+        Close() error
+}
+
+func Dial(addr, internalSecret string) (*Client, error) <span class="cov4" title="3">{
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
@@ -345,34 +406,50 @@ func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov0" title="0">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+        <span class="cov4" title="3">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
 }
 
-func (c *Client) Close() error <span class="cov0" title="0">{
-        return c.conn.Close()
-}</span>
-
-func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov0" title="0">{
-        ctx = c.withInternalSecret(ctx)
-
-        resp, err := c.chat.ListMembers(ctx, &amp;chatv1.ListMembersRequest{ChatId: chatID})
+// DialQUIC is Dial over QUIC; caFile holds the CA certificate used to
+// verify chat-service's certificate.
+func DialQUIC(addr, internalSecret, caFile string) (*Client, error) <span class="cov4" title="3">{
+        conn, err := quictransport.Dial(quictransport.ClientConfig{
+                Addr:   addr,
+                CAFile: caFile,
+                Interceptors: []grpc.UnaryClientInterceptor{
+                        metrics.UnaryClientInterceptor("notification-worker", metrics.Transport(quictransport.Name)),
+                },
+        })
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
-        <span class="cov0" title="0">return resp.GetUserIds(), nil</span>
+        <span class="cov4" title="3">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
 }
 
-func (c *Client) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov0" title="0">{
+func (c *Client) Close() error <span class="cov7" title="8">{
+        return c.conn.Close()
+}</span>
+
+func (c *Client) ListMembers(ctx context.Context, chatID string) ([]string, error) <span class="cov7" title="8">{
+        ctx = c.withInternalSecret(ctx)
+
+        resp, err := c.chat.ListMembers(ctx, &amp;chatv1.ListMembersRequest{ChatId: chatID})
+        if err != nil </span><span class="cov5" title="4">{
+                return nil, err
+        }</span>
+        <span class="cov5" title="4">return resp.GetUserIds(), nil</span>
+}
+
+func (c *Client) IsOnline(ctx context.Context, userID string) (bool, error) <span class="cov8" title="14">{
         ctx = c.withInternalSecret(ctx)
 
         resp, err := c.chat.GetPresence(ctx, &amp;chatv1.GetPresenceRequest{UserId: userID})
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov7" title="10">{
                 return false, err
         }</span>
-        <span class="cov0" title="0">return resp.GetOnline(), nil</span>
+        <span class="cov5" title="4">return resp.GetOnline(), nil</span>
 }
 
-func (c *Client) withInternalSecret(ctx context.Context) context.Context <span class="cov0" title="0">{
+func (c *Client) withInternalSecret(ctx context.Context) context.Context <span class="cov10" title="22">{
         return metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
 }</span>
 </pre>
