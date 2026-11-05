@@ -13,6 +13,8 @@ volumes:
   quic-auth-service:
   quic-chat-service:
   quic-ws-gateway:
+  quic-media-service:
+  quic-notification-worker:
 
 services:
   auth-db:
@@ -208,13 +210,15 @@ services:
     command: ["sh", "/quic-certs.sh"]
     environment:
       QUIC_SERVERS: chat-service auth-service
-      QUIC_CLIENTS: ws-gateway
+      QUIC_CLIENTS: ws-gateway media-service notification-worker
     volumes:
       - ./scripts/quic-certs.sh:/quic-certs.sh:ro
       - quic-ca:/certs/ca
       - quic-auth-service:/certs/auth-service
       - quic-chat-service:/certs/chat-service
       - quic-ws-gateway:/certs/ws-gateway
+      - quic-media-service:/certs/media-service
+      - quic-notification-worker:/certs/notification-worker
 
   chat-service:
     build:
@@ -343,7 +347,9 @@ services:
       METRICS_PORT: "9090"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
+      CHAT_TRANSPORT: ${NOTIFICATION_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       AUTH_SERVICE_ADDR: auth-service:50051
+      AUTH_TRANSPORT: ${NOTIFICATION_AUTH_TRANSPORT:-${AUTH_TRANSPORT:-grpc}}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       # Dev-ключи для локальной разработки — сгенерированы один раз через
       # webpush.GenerateVAPIDKeys(). На проде переопределяются в .env своей
@@ -352,7 +358,13 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-7jZ4PTx8vRCs8QntFPHdXcSTL5jiM5uL3qD0ceZIiF0}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@messenger-on-go.local}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
+      QUIC_CA_FILE: /etc/quic/ca.pem
+      QUIC_GO_DISABLE_GSO: ${QUIC_GO_DISABLE_GSO:-}
+    volumes:
+      - quic-notification-worker:/etc/quic:ro
     depends_on:
+      quic-certs:
+        condition: service_completed_successfully
       nats:
         condition: service_started
       chat-service:
@@ -378,6 +390,7 @@ services:
       HTTP_PORT: "8080"
       POSTGRES_DSN: postgres://media:${MEDIA_DB_PASSWORD:-media}@media-db:5432/media?sslmode=disable
       CHAT_SERVICE_ADDR: chat-service:50051
+      CHAT_TRANSPORT: ${MEDIA_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       MINIO_ENDPOINT: minio:9000
@@ -385,12 +398,18 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       PUBLIC_MEDIA_URL: ${PUBLIC_MEDIA_URL:-https://localhost:8443/messenger-media}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-jaeger:4317}
+      QUIC_CA_FILE: /etc/quic/ca.pem
+      QUIC_GO_DISABLE_GSO: ${QUIC_GO_DISABLE_GSO:-}
     healthcheck:
       test: ["CMD", "/grpc-health-probe", "-addr=:50051"]
       interval: 5s
       timeout: 5s
       retries: 5
+    volumes:
+      - quic-media-service:/etc/quic:ro
     depends_on:
+      quic-certs:
+        condition: service_completed_successfully
       media-db:
         condition: service_healthy
       minio:

@@ -16,6 +16,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/authclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/chatclient"
@@ -80,13 +81,13 @@ func main() {
 		}
 	}()
 
-	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+	chatClient, err := dialChat(chatServiceAddr, internalSecret)
 	if err != nil {
 		log.Fatalf("notification-worker: failed to dial chat-service: %v", err)
 	}
 	defer func() { _ = chatClient.Close() }()
 
-	authClient, err := authclient.Dial(authServiceAddr, internalSecret)
+	authClient, err := dialAuth(authServiceAddr, internalSecret)
 	if err != nil {
 		log.Fatalf("notification-worker: failed to dial auth-service: %v", err)
 	}
@@ -164,4 +165,34 @@ func main() {
 	fmt.Println("notification-worker: shutting down")
 	grpcServer.GracefulStop()
 	_ = metricsServer.Close()
+}
+
+// dialChat connects to chat-service over CHAT_TRANSPORT: grpc by
+// default, or quic, which needs QUIC_CA_FILE.
+func dialChat(addr, internalSecret string) (*chatclient.Client, error) {
+	switch transport := os.Getenv("CHAT_TRANSPORT"); transport {
+	case "", "grpc":
+		fmt.Printf("notification-worker: chat-service at %s over grpc\n", addr)
+		return chatclient.Dial(addr, internalSecret)
+	case quictransport.Name:
+		fmt.Printf("notification-worker: chat-service at %s over quic\n", addr)
+		return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))
+	default:
+		return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)
+	}
+}
+
+// dialAuth connects to auth-service over AUTH_TRANSPORT: grpc by
+// default, or quic, which needs QUIC_CA_FILE.
+func dialAuth(addr, internalSecret string) (*authclient.Client, error) {
+	switch transport := os.Getenv("AUTH_TRANSPORT"); transport {
+	case "", "grpc":
+		fmt.Printf("notification-worker: auth-service at %s over grpc\n", addr)
+		return authclient.Dial(addr, internalSecret)
+	case quictransport.Name:
+		fmt.Printf("notification-worker: auth-service at %s over quic\n", addr)
+		return authclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))
+	default:
+		return nil, fmt.Errorf("AUTH_TRANSPORT %q: want grpc or quic", transport)
+	}
 }

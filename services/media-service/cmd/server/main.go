@@ -18,6 +18,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	mediav1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/media/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/chatclient"
@@ -107,7 +108,7 @@ func main() {
 		log.Fatalf("media-service: failed to ensure bucket: %v", err)
 	}
 
-	chatClient, err := chatclient.Dial(chatServiceAddr, internalSecret)
+	chatClient, err := dialChat(chatServiceAddr, internalSecret)
 	if err != nil {
 		log.Fatalf("media-service: failed to dial chat-service: %v", err)
 	}
@@ -175,4 +176,19 @@ func main() {
 	fmt.Println("media-service: shutting down")
 	grpcServer.GracefulStop()
 	_ = httpServer.Close()
+}
+
+// dialChat connects to chat-service over CHAT_TRANSPORT: grpc by
+// default, or quic, which needs QUIC_CA_FILE.
+func dialChat(addr, internalSecret string) (*chatclient.Client, error) {
+	switch transport := os.Getenv("CHAT_TRANSPORT"); transport {
+	case "", "grpc":
+		fmt.Printf("media-service: chat-service at %s over grpc\n", addr)
+		return chatclient.Dial(addr, internalSecret)
+	case quictransport.Name:
+		fmt.Printf("media-service: chat-service at %s over quic\n", addr)
+		return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))
+	default:
+		return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)
+	}
 }

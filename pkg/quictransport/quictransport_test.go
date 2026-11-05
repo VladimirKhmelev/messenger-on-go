@@ -218,4 +218,16 @@ func TestCertsScript(t *testing.T) {
 	if _, err := tls.X509KeyPair(read("auth-service/cert.pem"), read("auth-service/key.pem")); err != nil {
 		t.Errorf("the certificate of a service added later: %v", err)
 	}
+	run("chat-service auth-service", "ws-gateway media-service notification-worker")
+	for _, client := range []string{"media-service", "notification-worker"} {
+		if !bytes.Equal(read(client+"/ca.pem"), read("ca/ca.pem")) {
+			t.Errorf("%s has another CA certificate", client)
+		}
+		if _, err := os.Stat(filepath.Join(dir, client, "key.pem")); !os.IsNotExist(err) {
+			t.Errorf("client %s must receive only the CA, got key stat: %v", client, err)
+		}
+	}
+	if !bytes.Equal(read("chat-service/cert.pem"), cert) {
+		t.Error("adding clients reissued the server certificate")
+	}
 }
