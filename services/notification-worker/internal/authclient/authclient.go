@@ -9,14 +9,21 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/notification-worker/internal/domain"
 )
 
 type Client struct {
-	conn           *grpc.ClientConn
+	conn           conn
 	auth           authv1.AuthServiceClient
 	internalSecret string
+}
+
+// conn is the connection to auth-service, over gRPC or QUIC.
+type conn interface {
+	grpc.ClientConnInterface
+	Close() error
 }
 
 func Dial(addr, internalSecret string) (*Client, error) {
@@ -25,6 +32,22 @@ func Dial(addr, internalSecret string) (*Client, error) {
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("notification-worker")),
 	)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{conn: conn, auth: authv1.NewAuthServiceClient(conn), internalSecret: internalSecret}, nil
+}
+
+// DialQUIC is Dial over QUIC; caFile holds the CA certificate used to
+// verify auth-service's certificate.
+func DialQUIC(addr, internalSecret, caFile string) (*Client, error) {
+	conn, err := quictransport.Dial(quictransport.ClientConfig{
+		Addr:   addr,
+		CAFile: caFile,
+		Interceptors: []grpc.UnaryClientInterceptor{
+			metrics.UnaryClientInterceptor("notification-worker", metrics.Transport(quictransport.Name)),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
