@@ -1,9 +1,9 @@
 github.com/VictoriaMetrics/metrics v1.35.2 h1:Bj6L6ExfnakZKYPpi7mGUnkJP4NGQz2v5wiChhXNyWQ=
 github.com/VictoriaMetrics/metrics v1.35.2/go.mod h1:r7hveu6xMdUACXvB8TYdAj8WEsKzWB0EkpJN+RDtOf8=
-github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0 h1:TbORlyIRYmMBqRjbWPfm1YjNpdzbvCxQCouBGfwcmaA=
-github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.0/go.mod h1:U1iT02/U+PUtiWysSSAHbwBFmE5TSCSIZ0S7sXqgDjM=
-github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0 h1:3WpUZHmSP68pZorCLP6rhM8Dywj8dWmaO2WdzP9WBo4=
-github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.0/go.mod h1:WwlXyoblLlkvcGrGYCXV+6n9fgVENAodCKHBePcHzwU=
+github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.1-0.20261104183916-31cf88989dfe h1:m9FgM0m+vsbHbmXNlDewMuhU3npkybzltHybFB/34OY=
+github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.1-0.20261104183916-31cf88989dfe/go.mod h1:U1iT02/U+PUtiWysSSAHbwBFmE5TSCSIZ0S7sXqgDjM=
+github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.1-0.20261104183916-31cf88989dfe h1:0WPYiNRBpqV5F6MmAunIMurosmwiEDO3a5wZ4ECv78w=
+github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.1-0.20261104183916-31cf88989dfe/go.mod h1:WwlXyoblLlkvcGrGYCXV+6n9fgVENAodCKHBePcHzwU=
 github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op h1:Z/MZK75wC/NSrkgqeNIa7jexam9uWzhLmFTSCPI/kn0=
 github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op/go.mod h1:FQyySiasQQM8735Ddel3MRojmy4dA1IqCeyJ5jmPMbI=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
