@@ -3,6 +3,7 @@ module github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway
 go 1.26.3
 
 require (
+	github.com/VictoriaMetrics/metrics v1.35.2
 	github.com/VladimirKhmelev/messenger-on-go/pkg/jwtutil v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/metrics v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport v0.0.0-00010101000000-000000000000
@@ -25,7 +26,6 @@ replace (
 )
 
 require (
-	github.com/VictoriaMetrics/metrics v1.35.2 // indirect
 	github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.1-0.20261104183916-31cf88989dfe // indirect
 	github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.1-0.20261104183916-31cf88989dfe // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op // indirect

@@ -80,7 +80,7 @@ func parseFlags(args []string) (config, error) {
 	steps := fs.String("steps", "50,200,500", "requests per second over all the gateways, a `rate,...` per step")
 	step := fs.Duration("step", time.Minute, "how long every step lasts")
 	warmup := fs.Duration("warmup", 10*time.Second, "how long to load at the rate of the first step before measuring")
-	drain := fs.Duration("drain", 10*time.Second, "how long to wait for the answers after the last step; later ones count as lost")
+	drain := fs.Duration("drain", 10*time.Second, "observation window for answers, deliveries and duplicates after the load; later ones are not observed")
 	mixFlag := fs.String("mix", "get_presence=45,get_read_status=45,send_message=10", "shares of the requests, `request=weight,...`")
 	seed := fs.Uint64("seed", 1, "seed of the arrival times and of the choice of requests")
 	if err := fs.Parse(args); err != nil {

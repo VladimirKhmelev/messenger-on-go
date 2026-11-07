@@ -13,7 +13,7 @@ type fakeClient struct {
 	got []any
 }
 
-func (c *fakeClient) Deliver(n any) { c.got = append(c.got, n) }
+func (c *fakeClient) Deliver(_ context.Context, n any) error { c.got = append(c.got, n); return nil }
 
 type fakeMembers struct {
 	ids []string
@@ -55,7 +55,7 @@ func TestFanout_MessageCreated_DeliversFullMessageToMembersOnly(t *testing.T) {
 	msg := domain.Message{MessageID: "m1", SenderUserID: "alice", Text: "hi"}
 	f := NewFanout(r, fakeMembers{ids: []string{"alice", "bob"}}, fakeMessages{msg: msg}, fakeContacts{})
 
-	f.HandleMessageCreated(context.Background(), domain.MessageCreated{ChatID: "c1", MessageID: "m1"})
+	_ = f.HandleMessageCreated(context.Background(), domain.MessageCreated{ChatID: "c1", MessageID: "m1"})
 
 	want := []any{MessageReceived{ChatID: "c1", Message: msg}}
 	for _, id := range []string{"alice", "bob"} {
@@ -71,9 +71,12 @@ func TestFanout_MessageCreated_DeliversFullMessageToMembersOnly(t *testing.T) {
 func TestFanout_MessageCreated_NothingSentWhenMessageFetchFails(t *testing.T) {
 	r := NewRegistry()
 	clients := connect(r, "alice")
-	f := NewFanout(r, fakeMembers{ids: []string{"alice"}}, fakeMessages{err: errors.New("chat-service down")}, fakeContacts{})
+	failure := errors.New("chat-service down")
+	f := NewFanout(r, fakeMembers{ids: []string{"alice"}}, fakeMessages{err: failure}, fakeContacts{})
 
-	f.HandleMessageCreated(context.Background(), domain.MessageCreated{ChatID: "c1", MessageID: "m1"})
+	if err := f.HandleMessageCreated(context.Background(), domain.MessageCreated{ChatID: "c1", MessageID: "m1"}); !errors.Is(err, failure) {
+		t.Fatalf("fanout error = %v", err)
+	}
 
 	if len(clients["alice"].got) != 0 {
 		t.Errorf("alice got %v, want nothing", clients["alice"].got)
@@ -87,10 +90,10 @@ func TestFanout_SkipsActor(t *testing.T) {
 		send func(f *Fanout)
 	}{
 		{"message read", func(f *Fanout) {
-			f.HandleMessageRead(context.Background(), domain.MessageRead{ChatID: "c1", UserID: "alice", MessageID: "m1"})
+			_ = f.HandleMessageRead(context.Background(), domain.MessageRead{ChatID: "c1", UserID: "alice", MessageID: "m1"})
 		}},
 		{"typing changed", func(f *Fanout) {
-			f.HandleTypingChanged(context.Background(), domain.TypingChanged{ChatID: "c1", UserID: "alice"})
+			_ = f.HandleTypingChanged(context.Background(), domain.TypingChanged{ChatID: "c1", UserID: "alice"})
 		}},
 	}
 	for _, tt := range tests {
@@ -115,7 +118,7 @@ func TestFanout_PresenceChanged_GoesToContacts(t *testing.T) {
 	f := NewFanout(r, fakeMembers{}, fakeMessages{}, fakeContacts{ids: []string{"contact"}})
 	event := domain.PresenceChanged{UserID: "alice", Online: true}
 
-	f.HandlePresenceChanged(context.Background(), event)
+	_ = f.HandlePresenceChanged(context.Background(), event)
 
 	if !reflect.DeepEqual(clients["contact"].got, []any{event}) {
 		t.Errorf("contact got %v, want %v", clients["contact"].got, []any{event})
@@ -130,7 +133,7 @@ func TestFanout_NotifyPush_GoesOnlyToTarget(t *testing.T) {
 	clients := connect(r, "alice", "bob")
 	f := NewFanout(r, fakeMembers{}, fakeMessages{}, fakeContacts{})
 
-	f.HandleNotifyPush(context.Background(), domain.NotifyPush{UserID: "bob", ChatID: "c1", MessageID: "m1"})
+	_ = f.HandleNotifyPush(context.Background(), domain.NotifyPush{UserID: "bob", ChatID: "c1", MessageID: "m1"})
 
 	if len(clients["alice"].got) != 0 || len(clients["bob"].got) != 1 {
 		t.Errorf("alice got %d, bob got %d, want 0 and 1", len(clients["alice"].got), len(clients["bob"].got))
@@ -143,7 +146,7 @@ func TestRegistry_BroadcastReachesEveryConnectionOfUser(t *testing.T) {
 	r.Add("alice", tab1)
 	r.Add("alice", tab2)
 
-	r.Broadcast("alice", "ping")
+	_ = r.Broadcast(context.Background(), "alice", "ping")
 
 	if len(tab1.got) != 1 || len(tab2.got) != 1 {
 		t.Errorf("tabs got %d and %d, want 1 each", len(tab1.got), len(tab2.got))

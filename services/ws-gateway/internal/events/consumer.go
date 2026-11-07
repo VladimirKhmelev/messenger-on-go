@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -44,14 +45,14 @@ var (
 )
 
 type Handlers struct {
-	OnMessageCreated  func(ctx context.Context, event domain.MessageCreated)
-	OnMessageUpdated  func(ctx context.Context, event domain.MessageUpdated)
-	OnMessageRead     func(ctx context.Context, event domain.MessageRead)
-	OnNotifyPush      func(ctx context.Context, event domain.NotifyPush)
-	OnPresenceChanged func(ctx context.Context, event domain.PresenceChanged)
-	OnProfileUpdated  func(ctx context.Context, event domain.ProfileUpdated)
-	OnTypingChanged   func(ctx context.Context, event domain.TypingChanged)
-	OnChatDeleted     func(ctx context.Context, event domain.ChatDeleted)
+	OnMessageCreated  func(ctx context.Context, event domain.MessageCreated) error
+	OnMessageUpdated  func(ctx context.Context, event domain.MessageUpdated) error
+	OnMessageRead     func(ctx context.Context, event domain.MessageRead) error
+	OnNotifyPush      func(ctx context.Context, event domain.NotifyPush) error
+	OnPresenceChanged func(ctx context.Context, event domain.PresenceChanged) error
+	OnProfileUpdated  func(ctx context.Context, event domain.ProfileUpdated) error
+	OnTypingChanged   func(ctx context.Context, event domain.TypingChanged) error
+	OnChatDeleted     func(ctx context.Context, event domain.ChatDeleted) error
 }
 
 type PresencePublisher struct {
@@ -94,134 +95,81 @@ func (p *PresencePublisher) PublishTypingChanged(ctx context.Context, event doma
 	return p.nc.PublishMsg(&nats.Msg{Subject: subjectTyping, Data: payload, Header: header})
 }
 
+// Consume uses the default fanout limits.
 func Consume(ctx context.Context, url string, handlers Handlers) error {
+	return ConsumeWithConfig(ctx, url, handlers, DefaultConfig())
+}
+
+func ConsumeWithConfig(ctx context.Context, url string, handlers Handlers, cfg Config) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	nc, err := nats.Connect(url)
 	if err != nil {
 		return err
 	}
 	defer nc.Close()
-
 	js, err := jetstream.New(nc)
 	if err != nil {
 		return err
 	}
-
-	errCh := make(chan error, 8)
-
-	go func() {
-		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsg, func(ctx context.Context, data []byte) {
-			var event domain.MessageCreated
-			if err := json.Unmarshal(data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal msg.created event: %v", err)
-				return
-			}
-			handlers.OnMessageCreated(ctx, event)
-		})
-	}()
-
-	go func() {
-		errCh <- consumeMulti(ctx, js, chatStreamName, []string{subjectMsgEdit, subjectMsgDelete}, func(ctx context.Context, data []byte) {
-			var event domain.MessageUpdated
-			if err := json.Unmarshal(data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal msg.updated/deleted event: %v", err)
-				return
-			}
-			handlers.OnMessageUpdated(ctx, event)
-		})
-	}()
-
-	go func() {
-		errCh <- consumeOne(ctx, js, chatStreamName, subjectMsgRead, func(ctx context.Context, data []byte) {
-			var event domain.MessageRead
-			if err := json.Unmarshal(data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal msg.read event: %v", err)
-				return
-			}
-			handlers.OnMessageRead(ctx, event)
-		})
-	}()
-
-	go func() {
-		errCh <- consumeOne(ctx, js, chatStreamName, subjectChatDelete, func(ctx context.Context, data []byte) {
-			var event domain.ChatDeleted
-			if err := json.Unmarshal(data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal chat.deleted event: %v", err)
-				return
-			}
-			handlers.OnChatDeleted(ctx, event)
-		})
-	}()
-
-	go func() {
-		errCh <- consumeOne(ctx, js, notifyStreamName, subjectNotify, func(ctx context.Context, data []byte) {
-			var event domain.NotifyPush
-			if err := json.Unmarshal(data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal notify.push event: %v", err)
-				return
-			}
-			handlers.OnNotifyPush(ctx, event)
-		})
-	}()
-
-	go func() {
-		errCh <- consumeOne(ctx, js, userStreamName, subjectProfileUpdated, func(ctx context.Context, data []byte) {
-			var event domain.ProfileUpdated
-			if err := json.Unmarshal(data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal user.profile_updated event: %v", err)
-				return
-			}
-			handlers.OnProfileUpdated(ctx, event)
-		})
-	}()
-
-	go func() {
-		sub, err := nc.Subscribe(subjectPresence, func(msg *nats.Msg) {
-			var event domain.PresenceChanged
-			if err := json.Unmarshal(msg.Data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal user.presence event: %v", err)
-				return
-			}
-			msgCtx, span := tracing.StartConsumeSpan(ctx, subjectPresence, msg.Header)
-			handlers.OnPresenceChanged(msgCtx, event)
-			span.End()
-		})
+	p := newPool(ctx, cfg)
+	defer p.close()
+	// A full queue may hold a batch until each bounded job has freed a slot.
+	// Keep the ephemeral consumer alive through that interval.
+	lifetime := max(inactiveThreshold, time.Duration(pullBatch+2)*cfg.Timeout)
+	dispatch := func(subject string, header nats.Header, data []byte) error {
+		key, handle, err := decodeEvent(subject, data, handlers)
 		if err != nil {
-			errCh <- err
-			return
+			log.Printf("ws-gateway: invalid %s event: %v", subject, err)
+			return nil
 		}
-		defer func() { _ = sub.Unsubscribe() }()
-
-		<-ctx.Done()
-		errCh <- nil
-	}()
-
-	go func() {
-		sub, err := nc.Subscribe(subjectTyping, func(msg *nats.Msg) {
-			var event domain.TypingChanged
-			if err := json.Unmarshal(msg.Data, &event); err != nil {
-				log.Printf("ws-gateway: failed to unmarshal chat.typing event: %v", err)
-				return
-			}
-			msgCtx, span := tracing.StartConsumeSpan(ctx, subjectTyping, msg.Header)
-			handlers.OnTypingChanged(msgCtx, event)
-			span.End()
+		return p.submit(key, func(ctx context.Context) error {
+			ctx, span := tracing.StartConsumeSpan(ctx, subject, header)
+			defer span.End()
+			return handle(ctx)
 		})
-		if err != nil {
-			errCh <- err
-			return
-		}
-		defer func() { _ = sub.Unsubscribe() }()
-
-		<-ctx.Done()
-		errCh <- nil
-	}()
-
-	for range 7 {
-		if err := <-errCh; err != nil {
-			return err
+	}
+	core := func(subject string) func() error {
+		return func() error {
+			sub, err := nc.Subscribe(subject, func(msg *nats.Msg) { _ = dispatch(msg.Subject, msg.Header, msg.Data) })
+			if err != nil {
+				return err
+			}
+			defer func() { _ = sub.Unsubscribe() }()
+			<-ctx.Done()
+			return nil
 		}
 	}
-	return nil
+	stream := func(name string, subjects []string) func() error {
+		return func() error {
+			return consumeMessages(ctx, js, name, subjects, lifetime, func(_ context.Context, msg jetstream.Msg) error {
+				return dispatch(msg.Subject(), msg.Headers(), msg.Data())
+			})
+		}
+	}
+	readers := []func() error{
+		stream(chatStreamName, []string{subjectMsg, subjectMsgEdit, subjectMsgDelete, subjectMsgRead, subjectChatDelete}),
+		stream(notifyStreamName, []string{subjectNotify}),
+		stream(userStreamName, []string{subjectProfileUpdated}),
+		core(subjectPresence), core(subjectTyping),
+	}
+	errors := make(chan error, len(readers))
+	var wg sync.WaitGroup
+	for _, read := range readers {
+		wg.Go(func() { errors <- read() })
+	}
+	var first error
+	for range readers {
+		if err := <-errors; err != nil && first == nil {
+			first = err
+			cancel()
+		}
+	}
+	wg.Wait()
+	return first
 }
 
 func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterSubject string, handle func(ctx context.Context, data []byte)) error {
@@ -234,8 +182,20 @@ func consumeOne(ctx context.Context, js jetstream.JetStream, streamName, filterS
 // of their chats. A consumer that fails, such as one NATS has deleted, is
 // created anew after a pause; the messages meanwhile are not delivered.
 func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, handle func(ctx context.Context, data []byte)) error {
-	consumer, err := newConsumer(ctx, js, streamName, filterSubjects)
+	return consumeMessages(ctx, js, streamName, filterSubjects, inactiveThreshold, func(ctx context.Context, msg jetstream.Msg) error {
+		msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
+		defer span.End()
+		handle(msgCtx, msg.Data())
+		return nil
+	})
+}
+
+func consumeMessages(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, lifetime time.Duration, handle func(context.Context, jetstream.Msg) error) error {
+	consumer, err := newConsumer(ctx, js, streamName, filterSubjects, lifetime)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil
+		}
 		return err
 	}
 
@@ -244,7 +204,7 @@ func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string
 			if !sleep(ctx, retryPause) {
 				return nil
 			}
-			c, err := newConsumer(ctx, js, streamName, filterSubjects)
+			c, err := newConsumer(ctx, js, streamName, filterSubjects, lifetime)
 			if err != nil {
 				log.Printf("ws-gateway: failed to create %v consumer: %v", filterSubjects, err)
 				continue
@@ -261,9 +221,12 @@ func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string
 		}
 
 		for msg := range msgs.Messages() {
-			msgCtx, span := tracing.StartConsumeSpan(ctx, msg.Subject(), msg.Headers())
-			handle(msgCtx, msg.Data())
-			span.End()
+			if err := handle(ctx, msg); err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return err
+			}
 		}
 		if err := msgs.Error(); err != nil {
 			log.Printf("ws-gateway: failed to fetch %v batch: %v", filterSubjects, err)
@@ -273,7 +236,7 @@ func consumeMulti(ctx context.Context, js jetstream.JetStream, streamName string
 	return nil
 }
 
-func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string) (jetstream.Consumer, error) {
+func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, lifetime time.Duration) (jetstream.Consumer, error) {
 	stream, err := js.Stream(ctx, streamName)
 	if err != nil {
 		return nil, err
@@ -282,7 +245,7 @@ func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string,
 		FilterSubjects:    filterSubjects,
 		AckPolicy:         jetstream.AckNonePolicy,
 		DeliverPolicy:     jetstream.DeliverNewPolicy,
-		InactiveThreshold: inactiveThreshold,
+		InactiveThreshold: lifetime,
 	})
 }
 

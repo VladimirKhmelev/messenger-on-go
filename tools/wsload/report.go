@@ -26,14 +26,15 @@ type key struct {
 // recorder collects the outcomes of the requests of the steps; those of the
 // warm-up do not count.
 type recorder struct {
-	mu      sync.Mutex
-	tallies map[key]*tally
-	errors  map[string]int // the texts of the error answers
-	strays  int            // answers with no request to belong to
+	mu         sync.Mutex
+	tallies    map[key]*tally
+	deliveries map[key]*deliveryTally
+	errors     map[string]int // the texts of the error answers
+	strays     int            // answers with no request to belong to
 }
 
 func newRecorder() *recorder {
-	return &recorder{tallies: make(map[key]*tally), errors: make(map[string]int)}
+	return &recorder{tallies: make(map[key]*tally), errors: make(map[string]int), deliveries: make(map[key]*deliveryTally)}
 }
 
 // tally returns the tally of a step, gateway and kind; the caller holds mu.
@@ -91,16 +92,17 @@ func (r *recorder) stray() {
 func (r *recorder) report(c config, start time.Time) *report {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return &report{c: c, start: start, tallies: r.tallies, errors: r.errors, strays: r.strays}
+	return &report{c: c, start: start, tallies: r.tallies, errors: r.errors, strays: r.strays, deliveries: r.deliveries}
 }
 
 // report is the outcome of a run.
 type report struct {
-	c       config
-	start   time.Time // of the warm-up
-	tallies map[key]*tally
-	errors  map[string]int
-	strays  int
+	c          config
+	start      time.Time // of the warm-up
+	tallies    map[key]*tally
+	deliveries map[key]*deliveryTally
+	errors     map[string]int
+	strays     int
 }
 
 // print writes a row per step, gateway and kind of request, and one for all
@@ -131,6 +133,22 @@ func (r *report) print(w io.Writer) {
 		}
 	}
 	_ = tw.Flush()
+	if len(r.deliveries) > 0 {
+		_, _ = fmt.Fprintln(w, "\nmessage delivery (within load + drain; receipt IDs must match acknowledgements; latency from scheduled send):")
+		dw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		_, _ = fmt.Fprintln(dw, "step\tgateway\tattempted\taccepted\treceived\tmissing\tunconfirmed\tduplicates\tout_of_order\tid_mismatch\tp50 ms\tp99 ms")
+		for i := range r.c.rates {
+			for g, gw := range r.c.gateways {
+				t := r.deliveries[key{i, g, sendMessage}]
+				if t == nil {
+					continue
+				}
+				latencies := slices.Sorted(slices.Values(t.latencies))
+				_, _ = fmt.Fprintf(dw, "%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n", i+1, gw.name, t.attempted, t.accepted, t.received, t.missing, t.unconfirmed, t.duplicates, t.reordered, t.mismatches, quantile(latencies, .5), quantile(latencies, .99))
+			}
+		}
+		_ = dw.Flush()
+	}
 
 	if len(r.errors) > 0 {
 		_, _ = fmt.Fprintln(w, "\nerror answers:")

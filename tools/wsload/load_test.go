@@ -26,8 +26,11 @@ const secret = "test-secret"
 // chats, checks the tokens as the services do and answers the requests of a
 // connection one by one, pushing notifications in between.
 type stack struct {
-	t     *testing.T
-	delay time.Duration // before every answer
+	t             *testing.T
+	delay         time.Duration // before every answer
+	deliveryDelay time.Duration // when positive, acknowledge before delaying the notification
+	dropDelivery  bool
+	duplicates    int
 	// silent kinds of requests get no answer; failing ones get an error.
 	silent, failing map[string]bool
 	hang            atomic.Bool // no more answers at all
@@ -127,9 +130,19 @@ func (s *stack) serveWS(w http.ResponseWriter, r *http.Request) {
 			}
 			s.sends[gw][userID]++
 			s.mu.Unlock()
-			// The message reaches its chat before ws-gateway answers.
-			write(map[string]any{"type": "message_received", "chat_id": m.ChatID, "message": map[string]string{"text": m.Text}})
-			write(map[string]any{"type": "message_sent", "message_id": "m"})
+			ack := map[string]any{"type": "message_sent", "message_id": userID + ":" + m.Text}
+			if s.deliveryDelay > 0 {
+				write(ack)
+				time.Sleep(s.deliveryDelay)
+			}
+			if !s.dropDelivery {
+				for range 1 + s.duplicates {
+					write(map[string]any{"type": "message_received", "chat_id": m.ChatID, "message": map[string]string{"text": m.Text, "message_id": userID + ":" + m.Text}})
+				}
+			}
+			if s.deliveryDelay == 0 {
+				write(ack)
+			}
 		default:
 			write(map[string]string{"type": "error", "error": "unknown message type: " + m.Type})
 		}
