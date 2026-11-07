@@ -73,7 +73,7 @@ func TestFanout_HandleMessageCreated_DeliversToChatMembers(t *testing.T) {
 		&fakeContactsLister{},
 	)
 
-	fanout.HandleMessageCreated(context.Background(), domain.MessageCreated{MessageID: "m1", ChatID: "chat-1"})
+	_ = fanout.HandleMessageCreated(context.Background(), domain.MessageCreated{MessageID: "m1", ChatID: "chat-1"})
 
 	_ = memberConn.SetReadDeadline(time.Now().Add(time.Second))
 	_, data, err := memberConn.ReadMessage()

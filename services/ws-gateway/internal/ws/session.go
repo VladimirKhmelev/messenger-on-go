@@ -3,8 +3,8 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
@@ -27,11 +27,11 @@ type session struct {
 	chat           ChatClient
 	presence       PresencePublisher
 
-	writeMu sync.Mutex
+	writeGate chan struct{}
 }
 
 func newSession(userID, token string, conn *websocket.Conn, chat ChatClient, presence PresencePublisher) *session {
-	return &session{userID: userID, token: token, conn: conn, chat: chat, presence: presence}
+	return &session{userID: userID, token: token, conn: conn, chat: chat, presence: presence, writeGate: make(chan struct{}, 1)}
 }
 
 func (s *session) run(registry *hub.Registry) {
@@ -100,9 +100,9 @@ func (s *session) pingLoop(stop <-chan struct{}) {
 		case <-stop:
 			return
 		case <-ticker.C:
-			s.writeMu.Lock()
-			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second))
-			s.writeMu.Unlock()
+			ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+			err := s.writeFrame(ctx, func(deadline time.Time) error { return s.conn.WriteControl(websocket.PingMessage, nil, deadline) })
+			cancel()
 			if err != nil {
 				return
 			}
@@ -240,30 +240,62 @@ func (s *session) handle(data []byte) {
 	}
 }
 
-func (s *session) Deliver(notification any) {
+func (s *session) Deliver(ctx context.Context, notification any) error {
 	msg, ok := toServerMessage(notification)
 	if !ok {
-		log.Printf("ws-gateway: no wire format for notification %T, dropped for user %s", notification, s.userID)
-		return
+		return fmt.Errorf("no wire format for notification %T", notification)
 	}
-	s.write(msg)
+	return s.writeContext(ctx, msg)
 }
 
-func (s *session) writeError(message string) {
-	s.write(serverMessage{Type: "error", Error: message})
-}
+func (s *session) writeError(message string) { s.write(serverMessage{Type: "error", Error: message}) }
 
 func (s *session) write(msg serverMessage) {
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("ws-gateway: failed to marshal message for user %s: %v", s.userID, err)
-		return
-	}
-
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-
-	if err := s.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), handleTimeout)
+	defer cancel()
+	if err := s.writeContext(ctx, msg); err != nil {
 		log.Printf("ws-gateway: failed to write message for user %s: %v", s.userID, err)
 	}
+}
+
+func (s *session) writeContext(ctx context.Context, msg serverMessage) error {
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return s.writeFrame(ctx, func(deadline time.Time) error {
+		if err := s.conn.SetWriteDeadline(deadline); err != nil {
+			return err
+		}
+		return s.conn.WriteMessage(websocket.TextMessage, payload)
+	})
+}
+
+// writeFrame serializes writers without an unbounded mutex wait. Once a
+// frame is being written, cancellation closes the connection: a partial
+// WebSocket frame cannot be abandoned and followed by another frame.
+func (s *session) writeFrame(ctx context.Context, write func(time.Time) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case s.writeGate <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-s.writeGate }()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	deadline := time.Now().Add(handleTimeout)
+	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+		deadline = d
+	}
+	stop := context.AfterFunc(ctx, func() { _ = s.conn.Close() })
+	defer stop()
+	err := write(deadline)
+	if err != nil {
+		_ = s.conn.Close()
+	}
+	return err
 }

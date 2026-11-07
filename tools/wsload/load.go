@@ -114,6 +114,12 @@ type serverMessage struct {
 	Type       string `json:"type"`
 	Error      string `json:"error"`
 	PeerUserID string `json:"peer_user_id"`
+	MessageID  string `json:"message_id"`
+	ChatID     string `json:"chat_id"`
+	Message    *struct {
+		MessageID string `json:"message_id"`
+		Text      string `json:"text"`
+	} `json:"message"`
 }
 
 // answer tells whether a frame answers a request, and what kind of request;
@@ -142,15 +148,19 @@ type conn struct {
 	ws   *websocket.Conn
 	user user
 
-	writeMu sync.Mutex // writes one at a time, in the order of pending
-	mu      sync.Mutex
-	pending []sent
+	writeMu       sync.Mutex // writes one at a time, in the order of pending
+	mu            sync.Mutex
+	pending       []sent
+	deliveries    map[string]*delivery
+	nextMessage   uint64
+	lastDelivered uint64
 }
 
 // sent is a request written to a connection.
 type sent struct {
 	arrival
-	due time.Time
+	due      time.Time
+	delivery *delivery
 }
 
 // load is a run of wsload.
@@ -217,19 +227,24 @@ func run(ctx context.Context, c config) (*report, error) {
 		return nil, err
 	}
 
-	deadline := time.Now().Add(c.drain)
-	for waiting(conns) && time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(10 * time.Millisecond):
-		}
+	// Observe the full drain window: a delivery or duplicate may arrive
+	// after the last request acknowledgement.
+	timer := time.NewTimer(c.drain)
+	select {
+	case <-ctx.Done():
+		timer.Stop()
+		return nil, ctx.Err()
+	case <-timer.C:
 	}
+
 	closeAll()
 	for g, cs := range conns {
 		for _, cn := range cs {
 			for _, s := range cn.pending {
 				l.rec.lost(s.step, g, s.kind)
+			}
+			for _, d := range cn.deliveries {
+				l.rec.delivery(g, d)
 			}
 		}
 	}
@@ -272,14 +287,24 @@ func (l *load) send(c *conn, g int, a arrival, due time.Time) {
 	case sendMessage:
 		m.ChatID, m.Text = c.user.chatID, "wsload"
 	}
-	data, _ := json.Marshal(m) // strings only: it cannot fail
-
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	c.mu.Lock()
-	c.pending = append(c.pending, sent{arrival: a, due: due})
+	sent := sent{arrival: a, due: due}
+	if a.kind == sendMessage {
+		c.nextMessage++
+		m.Text = "wsload:" + strconv.FormatUint(c.nextMessage, 10)
+		if c.deliveries == nil {
+			c.deliveries = make(map[string]*delivery)
+		}
+		d := &delivery{step: a.step, due: due, order: c.nextMessage}
+		c.deliveries[m.Text] = d
+		sent.delivery = d
+	}
+	c.pending = append(c.pending, sent)
 	c.mu.Unlock()
 	l.rec.sent(a.step, g, a.kind)
+	data, _ := json.Marshal(m) // strings only: it cannot fail
 	// A request that fails to go out gets no answer and counts as lost.
 	_ = c.ws.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_ = c.ws.WriteMessage(websocket.TextMessage, data)
@@ -297,6 +322,10 @@ func (l *load) read(c *conn, g int) {
 		if json.Unmarshal(data, &m) != nil {
 			continue
 		}
+		if m.Type == "message_received" {
+			c.received(m, time.Now())
+			continue
+		}
 		k, ok := answer(m, l.idle)
 		if !ok {
 			continue
@@ -310,7 +339,6 @@ func (l *load) read(c *conn, g int) {
 		}
 		s := c.pending[0]
 		c.pending = c.pending[1:]
-		c.mu.Unlock()
 
 		failure := m.Error
 		switch {
@@ -318,22 +346,17 @@ func (l *load) read(c *conn, g int) {
 			failure = fmt.Sprintf("%s answered with %s", kindNames[s.kind], m.Type)
 		case k == anyKind && failure == "":
 			failure = "an error without a text"
+		case k == sendMessage && failure == "" && m.MessageID == "":
+			failure = "message_sent without a message_id"
 		}
-		l.rec.answer(s.step, g, s.kind, now.Sub(s.due), failure)
-	}
-}
-
-// waiting tells whether a request still waits for its answer.
-func waiting(conns [][]*conn) bool {
-	for _, cs := range conns {
-		for _, cn := range cs {
-			cn.mu.Lock()
-			n := len(cn.pending)
-			cn.mu.Unlock()
-			if n > 0 {
-				return true
+		if s.delivery != nil {
+			s.delivery.accepted = failure == "" && k == sendMessage && m.MessageID != ""
+			s.delivery.ackID = m.MessageID
+			if s.delivery.received && s.delivery.accepted && s.delivery.id != m.MessageID {
+				s.delivery.mismatch = true
 			}
 		}
+		c.mu.Unlock()
+		l.rec.answer(s.step, g, s.kind, now.Sub(s.due), failure)
 	}
-	return false
 }

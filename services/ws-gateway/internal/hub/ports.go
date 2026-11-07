@@ -19,5 +19,5 @@ type ContactsLister interface {
 }
 
 type Client interface {
-	Deliver(notification any)
+	Deliver(ctx context.Context, notification any) error
 }

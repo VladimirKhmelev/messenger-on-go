@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -61,6 +63,11 @@ func main() {
 		allowedOrigins = strings.Split(raw, ",")
 	}
 
+	cfg, err := fanoutConfig()
+	if err != nil {
+		log.Fatalf("ws-gateway: %v", err)
+	}
+
 	tracingShutdown, err := tracing.Setup(context.Background(), "ws-gateway", os.Getenv("JAEGER_ENDPOINT"))
 	if err != nil {
 		log.Fatalf("ws-gateway: failed to set up tracing: %v", err)
@@ -89,7 +96,9 @@ func main() {
 	consumerCtx, cancelConsumer := context.WithCancel(context.Background())
 	defer cancelConsumer()
 
+	consumerDone := make(chan struct{})
 	go func() {
+		defer close(consumerDone)
 		handlers := events.Handlers{
 			OnMessageCreated:  fanout.HandleMessageCreated,
 			OnMessageUpdated:  fanout.HandleMessageUpdated,
@@ -100,7 +109,7 @@ func main() {
 			OnTypingChanged:   fanout.HandleTypingChanged,
 			OnChatDeleted:     fanout.HandleChatDeleted,
 		}
-		if err := events.Consume(consumerCtx, natsURL, handlers); err != nil {
+		if err := events.ConsumeWithConfig(consumerCtx, natsURL, handlers, cfg); err != nil {
 			log.Fatalf("ws-gateway: NATS consumer failed: %v", err)
 		}
 	}()
@@ -147,6 +156,8 @@ func main() {
 	<-stop
 
 	fmt.Println("ws-gateway: shutting down")
+	cancelConsumer()
+	<-consumerDone
 	grpcServer.GracefulStop()
 	_ = httpServer.Close()
 }
@@ -164,4 +175,28 @@ func dialChat(addr, internalSecret string) (*chatclient.Client, error) {
 	default:
 		return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)
 	}
+}
+
+func fanoutConfig() (events.Config, error) {
+	cfg := events.DefaultConfig()
+	for _, option := range []struct {
+		name string
+		dest *int
+	}{{"FANOUT_WORKERS", &cfg.Workers}, {"FANOUT_QUEUE_SIZE", &cfg.QueueSize}} {
+		if raw := os.Getenv(option.name); raw != "" {
+			value, err := strconv.Atoi(raw)
+			if err != nil {
+				return cfg, fmt.Errorf("%s: %w", option.name, err)
+			}
+			*option.dest = value
+		}
+	}
+	if raw := os.Getenv("FANOUT_TIMEOUT"); raw != "" {
+		value, err := time.ParseDuration(raw)
+		if err != nil {
+			return cfg, fmt.Errorf("FANOUT_TIMEOUT: %w", err)
+		}
+		cfg.Timeout = value
+	}
+	return cfg, cfg.Validate()
 }
