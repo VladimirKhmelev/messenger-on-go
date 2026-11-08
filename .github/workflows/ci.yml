@@ -20,6 +20,7 @@ jobs:
       pkg-quictransport: ${{ steps.services.outputs.full || steps.filter.outputs.pkg-quictransport }}
       pkg-tracing: ${{ steps.services.outputs.full || steps.filter.outputs.pkg-tracing }}
       tools-wsload: ${{ steps.services.outputs.full || steps.filter.outputs.tools-wsload }}
+      tools-e2e: ${{ steps.services.outputs.full || steps.filter.outputs.tools-e2e }}
       frontend: ${{ steps.services.outputs.full || steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
@@ -70,6 +71,14 @@ jobs:
             tools-wsload:
               - 'tools/wsload/**'
               - 'pkg/jwtutil/**'
+              - '.github/workflows/ci.yml'
+            tools-e2e:
+              - 'tools/e2e/**'
+              - 'test/e2e/**'
+              - 'scripts/e2e.sh'
+              - 'scripts/quic-certs.sh'
+              - 'scripts/netem.Dockerfile'
+              - 'Makefile'
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
@@ -418,6 +427,53 @@ jobs:
         continue-on-error: true
 
       - run: go build ./...
+      - run: go test -race ./... -cover
+
+  tools-e2e:
+    needs: changes
+    if: needs.changes.outputs.tools-e2e == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: tools/e2e/go.sum
+
+      - name: Check gofmt
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt'ed:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Check go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+          working-directory: tools/e2e
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+        continue-on-error: true
+
+      - name: Check preparation script syntax
+        run: bash -n ../../scripts/e2e.sh
+
+      - run: go build -o /tmp/wisply-e2e .
       - run: go test -race ./... -cover
 
   frontend:

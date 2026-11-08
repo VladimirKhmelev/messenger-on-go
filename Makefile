@@ -79,3 +79,15 @@ ci:
 		echo "== $$s: go test =="; \
 		(cd services/$$s && go test ./... -cover -coverprofile=cover.out) || exit 1; \
 	done
+
+# prepare/test execute no Docker commands; run explicitly starts a test stack.
+.PHONY: e2e-prepare e2e-test e2e-run
+
+e2e-prepare:
+	./scripts/e2e.sh prepare
+
+e2e-test:
+	cd tools/e2e && GOWORK=off go test -count=1 -race ./...
+
+e2e-run:
+	./scripts/e2e.sh run $(E2E_FLAGS)

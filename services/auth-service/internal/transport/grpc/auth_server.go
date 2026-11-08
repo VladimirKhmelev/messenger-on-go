@@ -23,6 +23,11 @@ func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer {
 	return &AuthServer{auth: auth, cookieSecure: cookieSecure}
 }
 
+// Health reports that the application RPC service is serving requests.
+func (s *AuthServer) Health(context.Context, *authv1.HealthRequest) (*authv1.HealthResponse, error) {
+	return &authv1.HealthResponse{Ok: true}, nil
+}
+
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
 	user, err := s.auth.Register(ctx, req.GetEmail(), req.GetTag(), req.GetDisplayName(), req.GetPassword(), req.GetPublicKey(), req.GetWrappedPrivateKey(), req.GetKeyWrapSalt())
 	if err != nil {
