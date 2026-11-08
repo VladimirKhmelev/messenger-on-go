@@ -954,21 +954,21 @@ func (p *pool) submit(key string, run func(context.Context) error) error <span c
 }
 
 func (p *pool) work() <span class="cov5" title="7">{
-        for </span><span class="cov9" title="37">{
+        for </span><span class="cov8" title="35">{
                 p.mu.Lock()
                 if p.ctx.Err() != nil </span><span class="cov1" title="1">{
                         p.mu.Unlock()
                         return
                 }</span>
-                <span class="cov9" title="36">if len(p.ready) == 0 </span><span class="cov7" title="18">{
+                <span class="cov8" title="34">if len(p.ready) == 0 </span><span class="cov7" title="16">{
                         changed := p.changed
                         p.mu.Unlock()
                         select </span>{
                         case &lt;-p.ctx.Done():<span class="cov5" title="6">
                                 return</span>
-                        case &lt;-changed:<span class="cov6" title="12"></span>
+                        case &lt;-changed:<span class="cov6" title="10"></span>
                         }
-                        <span class="cov6" title="12">continue</span>
+                        <span class="cov6" title="10">continue</span>
                 }
                 <span class="cov7" title="18">l := p.ready[0]
                 p.ready[0] = nil

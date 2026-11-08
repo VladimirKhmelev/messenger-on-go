@@ -121,7 +121,7 @@
 				
 				<option value="file32">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/avatar/handler.go (0.0%)</option>
 				
-				<option value="file33">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (3.9%)</option>
+				<option value="file33">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/auth_server.go (3.8%)</option>
 				
 				<option value="file34">github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc/cookie.go (95.0%)</option>
 				
@@ -398,12 +398,12 @@ import (
 
 // newQUICServer exposes the same handlers and authorization as gRPC when
 // QUIC_CERT_FILE is configured. Without it only the gRPC listener is used.
-func newQUICServer(addr string, auth authv1.AuthServiceServer, health healthpb.HealthServer, authInterceptor grpc.UnaryServerInterceptor) (*quictransport.Server, error) <span class="cov10" title="4">{
+func newQUICServer(addr string, auth authv1.AuthServiceServer, health healthpb.HealthServer, authInterceptor grpc.UnaryServerInterceptor) (*quictransport.Server, error) <span class="cov10" title="5">{
         certFile := os.Getenv("QUIC_CERT_FILE")
         if certFile == "" </span><span class="cov1" title="1">{
                 return nil, nil
         }</span>
-        <span class="cov8" title="3">srv, err := quictransport.NewServer(quictransport.ServerConfig{
+        <span class="cov8" title="4">srv, err := quictransport.NewServer(quictransport.ServerConfig{
                 Service:     "auth-service",
                 Addr:        addr,
                 CertFile:    certFile,
@@ -417,7 +417,7 @@ func newQUICServer(addr string, auth authv1.AuthServiceServer, health healthpb.H
         if err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
-        <span class="cov5" title="2">authv1.RegisterAuthServiceServer(srv, auth)
+        <span class="cov7" title="3">authv1.RegisterAuthServiceServer(srv, auth)
         healthpb.RegisterHealthServer(srv, health)
         return srv, nil</span>
 }
@@ -2688,6 +2688,11 @@ type AuthServer struct {
 
 func NewAuthServer(auth *service.AuthService, cookieSecure bool) *AuthServer <span class="cov0" title="0">{
         return &amp;AuthServer{auth: auth, cookieSecure: cookieSecure}
+}</span>
+
+// Health reports that the application RPC service is serving requests.
+func (s *AuthServer) Health(context.Context, *authv1.HealthRequest) (*authv1.HealthResponse, error) <span class="cov0" title="0">{
+        return &amp;authv1.HealthResponse{Ok: true}, nil
 }</span>
 
 func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) <span class="cov0" title="0">{
