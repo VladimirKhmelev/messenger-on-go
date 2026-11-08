@@ -1,0 +1,163 @@
+# Separate from deployment Compose: no user volumes and no fixed host ports.
+x-environment: &environment
+  GRPC_PORT: "50051"
+  HTTP_PORT: "8080"
+  JWT_SECRET: "local-e2e-jwt-secret-never-for-deployment"
+  INTERNAL_SECRET: "local-e2e-internal-secret-never-for-deployment"
+  REDIS_ADDR: redis:6379
+  NATS_URL: nats://nats:4222
+  AUTH_SERVICE_ADDR: auth-service:50051
+  CHAT_SERVICE_ADDR: chat-service:50051
+  AUTH_TRANSPORT: ${E2E_TRANSPORT:?set E2E_TRANSPORT}
+  CHAT_TRANSPORT: ${E2E_TRANSPORT:?set E2E_TRANSPORT}
+  QUIC_CA_FILE: /certs/ca.pem
+  QUIC_CERT_FILE: /certs/cert.pem
+  QUIC_KEY_FILE: /certs/key.pem
+  QUIC_RESET_SECRET: "local-e2e-reset-secret"
+  QUIC_GO_DISABLE_GSO: "true"
+  JAEGER_ENDPOINT: ""
+
+x-service: &service
+  image: alpine:3.20
+  user: "65534:65534"
+  entrypoint: ["/app/server"]
+  stop_grace_period: 20s
+
+x-postgres: &postgres
+  image: postgres:16
+  environment:
+    POSTGRES_USER: e2e
+    POSTGRES_PASSWORD: local-e2e-password
+    POSTGRES_DB: messenger
+  tmpfs: [/var/lib/postgresql/data]
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U e2e -d messenger"]
+    interval: 1s
+    timeout: 3s
+    retries: 60
+
+services:
+  auth-db:
+    <<: *postgres
+  chat-db:
+    <<: *postgres
+  media-db:
+    <<: *postgres
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    tmpfs: [/data]
+    ports: ["127.0.0.1::8222"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports: ["127.0.0.1::8025"]
+  minio:
+    image: ghcr.io/vladimirkhmelev/messenger-on-go/minio:RELEASE.2025-09-07T16-13-09Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: e2e-minio
+      MINIO_ROOT_PASSWORD: local-e2e-minio-password
+    tmpfs: [/data]
+    ports: ["127.0.0.1::9000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  auth-service:
+    <<: *service
+    environment:
+      <<: *environment
+      POSTGRES_DSN: postgres://e2e:local-e2e-password@auth-db:5432/messenger?sslmode=disable
+      SMTP_ADDR: mailhog:1025
+      SMTP_FROM: e2e@example.test
+      GITHUB_CLIENT_ID: local-unused
+      GITHUB_CLIENT_SECRET: local-unused
+    volumes:
+      - ${E2E_BIN_DIR:?prepare first}/auth-service:/app/server:ro
+      - ${E2E_CERTS_DIR:?prepare first}/auth-service:/certs:ro
+    ports: ["127.0.0.1::8080"]
+    depends_on:
+      auth-db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      nats: {condition: service_healthy}
+      mailhog: {condition: service_started}
+  chat-service:
+    <<: *service
+    environment:
+      <<: *environment
+      POSTGRES_DSN: postgres://e2e:local-e2e-password@chat-db:5432/messenger?sslmode=disable
+    volumes:
+      - ${E2E_BIN_DIR:?prepare first}/chat-service:/app/server:ro
+      - ${E2E_CERTS_DIR:?prepare first}/chat-service:/certs:ro
+    ports: ["127.0.0.1::8080"]
+    depends_on:
+      chat-db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      nats: {condition: service_healthy}
+  media-service:
+    <<: *service
+    environment:
+      <<: *environment
+      POSTGRES_DSN: postgres://e2e:local-e2e-password@media-db:5432/messenger?sslmode=disable
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: e2e-minio
+      MINIO_ROOT_PASSWORD: local-e2e-minio-password
+      PUBLIC_MEDIA_URL: http://minio:9000/messenger-media
+    volumes:
+      - ${E2E_BIN_DIR:?prepare first}/media-service:/app/server:ro
+      - ${E2E_CERTS_DIR:?prepare first}/media-service:/certs:ro
+    ports: ["127.0.0.1::8080"]
+    depends_on:
+      media-db: {condition: service_healthy}
+      minio: {condition: service_healthy}
+  notification-worker:
+    <<: *service
+    environment:
+      <<: *environment
+      METRICS_PORT: "9090"
+      # No browser subscriptions are registered by this suite.
+      VAPID_PUBLIC_KEY: local-unused
+      VAPID_PRIVATE_KEY: local-unused
+      VAPID_SUBJECT: mailto:e2e@example.test
+    volumes:
+      - ${E2E_BIN_DIR:?prepare first}/notification-worker:/app/server:ro
+      - ${E2E_CERTS_DIR:?prepare first}/notification-worker:/certs:ro
+    ports: ["127.0.0.1::9090"]
+  ws-gateway-1:
+    <<: *service
+    environment:
+      <<: *environment
+      FANOUT_WORKERS: "16"
+      FANOUT_QUEUE_SIZE: "256"
+      FANOUT_TIMEOUT: 10s
+    volumes:
+      - ${E2E_BIN_DIR:?prepare first}/ws-gateway:/app/server:ro
+      - ${E2E_CERTS_DIR:?prepare first}/ws-gateway:/certs:ro
+    ports: ["127.0.0.1::8080"]
+  ws-gateway-2:
+    <<: *service
+    environment: *environment
+    volumes:
+      - ${E2E_BIN_DIR:?prepare first}/ws-gateway:/app/server:ro
+      - ${E2E_CERTS_DIR:?prepare first}/ws-gateway:/certs:ro
+    ports: ["127.0.0.1::8080"]
+  netem:
+    profiles: [tools]
+    image: wisply-e2e-netem
+    build:
+      context: ../..
+      dockerfile: scripts/netem.Dockerfile
