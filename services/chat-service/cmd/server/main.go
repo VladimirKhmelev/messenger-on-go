@@ -20,6 +20,7 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 	"github.com/VladimirKhmelev/messenger-on-go/services/chat-service/internal/authclient"
@@ -127,11 +128,12 @@ func main() {
 		log.Fatalf("chat-service: failed to listen: %v", err)
 	}
 
+	authInterceptor := transportgrpc.AuthInterceptor(jwtSecret, internalSecret)
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			metrics.UnaryServerInterceptor("chat-service"),
-			transportgrpc.AuthInterceptor(jwtSecret, internalSecret),
+			authInterceptor,
 		),
 		grpc.MaxRecvMsgSize(maxGRPCRecvMsgSize),
 	)
@@ -163,7 +165,7 @@ func main() {
 			ResetSecret: os.Getenv("QUIC_RESET_SECRET"),
 			Interceptors: []grpc.UnaryServerInterceptor{
 				metrics.UnaryServerInterceptor("chat-service", metrics.Transport(quictransport.Name)),
-				transportgrpc.AuthInterceptor(jwtSecret, internalSecret),
+				authInterceptor,
 			},
 		})
 		if err != nil {
@@ -174,6 +176,19 @@ func main() {
 			fmt.Printf("chat-service: quic listening on udp :%s\n", port)
 			if err := quicServer.Serve(); err != nil {
 				log.Fatalf("chat-service: quic serve failed: %v", err)
+			}
+		}()
+	}
+
+	tlsServer, err := newTLSServer(chatServer, healthServer, authInterceptor)
+	if err != nil {
+		log.Fatalf("chat-service: failed to listen over gRPC TLS: %v", err)
+	}
+	if tlsServer != nil {
+		go func() {
+			fmt.Printf("chat-service: grpc-tls listening on tcp %s\n", tlsServer.Addr())
+			if err := tlsServer.Serve(); err != nil {
+				log.Fatalf("chat-service: grpc-tls serve failed: %v", err)
 			}
 		}()
 	}
@@ -218,9 +233,12 @@ func main() {
 	<-stop
 
 	fmt.Println("chat-service: shutting down")
-	// Both at once: docker waits 10 s after SIGTERM before it kills us.
+	// Stop all RPC listeners at once: Docker allows 10 s after SIGTERM.
 	var wg sync.WaitGroup
 	wg.Go(grpcServer.GracefulStop)
+	if tlsServer != nil {
+		wg.Go(tlsServer.GracefulStop)
+	}
 	if quicServer != nil {
 		wg.Go(quicServer.GracefulStop)
 	}
@@ -231,7 +249,7 @@ func main() {
 }
 
 // dialAuth connects to auth-service over AUTH_TRANSPORT: grpc, the default,
-// or quic, which needs QUIC_CA_FILE.
+// grpc-tls or quic; encrypted transports need QUIC_CA_FILE.
 func dialAuth(addr string) (*authclient.Client, error) {
 	switch transport := os.Getenv("AUTH_TRANSPORT"); transport {
 	case "", "grpc":
@@ -240,7 +258,14 @@ func dialAuth(addr string) (*authclient.Client, error) {
 	case quictransport.Name:
 		fmt.Printf("chat-service: auth-service at %s over quic\n", addr)
 		return authclient.DialQUIC(addr, os.Getenv("QUIC_CA_FILE"))
+	case rpctransport.Name:
+		addr = os.Getenv("AUTH_SERVICE_TLS_ADDR")
+		if addr == "" {
+			return nil, fmt.Errorf("AUTH_SERVICE_TLS_ADDR is required for AUTH_TRANSPORT=grpc-tls")
+		}
+		fmt.Printf("chat-service: auth-service at %s over grpc-tls\n", addr)
+		return authclient.DialTLS(addr, os.Getenv("QUIC_CA_FILE"))
 	default:
-		return nil, fmt.Errorf("AUTH_TRANSPORT %q: want grpc or quic", transport)
+		return nil, fmt.Errorf("AUTH_TRANSPORT %q: want grpc, grpc-tls or quic", transport)
 	}
 }
