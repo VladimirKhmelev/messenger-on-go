@@ -3,6 +3,7 @@ module github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport
 go 1.26.3
 
 require (
+	github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/quic-rpc-go/grpcbridge v0.2.1-0.20261104183916-31cf88989dfe
 	github.com/VladimirKhmelev/quic-rpc-go/rpc v0.2.1-0.20261104183916-31cf88989dfe
 	github.com/quic-go/quic-go v0.63.0
@@ -25,3 +26,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+replace github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport => ../rpctransport

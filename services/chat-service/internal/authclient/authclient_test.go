@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 )
 
@@ -49,7 +50,8 @@ func client(t *testing.T, transport string, handler authv1.AuthServiceServer) *C
 	t.Helper()
 	var c *Client
 	var err error
-	if transport == "grpc" {
+	switch transport {
+	case "grpc":
 		l, listenErr := net.Listen("tcp", "127.0.0.1:0")
 		if listenErr != nil {
 			t.Fatal(listenErr)
@@ -59,7 +61,18 @@ func client(t *testing.T, transport string, handler authv1.AuthServiceServer) *C
 		go func() { _ = srv.Serve(l) }()
 		t.Cleanup(srv.Stop)
 		c, err = Dial(l.Addr().String())
-	} else {
+	case "grpc-tls":
+		ca, cert, key := certificates(t)
+		srv, listenErr := rpctransport.NewServer(rpctransport.ServerConfig{Addr: "127.0.0.1:0", CertFile: cert, KeyFile: key})
+		if listenErr != nil {
+			t.Fatal(listenErr)
+		}
+		authv1.RegisterAuthServiceServer(srv, handler)
+		go func() { _ = srv.Serve() }()
+		t.Cleanup(srv.Stop)
+		_, port, _ := net.SplitHostPort(srv.Addr().String())
+		c, err = DialTLS(net.JoinHostPort("localhost", port), ca)
+	case "quic":
 		ca, cert, key := certificates(t)
 		srv, listenErr := quictransport.NewServer(quictransport.ServerConfig{
 			Service: "auth-service", Addr: "127.0.0.1:0", CertFile: cert, KeyFile: key, ResetSecret: "test-secret",
@@ -87,7 +100,7 @@ func TestUserExists(t *testing.T) {
 	sc := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID: trace.TraceID{1}, SpanID: trace.SpanID{2}, TraceFlags: trace.FlagsSampled,
 	})
-	for _, tr := range []string{"grpc", "quic"} {
+	for _, tr := range []string{"grpc", "grpc-tls", "quic"} {
 		t.Run(tr, func(t *testing.T) {
 			c := client(t, tr, &authStub{get: func(ctx context.Context, req *authv1.GetUserByIDRequest) (*authv1.GetUserByIDResponse, error) {
 				md, _ := metadata.FromIncomingContext(ctx)
@@ -123,7 +136,7 @@ func TestUserExists(t *testing.T) {
 }
 
 func TestCancellation(t *testing.T) {
-	for _, tr := range []string{"grpc", "quic"} {
+	for _, tr := range []string{"grpc", "grpc-tls", "quic"} {
 		t.Run(tr, func(t *testing.T) {
 			started, done := make(chan struct{}, 1), make(chan struct{}, 1)
 			c := client(t, tr, &authStub{get: func(ctx context.Context, _ *authv1.GetUserByIDRequest) (*authv1.GetUserByIDResponse, error) {

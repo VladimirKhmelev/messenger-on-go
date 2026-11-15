@@ -326,9 +326,11 @@ make ci            # полный набор проверок, как в GitHub 
 сгенерированный gRPC-код поверх прослойки `grpcbridge`, с TLS 1.3. Это
 эксперимент для сравнения транспортов; по умолчанию всё идёт по gRPC.
 
-Auth-service и chat-service слушают и gRPC (`50051/tcp`), и QUIC
-(`50051/udp`); код подключения — `pkg/quictransport`.
-Транспорт выбирается на стороне клиента: `grpc` (по умолчанию) или `quic`.
+Auth-service и chat-service слушают gRPC (`50051/tcp`), QUIC
+(`50051/udp`) и, при заданном `GRPC_TLS_PORT`, gRPC с TLS
+(в Compose — `50052/tcp`, только внутри сети). Код подключения —
+`pkg/quictransport` и `pkg/rpctransport`. Транспорт выбирается на стороне
+клиента: `grpc` (по умолчанию), `grpc-tls` или `quic`.
 В Compose общие `CHAT_TRANSPORT` и `AUTH_TRANSPORT` задают транспорт ко всем
 серверам соответствующего типа, а настройки конкретного сервиса имеют приоритет:
 
@@ -347,6 +349,25 @@ Auth-service и chat-service слушают и gRPC (`50051/tcp`), и QUIC
 CHAT_TRANSPORT=quic AUTH_TRANSPORT=quic docker-compose up -d auth-service chat-service media-service notification-worker ws-gateway-1 ws-gateway-2
 ```
 
+Для gRPC с шифрованием используются те же переключатели:
+
+```sh
+CHAT_TRANSPORT=grpc-tls AUTH_TRANSPORT=grpc-tls docker-compose up -d auth-service chat-service media-service notification-worker ws-gateway-1 ws-gateway-2
+```
+
+`GRPC_TLS_PORT` включает отдельный listener auth/chat; пустое значение вне
+Compose отключает его. Сертификат и ключ берутся из существующих
+`QUIC_CERT_FILE` / `QUIC_KEY_FILE`, доверенный CA — из `QUIC_CA_FILE`.
+Клиенты `grpc-tls` используют отдельные `CHAT_SERVICE_TLS_ADDR` и
+`AUTH_SERVICE_TLS_ADDR`; Compose задаёт их автоматически. Отсутствующий TLS-адрес
+завершает запуск с ошибкой, перехода на незашифрованный gRPC нет. TLS-порт
+не публикуется на хост. При запуске вручную эти адреса должны содержать
+`host:port`, имя которого есть в сертификате.
+
+У QUIC и gRPC TLS общая политика: TLS 1.3, `X25519MLKEM768`, проверка CA
+и имени сервера. Параметры явно заданы в `pkg/rpctransport`; смена defaults Go
+не меняет группу обмена ключами молча. Это проверка сервера, без mTLS.
+
 Для сравнения можно выбрать транспорт каждой связи отдельно. Например,
 `NOTIFICATION_CHAT_TRANSPORT=grpc NOTIFICATION_AUTH_TRANSPORT=quic` включает
 QUIC только для обращений notification-worker к auth-service, если общие
@@ -361,7 +382,8 @@ QUIC только для обращений notification-worker к auth-service,
   отдельные volumes только с CA, без ключей серверов. Перевыпустить —
   удалить volumes `quic-*`.
 - В Jaeger QUIC-вызовы отмечены атрибутом `rpc.transport=quic`, а метрика
-  `grpc_request_duration_seconds` — меткой `transport` (`grpc` или `quic`).
+  `grpc_request_duration_seconds` — меткой `transport` (`grpc`, `grpc-tls` или `quic`).
+  У gRPC TLS атрибут трассы — `rpc.transport=grpc-tls`.
 - Ключ stateless reset выводится из `QUIC_RESET_SECRET`: перезапущенный
   сервис сразу сбрасывает старые соединения клиентов, а не через 30 с
   тишины.
@@ -373,13 +395,17 @@ QUIC только для обращений notification-worker к auth-service,
   исправление закрытия клиента во время подключения.
 - Локальные HTTP-шлюзы и Docker health checks используют gRPC по TCP.
   AuthService и стандартный health service доступны также на QUIC listener.
-  Авторизация одинакова на обоих транспортах: JWT для пользовательских
+  Авторизация одинакова на всех трёх транспортах: JWT для пользовательских
   методов и `x-internal-secret` для внутренних. TLS проверяет сервер;
   клиентские сертификаты (mTLS) здесь не включены.
 
+Честное прикладное сравнение и его контроли описаны в
+[docs/rpc-comparison.md](docs/rpc-comparison.md). Старые таблицы ниже
+сохраняют прежние условия (gRPC без TLS) и не являются результатами `grpc-tls`.
+
 ### Сквозная приёмка и восстановление
 
-Для проверки всех межсервисных связей через gRPC и QUIC добавлен отдельный
+Для проверки всех межсервисных связей через gRPC, gRPC TLS и QUIC добавлен отдельный
 инструмент `tools/e2e`: обмен между двумя gateway, операции с сообщениями,
 media, уведомления, сбои сети и перезапуски auth/chat. `make e2e-test` и
 `make e2e-prepare` работают без Docker; `make e2e-run` явно поднимает изолированный

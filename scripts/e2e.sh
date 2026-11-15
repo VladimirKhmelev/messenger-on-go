@@ -31,7 +31,7 @@ run)
     exec "$work/bin/e2e" -root "$root" -work "$work" "$@"
     ;;
 *)
-    echo 'usage: scripts/e2e.sh prepare | run [-transport grpc|quic|all] [-observe 1s]' >&2
+    echo 'usage: scripts/e2e.sh prepare | run [-transport grpc|grpc-tls|quic|all] [-observe 1s]' >&2
     exit 2
     ;;
 esac

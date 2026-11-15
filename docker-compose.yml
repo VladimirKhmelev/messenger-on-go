@@ -161,6 +161,7 @@ services:
       - "8082:8080"
     environment:
       GRPC_PORT: "50051"
+      GRPC_TLS_PORT: "${GRPC_TLS_PORT:-50052}"
       HTTP_PORT: "8080"
       POSTGRES_DSN: postgres://auth:${AUTH_DB_PASSWORD:-auth}@auth-db:5432/auth?sslmode=disable
       REDIS_ADDR: redis:6379
@@ -233,11 +234,13 @@ services:
       - "8083:8080"
     environment:
       GRPC_PORT: "50051"
+      GRPC_TLS_PORT: "${GRPC_TLS_PORT:-50052}"
       HTTP_PORT: "8080"
       POSTGRES_DSN: postgres://chat:${CHAT_DB_PASSWORD:-chat}@chat-db:5432/chat?sslmode=disable
       REDIS_ADDR: redis:6379
       NATS_URL: nats://nats:4222
       AUTH_SERVICE_ADDR: auth-service:50051
+      AUTH_SERVICE_TLS_ADDR: auth-service:${GRPC_TLS_PORT:-50052}
       AUTH_TRANSPORT: ${AUTH_TRANSPORT:-grpc}
       QUIC_CA_FILE: /etc/quic/ca.pem
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
@@ -279,6 +282,7 @@ services:
       HTTP_PORT: "8080"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
+      CHAT_SERVICE_TLS_ADDR: chat-service:${GRPC_TLS_PORT:-50052}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       # Пустое значение позволяет любому Origin (локальная разработка). Установите для продакшена, например https://wisply.site
@@ -317,6 +321,7 @@ services:
       HTTP_PORT: "8080"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
+      CHAT_SERVICE_TLS_ADDR: chat-service:${GRPC_TLS_PORT:-50052}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       # Empty allows any Origin (local dev). Set for prod, e.g. https://wisply.site
@@ -353,8 +358,10 @@ services:
       METRICS_PORT: "9090"
       NATS_URL: nats://nats:4222
       CHAT_SERVICE_ADDR: chat-service:50051
+      CHAT_SERVICE_TLS_ADDR: chat-service:${GRPC_TLS_PORT:-50052}
       CHAT_TRANSPORT: ${NOTIFICATION_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       AUTH_SERVICE_ADDR: auth-service:50051
+      AUTH_SERVICE_TLS_ADDR: auth-service:${GRPC_TLS_PORT:-50052}
       AUTH_TRANSPORT: ${NOTIFICATION_AUTH_TRANSPORT:-${AUTH_TRANSPORT:-grpc}}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}
       # Dev-ключи для локальной разработки — сгенерированы один раз через
@@ -396,6 +403,7 @@ services:
       HTTP_PORT: "8080"
       POSTGRES_DSN: postgres://media:${MEDIA_DB_PASSWORD:-media}@media-db:5432/media?sslmode=disable
       CHAT_SERVICE_ADDR: chat-service:50051
+      CHAT_SERVICE_TLS_ADDR: chat-service:${GRPC_TLS_PORT:-50052}
       CHAT_TRANSPORT: ${MEDIA_CHAT_TRANSPORT:-${CHAT_TRANSPORT:-grpc}}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-internal-secret}

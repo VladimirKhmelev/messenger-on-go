@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/VladimirKhmelev/messenger-on-go/pkg/metrics v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport v0.0.0-00010101000000-000000000000
+	github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/tracing v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -105,3 +106,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+replace github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport => ../../pkg/rpctransport

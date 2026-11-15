@@ -1,4 +1,4 @@
-// Command e2e checks the real application over both interservice transports.
+// Command e2e checks the real application over all interservice transports.
 // Running this command starts Docker; tests and scripts/e2e.sh prepare do not.
 package main
 
@@ -26,14 +26,14 @@ func parseConfig(args []string) (config, error) {
 	fs.BoolVar(&c.sealOnly, "seal", false, "record prepared binary and source hashes without Docker")
 	fs.StringVar(&c.root, "root", ".", "repository root")
 	fs.StringVar(&c.work, "work", "out/e2e", "prepared binaries, certificates and reports")
-	fs.StringVar(&c.transport, "transport", "all", "grpc, quic or all; sequential independent stacks")
+	fs.StringVar(&c.transport, "transport", "all", "grpc, grpc-tls, quic or all; sequential independent stacks")
 	fs.DurationVar(&c.observe, "observe", time.Second, "bounded observation window for extra notifications")
 	fs.DurationVar(&c.timeout, "timeout", 20*time.Minute, "overall deadline including Docker startup")
 	if err := fs.Parse(args); err != nil {
 		return c, err
 	}
-	if fs.NArg() != 0 || (c.transport != "all" && c.transport != "grpc" && c.transport != "quic") || c.observe <= 0 || c.observe > 10*time.Second || c.timeout <= 0 {
-		return c, fmt.Errorf("want transport grpc/quic/all, observe in (0,10s] and a positive timeout; no positional arguments")
+	if fs.NArg() != 0 || (c.transport != "all" && c.transport != "grpc" && c.transport != "grpc-tls" && c.transport != "quic") || c.observe <= 0 || c.observe > 10*time.Second || c.timeout <= 0 {
+		return c, fmt.Errorf("want transport grpc/grpc-tls/quic/all, observe in (0,10s] and a positive timeout; no positional arguments")
 	}
 	var err error
 	c.root, err = filepath.Abs(c.root)
@@ -160,7 +160,7 @@ func main() {
 	defer cancel()
 	transports := []string{c.transport}
 	if c.transport == "all" {
-		transports = []string{"grpc", "quic"}
+		transports = []string{"grpc", "grpc-tls", "quic"}
 	}
 	var failures error
 	for _, transport := range transports {

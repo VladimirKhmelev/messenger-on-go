@@ -10,21 +10,19 @@ package quictransport
 import (
 	"crypto/hkdf"
 	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
+	"github.com/VladimirKhmelev/quic-rpc-go/grpcbridge"
+	rpcquic "github.com/VladimirKhmelev/quic-rpc-go/rpc/transport/quic"
 	"github.com/quic-go/quic-go"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc"
 
-	"github.com/VladimirKhmelev/quic-rpc-go/grpcbridge"
-	rpcquic "github.com/VladimirKhmelev/quic-rpc-go/rpc/transport/quic"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 )
 
 // Name is the transport in metrics and traces.
@@ -70,7 +68,7 @@ type Server struct {
 // NewServer listens on c.Addr. Register the services on the server, then
 // call Serve.
 func NewServer(c ServerConfig) (*Server, error) {
-	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+	tlsConf, err := rpctransport.ServerTLS(c.CertFile, c.KeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("quictransport: %w", err)
 	}
@@ -87,7 +85,6 @@ func NewServer(c ServerConfig) (*Server, error) {
 		return nil, fmt.Errorf("quictransport: %w", err)
 	}
 	tr := &quic.Transport{Conn: pc, StatelessResetKey: key}
-	tlsConf := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}
 	l, err := rpcquic.NewListener(tr, tlsConf, &quic.Config{MaxIncomingStreams: maxStreams})
 	if err != nil {
 		_ = tr.Close()
@@ -156,21 +153,13 @@ type ClientConfig struct {
 // c.Addr over QUIC. It connects on the first call and again after the
 // connection is lost.
 func Dial(c ClientConfig) (*grpcbridge.ClientConn, error) {
-	pem, err := os.ReadFile(c.CAFile)
-	if err != nil {
-		return nil, fmt.Errorf("quictransport: %w", err)
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(pem) {
-		return nil, fmt.Errorf("quictransport: no certificate in %s", c.CAFile)
-	}
-	host, _, err := net.SplitHostPort(c.Addr)
+	tlsConf, err := rpctransport.ClientTLS(c.Addr, c.CAFile)
 	if err != nil {
 		return nil, fmt.Errorf("quictransport: %w", err)
 	}
 	d := &rpcquic.Dialer{
 		Addr:       c.Addr,
-		TLSConfig:  &tls.Config{RootCAs: pool, ServerName: host, MinVersion: tls.VersionTLS13},
+		TLSConfig:  tlsConf,
 		QUICConfig: &quic.Config{KeepAlivePeriod: keepAlive},
 	}
 	return grpcbridge.NewClient(d,
