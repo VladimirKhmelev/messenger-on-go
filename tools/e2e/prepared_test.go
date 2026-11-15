@@ -18,7 +18,7 @@ func TestConfigAndPreparationDoNotInvokeDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 	// All required source paths and prepared files are fixtures, not real services.
-	for _, dir := range []string{"services", "pkg", "proto/gen", "tools/e2e"} {
+	for _, dir := range []string{"services", "pkg", "proto/gen", "tools/e2e", "tools/wsload"} {
 		if err := os.MkdirAll(filepath.Join(c.root, dir), 0700); err != nil {
 			t.Fatal(err)
 		}

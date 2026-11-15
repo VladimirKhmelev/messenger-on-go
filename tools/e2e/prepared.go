@@ -31,7 +31,7 @@ func digestFile(path string) (string, error) {
 }
 func sourceDigest(root string) (string, error) {
 	var paths []string
-	for _, dir := range []string{"services", "pkg", "proto/gen", "tools/e2e"} {
+	for _, dir := range []string{"services", "pkg", "proto/gen", "tools/e2e", "tools/wsload"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -68,7 +68,7 @@ func sourceDigest(root string) (string, error) {
 }
 
 func preparedFiles() []string {
-	return []string{"bin/auth-service", "bin/chat-service", "bin/ws-gateway", "bin/media-service", "bin/notification-worker", "bin/e2e", "certs/auth-service/ca.pem", "certs/auth-service/cert.pem", "certs/auth-service/key.pem", "certs/chat-service/ca.pem", "certs/chat-service/cert.pem", "certs/chat-service/key.pem", "certs/ws-gateway/ca.pem", "certs/media-service/ca.pem", "certs/notification-worker/ca.pem"}
+	return []string{"bin/auth-service", "bin/chat-service", "bin/ws-gateway", "bin/media-service", "bin/notification-worker", "bin/e2e", "bin/wsload", "certs/auth-service/ca.pem", "certs/auth-service/cert.pem", "certs/auth-service/key.pem", "certs/chat-service/ca.pem", "certs/chat-service/cert.pem", "certs/chat-service/key.pem", "certs/ws-gateway/ca.pem", "certs/media-service/ca.pem", "certs/notification-worker/ca.pem"}
 }
 func (c config) seal() error {
 	top, err := exec.Command("git", "-C", c.root, "rev-parse", "--show-toplevel").Output()

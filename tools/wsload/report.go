@@ -97,6 +97,7 @@ func (r *recorder) report(c config, start time.Time) *report {
 
 // report is the outcome of a run.
 type report struct {
+	raw        *rawRecords
 	c          config
 	start      time.Time // of the warm-up
 	tallies    map[key]*tally
@@ -108,6 +109,21 @@ type report struct {
 // print writes a row per step, gateway and kind of request, and one for all
 // the kinds together.
 func (r *report) print(w io.Writer) {
+	if r.raw != nil {
+		outcomes := map[string]int{}
+		planned := 0
+		r.raw.mu.Lock()
+		for _, x := range r.raw.calls {
+			if x.Step >= 0 {
+				planned++
+				outcomes[x.Outcome]++
+			}
+		}
+		r.raw.mu.Unlock()
+		_, _ = fmt.Fprintf(w, "scheduled measurement operations: %d; outcomes: %v\n", planned, outcomes)
+	}
+
+	_, _ = fmt.Fprintln(w, "latency columns: successful answers only")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(tw, "step\trps\tfrom (UTC)\tgateway\trequest\tsent\tok\terrors\tlost\tok/s\tp50 ms\tp99 ms")
 	for i, rate := range r.c.rates {
@@ -120,8 +136,8 @@ func (r *report) print(w io.Writer) {
 					i+1, rate, from, gw.name, name, t.sent, t.ok, t.failed, t.lost,
 					float64(t.ok)/r.c.step.Seconds(), quantile(sorted, 0.5), quantile(sorted, 0.99))
 			}
-			for k := range kinds {
-				t := r.tallies[key{i, g, k}]
+			for k := range len(kindNames) {
+				t := r.tallies[key{i, g, kind(k)}]
 				if t == nil {
 					continue
 				}

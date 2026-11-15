@@ -403,6 +403,14 @@ QUIC только для обращений notification-worker к auth-service,
 [docs/rpc-comparison.md](docs/rpc-comparison.md). Старые таблицы ниже
 сохраняют прежние условия (gRPC без TLS) и не являются результатами `grpc-tls`.
 
+### Прикладная нагрузка и сырые данные
+
+Для независимых коротких прогонов добавлен режим `tools/e2e -load`:
+настоящие пары на разных gateway, отдельные профили сообщений, auth и media,
+сырые CSV, RPC-метрики и CPU/RAM сервисов и зависимостей. Подготовка —
+`make app-load-prepare`, явный запуск Docker — `make app-load-run`.
+Команды, схема данных и границы измерения — [docs/app-load.md](docs/app-load.md).
+
 ### Сквозная приёмка и восстановление
 
 Для проверки всех межсервисных связей через gRPC, gRPC TLS и QUIC добавлен отдельный

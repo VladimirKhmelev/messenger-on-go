@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"os"
 	"os/signal"
@@ -39,16 +40,20 @@ const sendBudget = 25
 type gateway struct{ name, url string }
 
 type config struct {
-	gateways []gateway
-	chatURL  string
-	secret   string
-	users    int       // per gateway
-	rates    []float64 // requests per second over all the gateways, per step
-	step     time.Duration
-	warmup   time.Duration
-	drain    time.Duration
-	mix      mix
-	seed     uint64
+	gateways                                             []gateway
+	chatURL                                              string
+	secret                                               string
+	users                                                int       // per gateway
+	rates                                                []float64 // requests per second over all the gateways, per step
+	step                                                 time.Duration
+	warmup                                               time.Duration
+	drain                                                time.Duration
+	mix                                                  mix
+	fixtureFile, out, mediaURL, minioAddr, dockerProject string
+	callTimeout                                          time.Duration
+	maxInflight, mediaBytes                              int
+	metricURLs                                           []string
+	seed                                                 uint64
 }
 
 func main() {
@@ -64,10 +69,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	rep, err := run(ctx, c)
+	if rep != nil {
+		rep.print(os.Stdout)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
-	rep.print(os.Stdout)
 }
 
 func parseFlags(args []string) (config, error) {
@@ -82,6 +89,15 @@ func parseFlags(args []string) (config, error) {
 	warmup := fs.Duration("warmup", 10*time.Second, "how long to load at the rate of the first step before measuring")
 	drain := fs.Duration("drain", 10*time.Second, "observation window for answers, deliveries and duplicates after the load; later ones are not observed")
 	mixFlag := fs.String("mix", "get_presence=45,get_read_status=45,send_message=10", "shares of the requests, `request=weight,...`")
+	fixtureFile := fs.String("fixture", "", "private JSON with real paired users on two gateways")
+	out := fs.String("out", "", "new directory for raw CSV and metadata")
+	mediaURL := fs.String("media", "", "HTTP media-service endpoint for media operations")
+	minioAddr := fs.String("minio", "", "loopback address of disposable MinIO, preserving signed Host")
+	metricURLs := fs.String("metrics", "", "comma-separated service HTTP endpoints for boundary snapshots")
+	dockerProject := fs.String("docker-project", "", "collect resources of an owned wisply-load project")
+	callTimeout := fs.Duration("timeout", 10*time.Second, "operation deadline from its scheduled time")
+	maxInflight := fs.Int("max-inflight", 10000, "bounded concurrent operations; excess records not_sent")
+	mediaBytes := fs.Int("media-bytes", 65536, "attachment size for media operations")
 	seed := fs.Uint64("seed", 1, "seed of the arrival times and of the choice of requests")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
@@ -90,8 +106,11 @@ func parseFlags(args []string) (config, error) {
 		return config{}, fmt.Errorf("unexpected arguments %q", fs.Args())
 	}
 
-	c := config{chatURL: strings.TrimSuffix(*chatURL, "/"), secret: *secret, users: *users,
+	c := config{fixtureFile: *fixtureFile, out: *out, mediaURL: strings.TrimSuffix(*mediaURL, "/"), minioAddr: *minioAddr, dockerProject: *dockerProject, callTimeout: *callTimeout, maxInflight: *maxInflight, mediaBytes: *mediaBytes, chatURL: strings.TrimSuffix(*chatURL, "/"), secret: *secret, users: *users,
 		step: *step, warmup: *warmup, drain: *drain, seed: *seed}
+	if *metricURLs != "" {
+		c.metricURLs = strings.Split(*metricURLs, ",")
+	}
 	for i, g := range strings.Split(*gateways, ",") {
 		name, addr, ok := strings.Cut(g, "=")
 		if !ok {
@@ -104,7 +123,7 @@ func parseFlags(args []string) (config, error) {
 	}
 	for _, r := range strings.Split(*steps, ",") {
 		rate, err := strconv.ParseFloat(r, 64)
-		if err != nil || rate <= 0 {
+		if err != nil || rate <= 0 || math.IsNaN(rate) || math.IsInf(rate, 0) {
 			return config{}, fmt.Errorf("step %q: want a positive rate", r)
 		}
 		c.rates = append(c.rates, rate)
@@ -114,10 +133,46 @@ func parseFlags(args []string) (config, error) {
 		return config{}, err
 	}
 	switch {
+	case c.dockerProject != "" && (c.out == "" || !ownedProject.MatchString(c.dockerProject)):
+		return config{}, errors.New("docker observations require -out and an owned load project")
+	case c.callTimeout <= 0 || c.maxInflight < 1 || c.mediaBytes < 1 || c.mediaBytes > 4<<20:
+		return config{}, errors.New("positive timeout/inflight and media size in [1,4MiB] required")
+	case c.fixtureFile != "" && (c.out == "" || len(c.gateways) != 2):
+		return config{}, errors.New("fixture mode requires -out and two gateways")
+	case (c.mix[createChatKind] > 0 || c.mix[mediaKind] > 0) && c.fixtureFile == "":
+		return config{}, errors.New("HTTP operations require real fixture users")
+	case c.mix[mediaKind] > 0 && (c.mediaURL == "" || c.minioAddr == ""):
+		return config{}, errors.New("media requires -media and -minio")
 	case c.users < 1:
 		return config{}, errors.New("-users must be at least 1")
 	case c.step <= 0 || c.warmup < 0 || c.drain < 0:
 		return config{}, errors.New("-step must be positive, -warmup and -drain not negative")
+	}
+	if c.warmup > 24*time.Hour || c.drain > 24*time.Hour || c.callTimeout > time.Hour || c.step > (24*time.Hour-c.warmup-c.drain)/time.Duration(len(c.rates)) {
+		return config{}, errors.New("single run exceeds the 24-hour schedule budget")
+	}
+	expected := c.rates[0] * c.warmup.Seconds()
+	for _, rate := range c.rates {
+		expected += rate * c.step.Seconds()
+	}
+	if expected > maxPlanned {
+		return config{}, fmt.Errorf("expected schedule exceeds %d operations", maxPlanned)
+	}
+	if c.fixtureFile != "" {
+		users, err := readFixture(c.fixtureFile, len(c.gateways))
+		if err != nil {
+			return config{}, err
+		}
+		c.users = len(users[0])
+		if c.mix[createChatKind] > 0 {
+			for _, group := range users {
+				for _, u := range group {
+					if u.publicKey == "" || u.peerPublicKey == "" {
+						return config{}, errors.New("create_chat fixture needs public keys")
+					}
+				}
+			}
+		}
 	}
 	// Every user of a gateway sends in turn, so each sends an equal share.
 	for _, rate := range c.rates {

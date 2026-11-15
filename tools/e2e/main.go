@@ -4,9 +4,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,9 +17,15 @@ import (
 )
 
 type config struct {
-	sealOnly              bool
-	root, work, transport string
-	observe, timeout      time.Duration
+	sealOnly                            bool
+	root, work, transport               string
+	observe, timeout                    time.Duration
+	load                                bool
+	loadProfile                         string
+	loadPairs, loadMediaBytes           int
+	loadRate                            float64
+	loadDuration, loadWarmup, loadDrain time.Duration
+	loadSeed                            uint64
 }
 
 func parseConfig(args []string) (config, error) {
@@ -29,11 +37,29 @@ func parseConfig(args []string) (config, error) {
 	fs.StringVar(&c.transport, "transport", "all", "grpc, grpc-tls, quic or all; sequential independent stacks")
 	fs.DurationVar(&c.observe, "observe", time.Second, "bounded observation window for extra notifications")
 	fs.DurationVar(&c.timeout, "timeout", 20*time.Minute, "overall deadline including Docker startup")
+	fs.BoolVar(&c.load, "load", false, "run short application load instead of functional acceptance")
+	fs.StringVar(&c.loadProfile, "load-profile", "all", "messages, auth, media or all; new stack per profile")
+	fs.IntVar(&c.loadPairs, "load-pairs", 8, "registered user pairs, one user per gateway")
+	fs.Float64Var(&c.loadRate, "load-rate", 4, "total scheduled operations per second")
+	fs.DurationVar(&c.loadDuration, "load-duration", 4*time.Second, "measurement window")
+	fs.DurationVar(&c.loadWarmup, "load-warmup", time.Second, "warm-up before measurement")
+	fs.DurationVar(&c.loadDrain, "load-drain", 2*time.Second, "full observation window after all sends")
+	fs.IntVar(&c.loadMediaBytes, "load-media-bytes", 65536, "verified attachment bytes")
+	fs.Uint64Var(&c.loadSeed, "load-seed", 1, "independent reproducible load seed")
 	if err := fs.Parse(args); err != nil {
 		return c, err
 	}
 	if fs.NArg() != 0 || (c.transport != "all" && c.transport != "grpc" && c.transport != "grpc-tls" && c.transport != "quic") || c.observe <= 0 || c.observe > 10*time.Second || c.timeout <= 0 {
 		return c, fmt.Errorf("want transport grpc/grpc-tls/quic/all, observe in (0,10s] and a positive timeout; no positional arguments")
+	}
+	if c.load && (c.loadPairs < 1 || c.loadPairs > 1000 || c.loadRate <= 0 || math.IsInf(c.loadRate, 0) || math.IsNaN(c.loadRate) || c.loadDuration <= 0 || c.loadWarmup < 0 || c.loadDrain < 0 || c.loadDuration+c.loadWarmup+c.loadDrain > 10*time.Minute || c.loadMediaBytes < 1 || c.loadMediaBytes > 4<<20) {
+		return c, fmt.Errorf("invalid short-load settings")
+	}
+	if c.load && c.loadProfile != "all" && c.loadProfile != "messages" && c.loadProfile != "auth" && c.loadProfile != "media" {
+		return c, fmt.Errorf("unknown load profile")
+	}
+	if c.load && (c.loadProfile == "all" || c.loadProfile == "messages") && c.loadRate*60/float64(2*c.loadPairs) > 25 {
+		return c, fmt.Errorf("load rate exceeds per-user send budget; add pairs")
 	}
 	var err error
 	c.root, err = filepath.Abs(c.root)
@@ -46,6 +72,9 @@ func parseConfig(args []string) (config, error) {
 func runVariant(ctx context.Context, c config, transport string) (err error) {
 	run := newID()
 	dir := filepath.Join(c.work, "runs", run+"-"+transport)
+	if c.load {
+		dir = filepath.Join(c.work, "load-runs", run+"-"+transport+"-"+c.loadProfile)
+	}
 	if err = os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
@@ -58,7 +87,11 @@ func runVariant(ctx context.Context, c config, transport string) (err error) {
 		revision = manifest.Revision
 	}
 	rep := &report{Prepared: manifest, Schema: 1, Run: run, Revision: revision, Transport: transport, Started: time.Now().UTC()}
-	control := &compose{root: c.root, work: c.work, project: "wisply-e2e-" + run + "-" + transport, transport: transport, exec: execute}
+	prefix := "wisply-e2e-"
+	if c.load {
+		prefix = "wisply-load-"
+	}
+	control := &compose{root: c.root, work: c.work, project: prefix + run + "-" + transport, transport: transport, exec: execute}
 	defer func() {
 		logsCtx, cancelLogs := context.WithTimeout(context.Background(), 20*time.Second)
 		file, logErr := os.OpenFile(filepath.Join(dir, "services.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
@@ -78,6 +111,13 @@ func runVariant(ctx context.Context, c config, transport string) (err error) {
 			rep.Cases = append(rep.Cases, caseResult{Name: "stack_lifecycle", Outcome: "failed", Error: err.Error()})
 		}
 		err = errors.Join(err, rep.save(dir))
+		if c.load && err == nil {
+			if metaErr := writeLoadMeta(dir, rep); metaErr != nil {
+				rep.Passed = false
+				rep.Cases = append(rep.Cases, caseResult{Name: "load_artifacts", Outcome: "failed", Error: metaErr.Error()})
+				err = errors.Join(metaErr, rep.save(dir))
+			}
+		}
 		fmt.Printf("Report: %s\n", filepath.Join(dir, "report.json"))
 	}()
 	if err = rep.save(dir); err != nil {
@@ -136,6 +176,9 @@ func runVariant(ctx context.Context, c config, transport string) (err error) {
 	if err = s.consumersReady(startup); err != nil {
 		return err
 	}
+	if c.load {
+		return s.runLoad(ctx, c)
+	}
 	return s.run(ctx)
 }
 func main() {
@@ -163,15 +206,37 @@ func main() {
 		transports = []string{"grpc", "grpc-tls", "quic"}
 	}
 	var failures error
-	for _, transport := range transports {
-		if ctx.Err() != nil {
-			failures = errors.Join(failures, ctx.Err())
-			break
+	profiles := []string{c.loadProfile}
+	if c.load && c.loadProfile == "all" {
+		profiles = []string{"messages", "auth", "media"}
+	}
+	for _, profile := range profiles {
+		c.loadProfile = profile
+		for _, transport := range transports {
+			if ctx.Err() != nil {
+				failures = errors.Join(failures, ctx.Err())
+				break
+			}
+			failures = errors.Join(failures, runVariant(ctx, c, transport))
 		}
-		failures = errors.Join(failures, runVariant(ctx, c, transport))
 	}
 	if failures != nil {
 		fmt.Fprintln(os.Stderr, failures)
 		os.Exit(1)
 	}
+}
+
+func writeLoadMeta(dir string, rep *report) error {
+	if !rep.Passed || rep.Finished == nil {
+		return fmt.Errorf("load not complete")
+	}
+	data, err := json.MarshalIndent(rep, "", "  ")
+	if err != nil {
+		return err
+	}
+	temp := filepath.Join(dir, "meta.json.tmp")
+	if err = os.WriteFile(temp, append(data, '\n'), 0600); err != nil {
+		return err
+	}
+	return os.Rename(temp, filepath.Join(dir, "meta.json"))
 }
