@@ -175,6 +175,19 @@ func main() {
 		}()
 	}
 
+	tlsServer, err := newTLSServer(authServer, healthServer, authInterceptor)
+	if err != nil {
+		log.Fatalf("auth-service: failed to listen over gRPC TLS: %v", err)
+	}
+	if tlsServer != nil {
+		go func() {
+			fmt.Printf("auth-service: grpc-tls listening on tcp %s\n", tlsServer.Addr())
+			if err := tlsServer.Serve(); err != nil {
+				log.Fatalf("auth-service: grpc-tls serve failed: %v", err)
+			}
+		}()
+	}
+
 	gwMux := runtime.NewServeMux(
 		runtime.WithOutgoingHeaderMatcher(func(key string) (string, bool) {
 			if key == "set-cookie" {
@@ -225,6 +238,9 @@ func main() {
 	// Drain both transports at once within Docker's stop timeout.
 	var wg sync.WaitGroup
 	wg.Go(grpcServer.GracefulStop)
+	if tlsServer != nil {
+		wg.Go(tlsServer.GracefulStop)
+	}
 	if quicServer != nil {
 		wg.Go(quicServer.GracefulStop)
 	}

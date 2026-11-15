@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/health"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 	authv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/auth/v1"
 	transportgrpc "github.com/VladimirKhmelev/messenger-on-go/services/auth-service/internal/transport/grpc"
 )
@@ -22,12 +23,13 @@ import (
 // Health must be implemented by the application service as well as the
 // standard grpc.health service, including through its generated HTTP route.
 func TestAuthHealthThroughHTTPGateway(t *testing.T) {
-	for _, transport := range []string{"grpc", "quic"} {
+	for _, transport := range []string{"grpc", "grpc-tls", "quic"} {
 		t.Run(transport, func(t *testing.T) {
 			auth := transportgrpc.NewAuthServer(nil, false)
 			interceptor := transportgrpc.AuthInterceptor(nil, nil, "test-internal-secret")
 			var cc grpc.ClientConnInterface
-			if transport == "grpc" {
+			switch transport {
+			case "grpc":
 				lis, err := net.Listen("tcp", "127.0.0.1:0")
 				if err != nil {
 					t.Fatal(err)
@@ -42,7 +44,23 @@ func TestAuthHealthThroughHTTPGateway(t *testing.T) {
 				}
 				t.Cleanup(func() { _ = conn.Close() })
 				cc = conn
-			} else {
+			case "grpc-tls":
+				ca := configureQUIC(t)
+				t.Setenv("GRPC_TLS_PORT", "0")
+				srv, err := newTLSServer(auth, health.NewServer(), interceptor)
+				if err != nil {
+					t.Fatal(err)
+				}
+				go func() { _ = srv.Serve() }()
+				t.Cleanup(srv.Stop)
+				_, port, _ := net.SplitHostPort(srv.Addr().String())
+				conn, err := rpctransport.Dial(rpctransport.ClientConfig{Addr: net.JoinHostPort("localhost", port), CAFile: ca})
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = conn.Close() })
+				cc = conn
+			case "quic":
 				ca := configureQUIC(t)
 				srv, err := newQUICServer("127.0.0.1:0", auth, health.NewServer(), interceptor)
 				if err != nil {
