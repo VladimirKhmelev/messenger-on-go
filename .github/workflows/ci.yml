@@ -78,6 +78,7 @@ jobs:
               - 'pkg/jwtutil/**'
               - '.github/workflows/ci.yml'
             tools-e2e:
+              - 'tools/wsload/**'
               - 'tools/e2e/**'
               - 'test/e2e/**'
               - 'scripts/e2e.sh'
