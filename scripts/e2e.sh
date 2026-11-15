@@ -17,6 +17,7 @@ prepare)
         [[ $service != notification-worker ]] || entry=worker
         (cd "$root/services/$service" && go build -o "$work/bin/$service" "./cmd/$entry")
     done
+    (cd "$root/tools/wsload" && go build -o "$work/bin/wsload" .)
     (cd "$root/tools/e2e" && go build -o "$work/bin/e2e" .)
     CERTS_DIR="$work/certs" QUIC_SERVERS='auth-service chat-service' \
         QUIC_CLIENTS='ws-gateway media-service notification-worker' sh "$root/scripts/quic-certs.sh"
