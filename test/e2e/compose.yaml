@@ -1,13 +1,16 @@
 # Separate from deployment Compose: no user volumes and no fixed host ports.
 x-environment: &environment
   GRPC_PORT: "50051"
+  GRPC_TLS_PORT: "50052"
   HTTP_PORT: "8080"
   JWT_SECRET: "local-e2e-jwt-secret-never-for-deployment"
   INTERNAL_SECRET: "local-e2e-internal-secret-never-for-deployment"
   REDIS_ADDR: redis:6379
   NATS_URL: nats://nats:4222
   AUTH_SERVICE_ADDR: auth-service:50051
+  AUTH_SERVICE_TLS_ADDR: auth-service:50052
   CHAT_SERVICE_ADDR: chat-service:50051
+  CHAT_SERVICE_TLS_ADDR: chat-service:50052
   AUTH_TRANSPORT: ${E2E_TRANSPORT:?set E2E_TRANSPORT}
   CHAT_TRANSPORT: ${E2E_TRANSPORT:?set E2E_TRANSPORT}
   QUIC_CA_FILE: /certs/ca.pem

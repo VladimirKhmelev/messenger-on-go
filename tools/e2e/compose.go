@@ -72,8 +72,12 @@ func (c *compose) impair(ctx context.Context, service, profile string) error {
 		return fmt.Errorf("invalid container ID %q", id)
 	}
 	script := "tc qdisc del dev eth0 root 2>/dev/null || true"
+	port := "50051"
+	if c.transport == "grpc-tls" {
+		port = "50052"
+	}
 	if args != "" {
-		script += "\ntc qdisc add dev eth0 root handle 1: prio bands 3\ntc qdisc add dev eth0 parent 1:3 handle 30: netem " + args + "\ntc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip sport 50051 0xffff flowid 1:3"
+		script += "\ntc qdisc add dev eth0 root handle 1: prio bands 3\ntc qdisc add dev eth0 parent 1:3 handle 30: netem " + args + "\ntc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip sport " + port + " 0xffff flowid 1:3"
 	}
 	argv := []string{"docker", "run", "--rm", "--network", "container:" + id, "--cap-add", "NET_ADMIN", "wisply-e2e-netem", "sh", "-ec", script}
 	out, err = c.exec(ctx, argv, os.Environ())

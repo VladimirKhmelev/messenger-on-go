@@ -127,3 +127,20 @@ func TestRestartRefreshesPublishedHTTPPort(t *testing.T) {
 		t.Fatal("old chat port retained")
 	}
 }
+
+func TestTLSFaultUsesTLSPort(t *testing.T) {
+	var script string
+	c := &compose{transport: "grpc-tls", exec: func(_ context.Context, args, _ []string) ([]byte, error) {
+		if args[0] == "docker-compose" {
+			return []byte(strings.Repeat("a", 64)), nil
+		}
+		script = args[len(args)-1]
+		return nil, nil
+	}}
+	if err := c.impair(t.Context(), "auth-service", "blackhole"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(script, "sport 50052 0xffff") || strings.Contains(script, "sport 50051") {
+		t.Fatal(script)
+	}
+}
