@@ -55,7 +55,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/cmd/server/main.go (13.7%)</option>
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/cmd/server/main.go (13.0%)</option>
 				
 				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient/chatclient.go (0.0%)</option>
 				
@@ -118,6 +118,7 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
@@ -261,7 +262,7 @@ func main() <span class="cov0" title="0">{
 }
 
 // dialChat connects to chat-service over the transport that CHAT_TRANSPORT
-// names: grpc, the default, or quic, which needs QUIC_CA_FILE.
+// names: grpc, the default, grpc-tls or quic; encrypted transports need QUIC_CA_FILE.
 func dialChat(addr, internalSecret string) (*chatclient.Client, error) <span class="cov0" title="0">{
         switch transport := os.Getenv("CHAT_TRANSPORT"); transport </span>{
         case "", "grpc":<span class="cov0" title="0">
@@ -270,8 +271,15 @@ func dialChat(addr, internalSecret string) (*chatclient.Client, error) <span cla
         case quictransport.Name:<span class="cov0" title="0">
                 fmt.Printf("ws-gateway: chat-service at %s over quic\n", addr)
                 return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
+        case rpctransport.Name:<span class="cov0" title="0">
+                addr = os.Getenv("CHAT_SERVICE_TLS_ADDR")
+                if addr == "" </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("CHAT_SERVICE_TLS_ADDR is required for CHAT_TRANSPORT=grpc-tls")
+                }</span>
+                <span class="cov0" title="0">fmt.Printf("ws-gateway: chat-service at %s over grpc-tls\n", addr)
+                return chatclient.DialTLS(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
         default:<span class="cov0" title="0">
-                return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)</span>
+                return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc, grpc-tls or quic", transport)</span>
         }
 }
 
@@ -312,6 +320,7 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/domain"
 )
@@ -331,6 +340,7 @@ type conn interface {
 func Dial(addr, internalSecret string) (*Client, error) <span class="cov0" title="0">{
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithNoProxy(),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
                 grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("ws-gateway")),
         )
@@ -348,6 +358,22 @@ func DialQUIC(addr, internalSecret, caFile string) (*Client, error) <span class=
                 CAFile: caFile,
                 Interceptors: []grpc.UnaryClientInterceptor{
                         metrics.UnaryClientInterceptor("ws-gateway", metrics.Transport(quictransport.Name)),
+                },
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+// DialTLS is Dial over gRPC with TLS 1.3 (pkg/quictransport); caFile holds the CA
+// certificate that chat-service's certificate is checked against.
+func DialTLS(addr, internalSecret, caFile string) (*Client, error) <span class="cov0" title="0">{
+        conn, err := rpctransport.Dial(rpctransport.ClientConfig{
+                Addr:   addr,
+                CAFile: caFile,
+                Interceptors: []grpc.UnaryClientInterceptor{
+                        metrics.UnaryClientInterceptor("ws-gateway", metrics.Transport(rpctransport.Name)),
                 },
         })
         if err != nil </span><span class="cov0" title="0">{
@@ -705,13 +731,13 @@ func consumeMessages(ctx context.Context, js jetstream.JetStream, streamName str
                 <span class="cov1" title="1">return err</span>
         }
 
-        <span class="cov6" title="8">for ctx.Err() == nil </span><span class="cov10" title="32">{
-                if consumer == nil </span><span class="cov9" title="22">{
+        <span class="cov6" title="8">for ctx.Err() == nil </span><span class="cov10" title="33">{
+                if consumer == nil </span><span class="cov9" title="23">{
                         if !sleep(ctx, retryPause) </span><span class="cov2" title="2">{
                                 return nil
                         }</span>
-                        <span class="cov8" title="20">c, err := newConsumer(ctx, js, streamName, filterSubjects, lifetime)
-                        if err != nil </span><span class="cov8" title="18">{
+                        <span class="cov8" title="21">c, err := newConsumer(ctx, js, streamName, filterSubjects, lifetime)
+                        if err != nil </span><span class="cov8" title="19">{
                                 log.Printf("ws-gateway: failed to create %v consumer: %v", filterSubjects, err)
                                 continue</span>
                         }
@@ -742,9 +768,9 @@ func consumeMessages(ctx context.Context, js jetstream.JetStream, streamName str
         <span class="cov5" title="6">return nil</span>
 }
 
-func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, lifetime time.Duration) (jetstream.Consumer, error) <span class="cov9" title="29">{
+func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string, filterSubjects []string, lifetime time.Duration) (jetstream.Consumer, error) <span class="cov9" title="30">{
         stream, err := js.Stream(ctx, streamName)
-        if err != nil </span><span class="cov8" title="19">{
+        if err != nil </span><span class="cov8" title="20">{
                 return nil, err
         }</span>
         <span class="cov6" title="10">return stream.CreateConsumer(ctx, jetstream.ConsumerConfig{
@@ -756,13 +782,13 @@ func newConsumer(ctx context.Context, js jetstream.JetStream, streamName string,
 }
 
 // sleep waits for d and reports whether ctx is still live.
-func sleep(ctx context.Context, d time.Duration) bool <span class="cov9" title="22">{
+func sleep(ctx context.Context, d time.Duration) bool <span class="cov9" title="23">{
         t := time.NewTimer(d)
         defer t.Stop()
         select </span>{
         case &lt;-ctx.Done():<span class="cov2" title="2">
                 return false</span>
-        case &lt;-t.C:<span class="cov8" title="20">
+        case &lt;-t.C:<span class="cov8" title="21">
                 return true</span>
         }
 }
@@ -954,21 +980,21 @@ func (p *pool) submit(key string, run func(context.Context) error) error <span c
 }
 
 func (p *pool) work() <span class="cov5" title="7">{
-        for </span><span class="cov8" title="35">{
+        for </span><span class="cov9" title="38">{
                 p.mu.Lock()
                 if p.ctx.Err() != nil </span><span class="cov1" title="1">{
                         p.mu.Unlock()
                         return
                 }</span>
-                <span class="cov8" title="34">if len(p.ready) == 0 </span><span class="cov7" title="16">{
+                <span class="cov9" title="37">if len(p.ready) == 0 </span><span class="cov7" title="19">{
                         changed := p.changed
                         p.mu.Unlock()
                         select </span>{
                         case &lt;-p.ctx.Done():<span class="cov5" title="6">
                                 return</span>
-                        case &lt;-changed:<span class="cov6" title="10"></span>
+                        case &lt;-changed:<span class="cov6" title="13"></span>
                         }
-                        <span class="cov6" title="10">continue</span>
+                        <span class="cov6" title="13">continue</span>
                 }
                 <span class="cov7" title="18">l := p.ready[0]
                 p.ready[0] = nil

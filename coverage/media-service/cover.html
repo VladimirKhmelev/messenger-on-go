@@ -55,9 +55,9 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/media-service/cmd/server/main.go (6.8%)</option>
+				<option value="file0">github.com/VladimirKhmelev/messenger-on-go/services/media-service/cmd/server/main.go (9.7%)</option>
 				
-				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/chatclient/chatclient.go (85.7%)</option>
+				<option value="file1">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/chatclient/chatclient.go (83.3%)</option>
 				
 				<option value="file2">github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/minioclient/minioclient.go (0.0%)</option>
 				
@@ -115,6 +115,7 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
         mediav1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/media/v1"
         "github.com/VladimirKhmelev/messenger-on-go/services/media-service/internal/chatclient"
@@ -275,17 +276,24 @@ func main() <span class="cov0" title="0">{
 }
 
 // dialChat connects to chat-service over CHAT_TRANSPORT: grpc by
-// default, or quic, which needs QUIC_CA_FILE.
-func dialChat(addr, internalSecret string) (*chatclient.Client, error) <span class="cov10" title="4">{
+// default, grpc-tls or quic; encrypted transports need QUIC_CA_FILE.
+func dialChat(addr, internalSecret string) (*chatclient.Client, error) <span class="cov10" title="5">{
         switch transport := os.Getenv("CHAT_TRANSPORT"); transport </span>{
-        case "", "grpc":<span class="cov5" title="2">
+        case "", "grpc":<span class="cov4" title="2">
                 fmt.Printf("media-service: chat-service at %s over grpc\n", addr)
                 return chatclient.Dial(addr, internalSecret)</span>
         case quictransport.Name:<span class="cov1" title="1">
                 fmt.Printf("media-service: chat-service at %s over quic\n", addr)
                 return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
+        case rpctransport.Name:<span class="cov1" title="1">
+                addr = os.Getenv("CHAT_SERVICE_TLS_ADDR")
+                if addr == "" </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("CHAT_SERVICE_TLS_ADDR is required for CHAT_TRANSPORT=grpc-tls")
+                }</span>
+                <span class="cov0" title="0">fmt.Printf("media-service: chat-service at %s over grpc-tls\n", addr)
+                return chatclient.DialTLS(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))</span>
         default:<span class="cov1" title="1">
-                return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)</span>
+                return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc, grpc-tls or quic", transport)</span>
         }
 }
 </pre>
@@ -303,6 +311,7 @@ import (
 
         "github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
         "github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+        "github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
         chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
@@ -321,6 +330,7 @@ type conn interface {
 func Dial(addr, internalSecret string) (*Client, error) <span class="cov4" title="3">{
         conn, err := grpc.NewClient(addr,
                 grpc.WithTransportCredentials(insecure.NewCredentials()),
+                grpc.WithNoProxy(),
                 grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
                 grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("media-service")),
         )
@@ -346,18 +356,34 @@ func DialQUIC(addr, internalSecret, caFile string) (*Client, error) <span class=
         <span class="cov4" title="3">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
 }
 
-func (c *Client) Close() error <span class="cov7" title="8">{
+// DialTLS is Dial over gRPC with TLS 1.3; caFile holds the CA certificate used to
+// verify chat-service's certificate.
+func DialTLS(addr, internalSecret, caFile string) (*Client, error) <span class="cov4" title="3">{
+        conn, err := rpctransport.Dial(rpctransport.ClientConfig{
+                Addr:   addr,
+                CAFile: caFile,
+                Interceptors: []grpc.UnaryClientInterceptor{
+                        metrics.UnaryClientInterceptor("media-service", metrics.Transport(rpctransport.Name)),
+                },
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov4" title="3">return &amp;Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil</span>
+}
+
+func (c *Client) Close() error <span class="cov7" title="12">{
         return c.conn.Close()
 }</span>
 
-func (c *Client) IsMember(ctx context.Context, chatID, userID string) (bool, error) <span class="cov10" title="18">{
+func (c *Client) IsMember(ctx context.Context, chatID, userID string) (bool, error) <span class="cov10" title="27">{
         ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-secret", c.internalSecret)
 
         resp, err := c.chat.ListMembers(ctx, &amp;chatv1.ListMembersRequest{ChatId: chatID})
-        if err != nil </span><span class="cov8" title="12">{
+        if err != nil </span><span class="cov8" title="18">{
                 return false, err
         }</span>
-        <span class="cov6" title="6">return slices.Contains(resp.GetUserIds(), userID), nil</span>
+        <span class="cov7" title="9">return slices.Contains(resp.GetUserIds(), userID), nil</span>
 }
 </pre>
 		
