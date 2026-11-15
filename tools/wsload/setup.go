@@ -23,7 +23,7 @@ var (
 )
 
 // user is a made-up user with a chat with itself.
-type user struct{ id, token, chatID string }
+type user struct{ id, token, chatID, peerID, peerToken, publicKey, peerPublicKey string }
 
 // newID returns a random UUID, as the IDs of the users are.
 func newID() string {
