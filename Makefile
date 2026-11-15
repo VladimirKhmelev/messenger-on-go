@@ -91,3 +91,10 @@ e2e-test:
 
 e2e-run:
 	./scripts/e2e.sh run $(E2E_FLAGS)
+
+# Independent short-load stacks; no long performance series are implicit.
+.PHONY: app-load-prepare app-load-run
+app-load-prepare:
+	./scripts/e2e.sh prepare
+app-load-run:
+	./scripts/e2e.sh run -load $(LOAD_FLAGS)
