@@ -20,6 +20,7 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/tracing"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/chatclient"
 	"github.com/VladimirKhmelev/messenger-on-go/services/ws-gateway/internal/events"
@@ -163,7 +164,7 @@ func main() {
 }
 
 // dialChat connects to chat-service over the transport that CHAT_TRANSPORT
-// names: grpc, the default, or quic, which needs QUIC_CA_FILE.
+// names: grpc, the default, grpc-tls or quic; encrypted transports need QUIC_CA_FILE.
 func dialChat(addr, internalSecret string) (*chatclient.Client, error) {
 	switch transport := os.Getenv("CHAT_TRANSPORT"); transport {
 	case "", "grpc":
@@ -172,8 +173,15 @@ func dialChat(addr, internalSecret string) (*chatclient.Client, error) {
 	case quictransport.Name:
 		fmt.Printf("ws-gateway: chat-service at %s over quic\n", addr)
 		return chatclient.DialQUIC(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))
+	case rpctransport.Name:
+		addr = os.Getenv("CHAT_SERVICE_TLS_ADDR")
+		if addr == "" {
+			return nil, fmt.Errorf("CHAT_SERVICE_TLS_ADDR is required for CHAT_TRANSPORT=grpc-tls")
+		}
+		fmt.Printf("ws-gateway: chat-service at %s over grpc-tls\n", addr)
+		return chatclient.DialTLS(addr, internalSecret, os.Getenv("QUIC_CA_FILE"))
 	default:
-		return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc or quic", transport)
+		return nil, fmt.Errorf("CHAT_TRANSPORT %q: want grpc, grpc-tls or quic", transport)
 	}
 }
 

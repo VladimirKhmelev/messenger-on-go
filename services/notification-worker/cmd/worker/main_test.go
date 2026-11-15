@@ -6,9 +6,10 @@ import (
 )
 
 func TestDialChatTransport(t *testing.T) {
-	for _, transport := range []string{"", "grpc", "quic", "invalid"} {
+	for _, transport := range []string{"", "grpc", "grpc-tls", "quic", "invalid"} {
 		t.Run(transport, func(t *testing.T) {
 			t.Setenv("CHAT_TRANSPORT", transport)
+			t.Setenv("CHAT_SERVICE_TLS_ADDR", "")
 			t.Setenv("QUIC_CA_FILE", "")
 			c, err := dialChat("localhost:1", "secret")
 			switch transport {
@@ -17,6 +18,10 @@ func TestDialChatTransport(t *testing.T) {
 					t.Fatal(err)
 				}
 				_ = c.Close()
+			case "grpc-tls":
+				if err == nil {
+					t.Fatal("TLS without endpoint must fail")
+				}
 			case "quic":
 				if err == nil || !strings.Contains(err.Error(), "quictransport:") {
 					t.Fatalf("QUIC without CA must fail: %v", err)
@@ -31,9 +36,10 @@ func TestDialChatTransport(t *testing.T) {
 }
 
 func TestDialAuthTransport(t *testing.T) {
-	for _, transport := range []string{"", "grpc", "quic", "invalid"} {
+	for _, transport := range []string{"", "grpc", "grpc-tls", "quic", "invalid"} {
 		t.Run(transport, func(t *testing.T) {
 			t.Setenv("AUTH_TRANSPORT", transport)
+			t.Setenv("AUTH_SERVICE_TLS_ADDR", "")
 			t.Setenv("QUIC_CA_FILE", "")
 			c, err := dialAuth("localhost:1", "secret")
 			switch transport {
@@ -42,6 +48,10 @@ func TestDialAuthTransport(t *testing.T) {
 					t.Fatal(err)
 				}
 				_ = c.Close()
+			case "grpc-tls":
+				if err == nil {
+					t.Fatal("TLS without endpoint must fail")
+				}
 			case "quic":
 				if err == nil || !strings.Contains(err.Error(), "quictransport:") {
 					t.Fatalf("QUIC without CA must fail: %v", err)

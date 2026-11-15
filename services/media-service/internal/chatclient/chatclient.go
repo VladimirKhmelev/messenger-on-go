@@ -11,6 +11,7 @@ import (
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/metrics"
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
@@ -29,6 +30,7 @@ type conn interface {
 func Dial(addr, internalSecret string) (*Client, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithNoProxy(),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(metrics.UnaryClientInterceptor("media-service")),
 	)
@@ -46,6 +48,22 @@ func DialQUIC(addr, internalSecret, caFile string) (*Client, error) {
 		CAFile: caFile,
 		Interceptors: []grpc.UnaryClientInterceptor{
 			metrics.UnaryClientInterceptor("media-service", metrics.Transport(quictransport.Name)),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Client{conn: conn, chat: chatv1.NewChatServiceClient(conn), internalSecret: internalSecret}, nil
+}
+
+// DialTLS is Dial over gRPC with TLS 1.3; caFile holds the CA certificate used to
+// verify chat-service's certificate.
+func DialTLS(addr, internalSecret, caFile string) (*Client, error) {
+	conn, err := rpctransport.Dial(rpctransport.ClientConfig{
+		Addr:   addr,
+		CAFile: caFile,
+		Interceptors: []grpc.UnaryClientInterceptor{
+			metrics.UnaryClientInterceptor("media-service", metrics.Transport(rpctransport.Name)),
 		},
 	})
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport"
+	"github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport"
 	chatv1 "github.com/VladimirKhmelev/messenger-on-go/proto/gen/chat/v1"
 )
 
@@ -52,7 +53,8 @@ func client(t *testing.T, transport, secret string, handler chatv1.ChatServiceSe
 	t.Helper()
 	var c *Client
 	var err error
-	if transport == "grpc" {
+	switch transport {
+	case "grpc":
 		l, listenErr := net.Listen("tcp", "127.0.0.1:0")
 		if listenErr != nil {
 			t.Fatal(listenErr)
@@ -62,7 +64,18 @@ func client(t *testing.T, transport, secret string, handler chatv1.ChatServiceSe
 		go func() { _ = srv.Serve(l) }()
 		t.Cleanup(srv.Stop)
 		c, err = Dial(l.Addr().String(), secret)
-	} else {
+	case "grpc-tls":
+		ca, cert, key := certificates(t)
+		srv, listenErr := rpctransport.NewServer(rpctransport.ServerConfig{Addr: "127.0.0.1:0", CertFile: cert, KeyFile: key})
+		if listenErr != nil {
+			t.Fatal(listenErr)
+		}
+		chatv1.RegisterChatServiceServer(srv, handler)
+		go func() { _ = srv.Serve() }()
+		t.Cleanup(srv.Stop)
+		_, port, _ := net.SplitHostPort(srv.Addr().String())
+		c, err = DialTLS(net.JoinHostPort("localhost", port), secret, ca)
+	case "quic":
 		ca, cert, key := certificates(t)
 		srv, listenErr := quictransport.NewServer(quictransport.ServerConfig{
 			Service: "chat-service", Addr: "127.0.0.1:0", CertFile: cert, KeyFile: key, ResetSecret: "test-secret",
@@ -111,7 +124,7 @@ func checkMetadata(ctx context.Context, traced bool) error {
 func TestCalls(t *testing.T) {
 	ctx, cancel := context.WithTimeout(tracedContext(t), 5*time.Second)
 	defer cancel()
-	for _, tr := range []string{"grpc", "quic"} {
+	for _, tr := range []string{"grpc", "grpc-tls", "quic"} {
 		t.Run(tr, func(t *testing.T) {
 			handler := &chatStub{members: func(ctx context.Context, req *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) {
 				if err := checkMetadata(ctx, true); err != nil {
@@ -158,7 +171,7 @@ func TestCalls(t *testing.T) {
 }
 
 func TestCancellation(t *testing.T) {
-	for _, tr := range []string{"grpc", "quic"} {
+	for _, tr := range []string{"grpc", "grpc-tls", "quic"} {
 		t.Run(tr, func(t *testing.T) {
 			started, done := make(chan struct{}, 1), make(chan struct{}, 1)
 			c := client(t, tr, "secret", &chatStub{members: func(ctx context.Context, _ *chatv1.ListMembersRequest) (*chatv1.ListMembersResponse, error) {

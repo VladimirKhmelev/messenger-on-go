@@ -6,6 +6,7 @@ require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/VladimirKhmelev/messenger-on-go/pkg/metrics v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/quictransport v0.0.0-00010101000000-000000000000
+	github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/pkg/tracing v0.0.0-00010101000000-000000000000
 	github.com/VladimirKhmelev/messenger-on-go/proto/gen v0.0.0-00010101000000-000000000000
 	github.com/nats-io/nats-server/v2 v2.14.0
@@ -59,3 +60,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+replace github.com/VladimirKhmelev/messenger-on-go/pkg/rpctransport => ../../pkg/rpctransport
